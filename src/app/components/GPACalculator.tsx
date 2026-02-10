@@ -1,206 +1,170 @@
 import { useState } from "react";
+import { useUniStorage } from "../hooks/useUniStorage";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Plus, Trash2, Calculator } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { Plus, Trash2, GraduationCap, Calculator} from "lucide-react";
 
-interface Course {
+interface Subject {
   id: string;
   name: string;
   credits: number;
   grade: string;
 }
 
-const gradePoints: { [key: string]: number } = {
-  "A+": 4.0,
-  A: 4.0,
-  "A-": 3.7,
-  "B+": 3.3,
-  B: 3.0,
-  "B-": 2.7,
-  "C+": 2.3,
-  C: 2.0,
-  "C-": 1.7,
-  "D+": 1.3,
-  D: 1.0,
-  F: 0.0,
-};
-
 export function GPACalculator() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [newCourse, setNewCourse] = useState({
+  const [subjects, setSubjects] = useUniStorage<Subject[]>("university-grades", []);
+  const [useExtraWeight, setUseExtraWeight] = useUniStorage<boolean>("gpa-use-extra-weight", true);
+
+  const [newSubject, setNewSubject] = useState({
     name: "",
-    credits: "3",
+    credits: "",
     grade: "A",
   });
 
-  const addCourse = () => {
-    if (!newCourse.name) return;
-
-    const course: Course = {
-      id: Date.now().toString(),
-      name: newCourse.name,
-      credits: parseInt(newCourse.credits) || 3,
-      grade: newCourse.grade,
+  // Dynamic Grade Points logic
+  const getGradePoint = (grade: string): number => {
+    const points: Record<string, number> = {
+      "A+": useExtraWeight ? 4.2 : 4.0, // Toggleable A+ value
+      "A": 4.0,
+      "A-": 3.7,
+      "B+": 3.3,
+      "B": 3.0,
+      "B-": 2.7,
+      "C+": 2.3,
+      "C": 2.0,
+      "C-": 1.5,
+      "D": 1.0,
+      "F": 0.0,
     };
-
-    setCourses([...courses, course]);
-    setNewCourse({
-      name: "",
-      credits: "3",
-      grade: "A",
-    });
+    return points[grade] || 0;
   };
 
-  const removeCourse = (id: string) => {
-    setCourses(courses.filter((c) => c.id !== id));
+  const addSubject = () => {
+    if (!newSubject.name || !newSubject.credits) return;
+    const subject: Subject = {
+      id: Date.now().toString(),
+      name: newSubject.name,
+      credits: parseFloat(newSubject.credits),
+      grade: newSubject.grade,
+    };
+    setSubjects([...subjects, subject]);
+    setNewSubject({ name: "", credits: "", grade: "A" });
+  };
+
+  const deleteSubject = (id: string) => {
+    setSubjects(subjects.filter((s) => s.id !== id));
   };
 
   const calculateGPA = () => {
-    if (courses.length === 0) return "0.00";
-
-    const totalPoints = courses.reduce((sum, course) => {
-      return sum + gradePoints[course.grade] * course.credits;
-    }, 0);
-
-    const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0);
-
-    return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : "0.00";
-  };
-
-  const getTotalCredits = () => {
-    return courses.reduce((sum, course) => sum + course.credits, 0);
+    if (subjects.length === 0) return "0.00";
+    let totalPoints = 0;
+    let totalCredits = 0;
+    subjects.forEach((s) => {
+      totalPoints += getGradePoint(s.grade) * s.credits;
+      totalCredits += s.credits;
+    });
+    return (totalPoints / totalCredits).toFixed(2);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardDescription>Current GPA</CardDescription>
+              <CardTitle className="text-4xl flex items-center gap-2">
+                <GraduationCap className="size-8 text-primary" />
+                {calculateGPA()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                <span>A+ = {useExtraWeight ? "4.2" : "4.0"}</span>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="weight-toggle">Extra Weight</Label>
+                  <Switch
+                      id="weight-toggle"
+                      checked={useExtraWeight}
+                      onCheckedChange={setUseExtraWeight}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader><CardTitle>Add New Module</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>Module Name</Label>
+                  <Input
+                      placeholder="e.g. Software Engineering"
+                      value={newSubject.name}
+                      onChange={(e) => setNewSubject({...newSubject, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Credits</Label>
+                  <Input
+                      type="number"
+                      value={newSubject.credits}
+                      onChange={(e) => setNewSubject({...newSubject, credits: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Grade</Label>
+                  <Select value={newSubject.grade} onValueChange={(v) => setNewSubject({...newSubject, grade: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D", "F"].map((g) => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button onClick={addSubject} className="w-full mt-4">
+                <Plus className="mr-2 size-4" /> Add Subject
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Add Course</CardTitle>
-            <CardDescription>Enter your course details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Course Name</Label>
-              <Input
-                placeholder="e.g., Introduction to Computer Science"
-                value={newCourse.name}
-                onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Credits</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={newCourse.credits}
-                  onChange={(e) => setNewCourse({ ...newCourse, credits: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Grade</Label>
-                <Select
-                  value={newCourse.grade}
-                  onValueChange={(v) => setNewCourse({ ...newCourse, grade: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(gradePoints).map((grade) => (
-                      <SelectItem key={grade} value={grade}>
-                        {grade} ({gradePoints[grade].toFixed(1)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Button onClick={addCourse} className="w-full">
-              <Plus className="mr-2 size-4" />
-              Add Course
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Calculator className="size-5" />
-              GPA Results
-            </CardTitle>
-            <CardDescription>Your calculated GPA</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Cumulative GPA</p>
-              <p className="text-6xl font-semibold">{calculateGPA()}</p>
-              <p className="text-sm text-muted-foreground">Out of 4.00</p>
+              <CardTitle>Academic Records</CardTitle>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <p className="text-2xl font-semibold">{courses.length}</p>
-                <p className="text-sm text-muted-foreground">Courses</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-semibold">{getTotalCredits()}</p>
-                <p className="text-sm text-muted-foreground">Credits</p>
-              </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {subjects.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">No records added yet.</p>
+              ) : (
+                  subjects.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                        <div>
+                          <h4 className="font-medium">{s.name}</h4>
+                          <p className="text-xs text-muted-foreground">{s.credits} Credits • Grade: {s.grade}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="font-mono font-semibold">{getGradePoint(s.grade).toFixed(1)}</span>
+                          <Button variant="ghost" size="sm" onClick={() => deleteSubject(s.id)} className="text-destructive">
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                  ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Course List</CardTitle>
-          <CardDescription>Your added courses</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {courses.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">
-              No courses added yet. Add your first course above.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <h4 className="font-medium">{course.name}</h4>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      <span>{course.credits} credits</span>
-                      <span>•</span>
-                      <span>Grade: {course.grade}</span>
-                      <span>•</span>
-                      <span>Points: {gradePoints[course.grade].toFixed(1)}</span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeCourse(course.id)}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
   );
 }

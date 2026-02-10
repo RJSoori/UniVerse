@@ -1,63 +1,51 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useState } from "react";
+import { useUniStorage } from "../hooks/useUniStorage";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { Badge } from "./ui/badge";
+import {
+  Plus,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft
+} from "lucide-react";
 
 interface Transaction {
   id: string;
-  type: "income" | "expense";
+  title: string;
   amount: number;
+  type: "income" | "expense";
   category: string;
-  description: string;
   date: string;
 }
 
 export function MoneyManager() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [newTransaction, setNewTransaction] = useState({
-    type: "expense" as const,
-    amount: "",
-    category: "food",
-    description: "",
-    date: new Date().toISOString().split("T")[0],
-  });
+  const [transactions, setTransactions] = useUniStorage<Transaction[]>("money-transactions", []);
   const [showAddForm, setShowAddForm] = useState(false);
-
-  const expenseCategories = ["food", "transport", "books", "entertainment", "utilities", "other"];
-  const incomeCategories = ["allowance", "scholarship", "part-time", "gift", "other"];
-
-  useEffect(() => {
-    const saved = localStorage.getItem("money-transactions");
-    if (saved) {
-      setTransactions(JSON.parse(saved));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("money-transactions", JSON.stringify(transactions));
-  }, [transactions]);
+  const [newTx, setNewTx] = useState({
+    title: "",
+    amount: "",
+    type: "expense" as "income" | "expense",
+    category: "General",
+  });
 
   const addTransaction = () => {
-    if (!newTransaction.amount) return;
-
-    const transaction: Transaction = {
+    if (!newTx.title || !newTx.amount) return;
+    const tx: Transaction = {
       id: Date.now().toString(),
-      ...newTransaction,
-      amount: parseFloat(newTransaction.amount),
-    };
-
-    setTransactions([transaction, ...transactions]);
-    setNewTransaction({
-      type: "expense",
-      amount: "",
-      category: "food",
-      description: "",
+      title: newTx.title,
+      amount: parseFloat(newTx.amount),
+      type: newTx.type,
+      category: newTx.category,
       date: new Date().toISOString().split("T")[0],
-    });
+    };
+    setTransactions([tx, ...transactions]);
+    setNewTx({ title: "", amount: "", type: "expense", category: "General" });
     setShowAddForm(false);
   };
 
@@ -66,261 +54,147 @@ export function MoneyManager() {
   };
 
   const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpenses = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  const balance = totalIncome - totalExpense;
-
-  const expenseByCategory = expenseCategories.map((category) => ({
-    name: category,
-    value: transactions
-      .filter((t) => t.type === "expense" && t.category === category)
-      .reduce((sum, t) => sum + t.amount, 0),
-  })).filter((item) => item.value > 0);
-
-  const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6b7280"];
+  const balance = totalIncome - totalExpenses;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Balance</CardDescription>
-            <CardTitle className="text-3xl flex items-center gap-2">
-              <DollarSign className="size-6" />
-              {balance.toFixed(2)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Current balance</p>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Money Manager</h2>
+            <p className="text-muted-foreground text-sm">Track your budget and savings goals</p>
+          </div>
+          <Button onClick={() => setShowAddForm(!showAddForm)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Transaction
+          </Button>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Income</CardDescription>
-            <CardTitle className="text-3xl flex items-center gap-2 text-green-600">
-              <TrendingUp className="size-6" />
-              {totalIncome.toFixed(2)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Total income</p>
-          </CardContent>
-        </Card>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+              <Wallet className="size-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">LKR {balance.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Income</CardTitle>
+              <ArrowUpRight className="size-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">LKR {totalIncome.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+              <ArrowDownLeft className="size-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">LKR {totalExpenses.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+        </div>
 
+        {showAddForm && (
+            <Card>
+              <CardHeader>
+                <CardTitle>New Transaction</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                        placeholder="e.g. Salary, Grocery, Internet"
+                        value={newTx.title}
+                        onChange={(e) => setNewTx({...newTx, title: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Amount (LKR)</Label>
+                    <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={newTx.amount}
+                        onChange={(e) => setNewTx({...newTx, amount: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label>Type</Label>
+                    <select
+                        className="w-full p-2 border rounded-md bg-background text-sm"
+                        value={newTx.type}
+                        onChange={(e) => setNewTx({...newTx, type: e.target.value as any})}
+                    >
+                      <option value="expense">Expense</option>
+                      <option value="income">Income</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label>Category</Label>
+                    <Input
+                        placeholder="e.g. Food, Transport"
+                        value={newTx.category}
+                        onChange={(e) => setNewTx({...newTx, category: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={addTransaction} className="flex-1">Save Transaction</Button>
+                  <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
+                </div>
+              </CardContent>
+            </Card>
+        )}
+
+        {/* Transaction History */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Expenses</CardDescription>
-            <CardTitle className="text-3xl flex items-center gap-2 text-red-600">
-              <TrendingDown className="size-6" />
-              {totalExpense.toFixed(2)}
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>History</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Total expenses</p>
+            <div className="space-y-4">
+              {transactions.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground text-sm">No transactions yet.</p>
+              ) : (
+                  transactions.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${t.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+                            {t.type === 'income' ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm">{t.title}</h4>
+                            <p className="text-[10px] text-muted-foreground uppercase">{t.category} • {t.date}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                    <span className={`font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {t.type === 'income' ? '+' : '-'} {t.amount.toLocaleString()}
+                    </span>
+                          <Button variant="ghost" size="sm" onClick={() => deleteTransaction(t.id)} className="text-destructive">
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                  ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Add Transaction</CardTitle>
-              <CardDescription>Record your income or expenses</CardDescription>
-            </div>
-            <Button onClick={() => setShowAddForm(!showAddForm)}>
-              <Plus className="mr-2 size-4" />
-              Add
-            </Button>
-          </div>
-        </CardHeader>
-
-        {showAddForm && (
-          <CardContent className="border-t pt-6">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select
-                    value={newTransaction.type}
-                    onValueChange={(v: any) =>
-                      setNewTransaction({
-                        ...newTransaction,
-                        type: v,
-                        category: v === "income" ? "allowance" : "food",
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Amount</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={newTransaction.category}
-                    onValueChange={(v) => setNewTransaction({ ...newTransaction, category: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(newTransaction.type === "income" ? incomeCategories : expenseCategories).map(
-                        (cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={newTransaction.date}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description (optional)</Label>
-                <Input
-                  placeholder="Add a note..."
-                  value={newTransaction.description}
-                  onChange={(e) =>
-                    setNewTransaction({ ...newTransaction, description: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={addTransaction} className="flex-1">
-                  Add Transaction
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {expenseByCategory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Expense Breakdown</CardTitle>
-            <CardDescription>Spending by category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={expenseByCategory}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {expenseByCategory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {transactions.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">No transactions yet</p>
-            ) : (
-              transactions.slice(0, 10).map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`p-2 rounded-full ${
-                        transaction.type === "income" ? "bg-green-100" : "bg-red-100"
-                      }`}
-                    >
-                      {transaction.type === "income" ? (
-                        <TrendingUp className="size-4 text-green-600" />
-                      ) : (
-                        <TrendingDown className="size-4 text-red-600" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium capitalize">{transaction.category}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {transaction.description || new Date(transaction.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`font-semibold ${
-                        transaction.type === "income" ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteTransaction(transaction.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
   );
 }

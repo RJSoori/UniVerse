@@ -1,11 +1,19 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useState } from "react";
+import { useUniStorage } from "../hooks/useUniStorage";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { Badge } from "./ui/badge";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  Clock,
+  BookOpen,
+  Users,
+  Briefcase
+} from "lucide-react";
 
 interface ScheduleEvent {
   id: string;
@@ -17,45 +25,25 @@ interface ScheduleEvent {
 }
 
 export function Scheduler() {
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [events, setEvents] = useUniStorage<ScheduleEvent[]>("schedule-events", []);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<"week" | "month">("week");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<Omit<ScheduleEvent, "id">>({
     title: "",
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     startTime: "",
     endTime: "",
-    type: "class" as const,
+    type: "class",
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem("schedule-events");
-    if (saved) {
-      setEvents(JSON.parse(saved));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("schedule-events", JSON.stringify(events));
-  }, [events]);
 
   const addEvent = () => {
     if (!newEvent.title || !newEvent.date) return;
-
     const event: ScheduleEvent = {
       id: Date.now().toString(),
       ...newEvent,
     };
-
     setEvents([...events, event]);
-    setNewEvent({
-      title: "",
-      date: "",
-      startTime: "",
-      endTime: "",
-      type: "class",
-    });
+    setNewEvent({ title: "", date: new Date().toISOString().split("T")[0], startTime: "", endTime: "", type: "class" });
     setShowAddForm(false);
   };
 
@@ -63,260 +51,157 @@ export function Scheduler() {
     setEvents(events.filter((e) => e.id !== id));
   };
 
+  const navigateWeek = (dir: number) => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + dir * 7);
+    setCurrentDate(d);
+  };
+
   const getWeekDays = () => {
     const start = new Date(currentDate);
     start.setDate(start.getDate() - start.getDay());
-    const days = [];
-    for (let i = 0; i < 7; i++) {
+    return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(start);
       day.setDate(start.getDate() + i);
-      days.push(day);
+      return day;
+    });
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "class": return <BookOpen className="size-3" />;
+      case "study": return <Clock className="size-3" />;
+      case "meeting": return <Users className="size-3" />;
+      default: return <Briefcase className="size-3" />;
     }
-    return days;
-  };
-
-  const getMonthDays = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
-
-    // Add padding days from previous month
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      const day = new Date(firstDay);
-      day.setDate(day.getDate() - (firstDay.getDay() - i));
-      days.push({ date: day, currentMonth: false });
-    }
-
-    // Add current month days
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({ date: new Date(year, month, i), currentMonth: true });
-    }
-
-    return days;
-  };
-
-  const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split("T")[0];
-    return events.filter((e) => e.date === dateStr);
-  };
-
-  const navigateWeek = (direction: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + direction * 7);
-    setCurrentDate(newDate);
-  };
-
-  const navigateMonth = (direction: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + direction);
-    setCurrentDate(newDate);
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "class":
-        return "bg-blue-500";
-      case "study":
-        return "bg-green-500";
-      case "meeting":
-        return "bg-purple-500";
-      default:
-        return "bg-gray-500";
+      case "class": return "bg-blue-500/10 text-blue-600 border-blue-200";
+      case "study": return "bg-emerald-500/10 text-emerald-600 border-emerald-200";
+      case "meeting": return "bg-purple-500/10 text-purple-600 border-purple-200";
+      default: return "bg-slate-500/10 text-slate-600 border-slate-200";
     }
   };
 
+  const weekDays = getWeekDays();
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Schedule Planner</CardTitle>
-              <CardDescription>Manage your weekly and monthly schedule</CardDescription>
-            </div>
-            <Button onClick={() => setShowAddForm(!showAddForm)}>
-              <Plus className="mr-2 size-4" />
-              Add Event
-            </Button>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Schedule</h2>
+            <p className="text-muted-foreground text-sm">Organize your lectures and sessions</p>
           </div>
-        </CardHeader>
+          <Button onClick={() => setShowAddForm(!showAddForm)}>
+            <Plus className="mr-2 h-4 w-4" /> New Event
+          </Button>
+        </div>
 
         {showAddForm && (
-          <CardContent className="border-t pt-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Event Title</Label>
-                <Input
-                  placeholder="Enter event name..."
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={newEvent.date}
-                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Start Time</Label>
-                  <Input
-                    type="time"
-                    value={newEvent.startTime}
-                    onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Time</Label>
-                  <Input
-                    type="time"
-                    value={newEvent.endTime}
-                    onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={addEvent} className="flex-1">
-                  Add Event
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="week">Week View</TabsTrigger>
-          <TabsTrigger value="month">Month View</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="week" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" onClick={() => navigateWeek(-1)}>
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <h3>
-                  {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </h3>
-                <Button variant="outline" size="sm" onClick={() => navigateWeek(1)}>
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium p-2">
-                    {day}
+            <Card>
+              <CardHeader>
+                <CardTitle>Schedule New Task</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Event Title</Label>
+                    <Input
+                        placeholder="e.g. IT & Management Lecture"
+                        value={newEvent.title}
+                        onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                    />
                   </div>
-                ))}
-                {getWeekDays().map((day, index) => {
-                  const dayEvents = getEventsForDate(day);
-                  const isToday = day.toDateString() === new Date().toDateString();
-
-                  return (
-                    <div
-                      key={index}
-                      className={`border rounded-lg p-2 min-h-[120px] ${
-                        isToday ? "border-primary bg-primary/5" : ""
-                      }`}
+                  <div className="space-y-2">
+                    <Label>Event Type</Label>
+                    <select
+                        className="w-full p-2 border rounded-md bg-background text-sm"
+                        value={newEvent.type}
+                        onChange={(e) => setNewEvent({...newEvent, type: e.target.value as any})}
                     >
-                      <div className="text-sm font-medium mb-2">{day.getDate()}</div>
-                      <div className="space-y-1">
-                        {dayEvents.map((event) => (
-                          <div
-                            key={event.id}
-                            className="text-xs p-1 bg-accent rounded flex items-center justify-between group"
-                          >
-                            <div className="flex items-center gap-1 min-w-0">
-                              <div className={`size-2 rounded-full ${getTypeColor(event.type)}`} />
-                              <span className="truncate">{event.title}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100"
-                              onClick={() => deleteEvent(event.id)}
+                      <option value="class">Class/Lecture</option>
+                      <option value="study">Self Study</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input type="date" value={newEvent.date} onChange={(e) => setNewEvent({...newEvent, date: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Start Time</Label>
+                    <Input type="time" value={newEvent.startTime} onChange={(e) => setNewEvent({...newEvent, startTime: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Time</Label>
+                    <Input type="time" value={newEvent.endTime} onChange={(e) => setNewEvent({...newEvent, endTime: e.target.value})} />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={addEvent} className="flex-1">Add to Schedule</Button>
+                  <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
+                </div>
+              </CardContent>
+            </Card>
+        )}
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+            <CardTitle className="text-base font-normal">
+              {weekDays[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {weekDays[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="icon" onClick={() => navigateWeek(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
+              <Button variant="outline" size="icon" onClick={() => navigateWeek(1)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-4">
+              {weekDays.map((day, idx) => {
+                const dateStr = day.toISOString().split("T")[0];
+                const dayEvents = events.filter(e => e.date === dateStr).sort((a, b) => a.startTime.localeCompare(b.startTime));
+                const isToday = new Date().toISOString().split("T")[0] === dateStr;
+
+                return (
+                    <div key={idx} className="space-y-3">
+                      <div className={`text-center p-2 rounded-lg ${isToday ? "bg-primary text-primary-foreground" : ""}`}>
+                        <p className="text-[10px] uppercase font-bold opacity-80">{day.toLocaleDateString("en-US", { weekday: "short" })}</p>
+                        <p className="text-lg font-bold">{day.getDate()}</p>
+                      </div>
+                      <div className="space-y-2">
+                        {dayEvents.map(event => (
+                            <div
+                                key={event.id}
+                                className={`p-2 rounded border text-[10px] flex flex-col gap-1 group relative transition-all hover:shadow-sm ${getTypeColor(event.type)}`}
                             >
-                              <Trash2 className="size-3" />
-                            </Button>
-                          </div>
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold truncate pr-4">{event.title}</span>
+                                <button
+                                    onClick={() => deleteEvent(event.id)}
+                                    className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 text-destructive transition-opacity"
+                                >
+                                  <Trash2 className="size-3" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-80">
+                                {getTypeIcon(event.type)}
+                                <span>{event.startTime}</span>
+                              </div>
+                            </div>
                         ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="month" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" onClick={() => navigateMonth(-1)}>
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <h3>
-                  {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </h3>
-                <Button variant="outline" size="sm" onClick={() => navigateMonth(1)}>
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium p-2">
-                    {day}
-                  </div>
-                ))}
-                {getMonthDays().map((day, index) => {
-                  const dayEvents = getEventsForDate(day.date);
-                  const isToday = day.date.toDateString() === new Date().toDateString();
-
-                  return (
-                    <div
-                      key={index}
-                      className={`border rounded-lg p-2 min-h-[80px] ${
-                        !day.currentMonth ? "bg-muted/30" : ""
-                      } ${isToday ? "border-primary bg-primary/5" : ""}`}
-                    >
-                      <div
-                        className={`text-sm ${day.currentMonth ? "" : "text-muted-foreground"}`}
-                      >
-                        {day.date.getDate()}
-                      </div>
-                      <div className="mt-1">
-                        {dayEvents.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {dayEvents.length}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
   );
 }
