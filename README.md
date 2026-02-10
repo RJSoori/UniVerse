@@ -1,11 +1,63 @@
+# 🎓 UniVerse - Integrated Student Productivity Platform
 
-  # Student productivity platform
+![Project Status](https://img.shields.io/badge/status-active-success.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 
-  This is a code bundle for Student productivity platform. The original project is available at https://www.figma.com/design/FN8GIQ6Ix6kguzvsUZ1OAb/Student-productivity-platform.
+> **Streamlining the chaotic life of a university student into one seamless experience.**
 
-  ## Running the code
+## 📖 Overview
 
-  Run `npm i` to install the dependencies.
+**UniVerse** is a cross-platform (Web & Mobile) application developed as a second-year software engineering project. It is designed to be the ultimate companion for university students, integrating personal productivity tools—like task scheduling and financial tracking—with a campus-wide ecosystem for internship recruitment and a peer-to-peer marketplace.
 
-  Run `npm run dev` to start the development server.
+Unlike generic productivity apps, UniVerse is **student-centric**, featuring tools specifically tailored for academic life, such as a GPA calculator and a lecture scheduler.
+
+---
+
+## 🚀 Key Features
+
+### 🧠 Academic & Productivity
+* **Smart Todo List:** Organize tasks with priority levels, deadlines, and push notifications.
+* **Planner:** Visual Weekly and Monthly scheduler for lectures, exams, and events.
+* **Focus Timer:** Pomodoro-style timer to boost study efficiency.
+* **GPA Calculator:** customizable calculator to track academic performance across semesters.
+
+### 💰 Finance & Lifestyle
+* **Money Manager:** Track income and expenses with visual categorization (Food, Transport, etc.).
+* **Habit Tracker:** Build good habits alone or challenge friends in **Social Mode**.
+
+### 🤝 Campus Ecosystem
+* **Job Hub:** A dedicated space for verified companies to post Internships and Part-time vacancies.
+* **Marketplace:** Buy, Sell, or Rent items (textbooks, electronics) within the verified student community.
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+* **Web:** React.js
+* **Mobile:** React Native (Expo)
+* **Styling:** CSS Modules / Tailwind CSS
+
+### Backend
+* **Framework:** Spring Boot (Java 17)
+* **Build Tool:** Maven
+* **Security:** Spring Security (JWT Authentication)
+
+### Database
+* **RDBMS:** MySQL 8.0
+* **ORM:** Hibernate / Spring Data JPA
+
+---
+
+## 📂 Project Structure
+
+```bash
+uni-verse/
+├── backend/            # Spring Boot Application
+│   ├── src/main/java   # Controllers, Services, Entities
+│   └── src/main/resources # application.properties
+├── web-client/         # React.js Web Application
+├── mobile-client/      # React Native Mobile Application
+└── database/           # ER Diagrams and SQL Scripts
   
