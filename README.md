@@ -50,14 +50,4 @@ Unlike generic productivity apps, UniVerse is **student-centric**, featuring too
 
 ---
 
-## 📂 Project Structure
-
-```bash
-uni-verse/
-├── backend/            # Spring Boot Application
-│   ├── src/main/java   # Controllers, Services, Entities
-│   └── src/main/resources # application.properties
-├── web-client/         # React.js Web Application
-├── mobile-client/      # React Native Mobile Application
-└── database/           # ER Diagrams and SQL Scripts
   
