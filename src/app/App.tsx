@@ -1,4 +1,40 @@
+import { useState } from "react";
+import { Button } from "./components/ui/button";
+import { cn } from "./components/ui/utils";
+
+import Landing from "./components/Landing";
+import SignUpChoice from "./components/SignUpChoice";
+import SignIn from "./components/SignIn";
+import StudentChoice from "./components/StudentChoice";
+import StudentRegistration from "./components/StudentRegistration";
+
+import { WidgetDashboard } from "./components/WidgetDashboard";
+import { TodoList } from "./components/TodoList";
+import { Scheduler } from "./components/Scheduler";
+import { MoneyManager } from "./components/MoneyManager";
+import { HabitTracker } from "./components/HabitTracker";
+import { JobHub } from "./components/JobHub";
+import { Marketplace } from "./components/Marketplace";
+import { GPACalculator } from "./components/GPACalculator";
+import { FocusTimer } from "./components/FocusTimer";
+
+import {
+  LayoutDashboard,
+  CheckSquare,
+  Calendar,
+  Wallet,
+  TrendingUp,
+  Briefcase,
+  ShoppingBag,
+  Calculator,
+  Timer,
+  Menu,
+  X,
+  GraduationCap,
+} from "lucide-react";
+
 export default function App() {
+  // ✅ Start at Landing
   const [activeSection, setActiveSection] = useState("landing");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -22,6 +58,8 @@ export default function App() {
         return <SignUpChoice onNavigate={setActiveSection} />;
       case "signin":
         return <SignIn onNavigate={setActiveSection} />;
+      case "student-choice":
+        return <StudentChoice onNavigate={setActiveSection} />;
       case "student-register":
         return <StudentRegistration onNavigate={setActiveSection} />;
       case "dashboard":
@@ -63,7 +101,43 @@ export default function App() {
         // Show full layout with header + sidebar
         <>
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            {/* header content here */}
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="lg:hidden"
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                  >
+                    {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                  </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 bg-primary rounded-lg flex items-center justify-center shadow-sm">
+                      <GraduationCap className="size-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-bold tracking-tight">UniVerse</h1>
+                      <p className="text-xs text-muted-foreground hidden sm:block font-medium">
+                        Undergraduate Life Management System
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right hidden md:block">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                      UoM Undergraduate
+                    </p>
+                    <p className="text-[10px] text-muted-foreground italic">Sprint Phase 2026</p>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    Settings
+                  </Button>
+                </div>
+              </div>
+            </div>
           </header>
 
           <div className="container mx-auto px-4 py-6">
