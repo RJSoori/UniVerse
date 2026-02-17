@@ -1,3 +1,5 @@
+import StudentChoice from "./StudentChoice";
+import StudentRegistration from "./StudentRegistration";
 import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { WidgetDashboard } from "./components/WidgetDashboard";
@@ -40,6 +42,8 @@ export default function App() {
         { id: "marketplace", name: "Marketplace", icon: ShoppingBag },
         { id: "gpa", name: "GPA Calculator", icon: Calculator },
         { id: "timer", name: "Focus Timer", icon: Timer },
+        { id: "student-choice", name: "Register", icon: GraduationCap },
+
     ];
 
     const renderContent = () => {
@@ -62,6 +66,10 @@ export default function App() {
                 return <GPACalculator />;
             case "timer":
                 return <FocusTimer />;
+            case "student-choice":
+                return <StudentChoice onNavigate={setActiveSection} />;
+            case "student-register":
+                return <StudentRegistration />;
             default:
                 return <WidgetDashboard onNavigate={setActiveSection} />;
         }
