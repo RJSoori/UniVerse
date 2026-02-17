@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "./ui/button";
+export default function StudentRegistration({ onNavigate }: { onNavigate: (id: string) => void }) {
 
 const degrees = [
   "Engineering",
@@ -32,10 +33,12 @@ export default function StudentRegistration() {
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Student Registered:", formData);
-    alert("Registration successful!");
-  };
+  e.preventDefault();
+  console.log("Student Registered:", formData);
+  alert("Registration successful!");
+  onNavigate("dashboard"); // ✅ Redirect to Dashboard
+};
+
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-card shadow rounded">

@@ -33,7 +33,6 @@ export default function App() {
 
     // Organized navigation matching your project modules
     const navigation = [
-        { id: "student-choice", name: "Register", icon: GraduationCap },
         { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
         { id: "todo", name: "Todo List", icon: CheckSquare },
         { id: "schedule", name: "Schedule", icon: Calendar },
@@ -52,7 +51,7 @@ export default function App() {
             case "student-choice":
                 return <StudentChoice onNavigate={setActiveSection} />;
             case "student-register":
-                return <StudentRegistration />;
+                return <StudentRegistration onNavigate={setActiveSection}/>;
             case "dashboard":
                 return <WidgetDashboard onNavigate={setActiveSection} />;
             case "todo":
