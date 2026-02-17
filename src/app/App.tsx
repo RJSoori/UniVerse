@@ -1,5 +1,5 @@
-import StudentChoice from "./StudentChoice";
-import StudentRegistration from "./StudentRegistration";
+import StudentChoice from "./components/StudentChoice";
+import StudentRegistration from "./components/StudentRegistration";
 import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { WidgetDashboard } from "./components/WidgetDashboard";
@@ -33,6 +33,7 @@ export default function App() {
 
     // Organized navigation matching your project modules
     const navigation = [
+        { id: "student-choice", name: "Register", icon: GraduationCap },
         { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
         { id: "todo", name: "Todo List", icon: CheckSquare },
         { id: "schedule", name: "Schedule", icon: Calendar },
@@ -42,12 +43,16 @@ export default function App() {
         { id: "marketplace", name: "Marketplace", icon: ShoppingBag },
         { id: "gpa", name: "GPA Calculator", icon: Calculator },
         { id: "timer", name: "Focus Timer", icon: Timer },
-        { id: "student-choice", name: "Register", icon: GraduationCap },
+        
 
     ];
 
     const renderContent = () => {
         switch (activeSection) {
+            case "student-choice":
+                return <StudentChoice onNavigate={setActiveSection} />;
+            case "student-register":
+                return <StudentRegistration />;
             case "dashboard":
                 return <WidgetDashboard onNavigate={setActiveSection} />;
             case "todo":
@@ -66,10 +71,6 @@ export default function App() {
                 return <GPACalculator />;
             case "timer":
                 return <FocusTimer />;
-            case "student-choice":
-                return <StudentChoice onNavigate={setActiveSection} />;
-            case "student-register":
-                return <StudentRegistration />;
             default:
                 return <WidgetDashboard onNavigate={setActiveSection} />;
         }
