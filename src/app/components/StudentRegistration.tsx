@@ -21,6 +21,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
     username: "",
     password: "",
   });
+  const [message, setMessage] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -34,12 +35,19 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Student Registered:", formData);
-    alert("Registration successful!");
+    setMessage(`Registration successful! Welcome, ${formData.name}`);
     onNavigate("dashboard"); // ✅ Redirect to Dashboard
   };
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-card shadow rounded">
+      {/* ✅ Inline success message */}
+      {message && (
+        <div className="mb-4 p-3 bg-green-100 text-green-800 rounded">
+          {message}
+        </div>
+      )}
+
       {step === 1 && (
         <form onSubmit={handleNext}>
           <h2 className="text-lg mb-4">Step 1: Basic Info</h2>
