@@ -15,12 +15,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
   ];
 
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    name: "",
-    degree: "",
-    username: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ name: "", degree: "", username: "", password: "" });
   const [message, setMessage] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -34,7 +29,6 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Student Registered:", formData);
     setMessage(`Registration successful! Welcome, ${formData.name}`);
     onNavigate("dashboard"); // ✅ Redirect to Dashboard
   };
@@ -69,9 +63,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
           >
             <option value="">Select Degree</option>
             {degrees.map((deg) => (
-              <option key={deg} value={deg}>
-                {deg}
-              </option>
+              <option key={deg} value={deg}>{deg}</option>
             ))}
           </select>
           <Button type="submit" className="bg-primary text-primary-foreground w-full">

@@ -9,7 +9,6 @@ export default function SignIn({ onNavigate }: { onNavigate: (id: string) => voi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Replace with real auth check
     if (username && password) {
       setMessage(`Welcome back, ${username}!`);
       setError("");
