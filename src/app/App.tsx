@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { cn } from "./components/ui/utils";
 
-import Landing from "./components/Landing";
-import SignUpChoice from "./components/SignUpChoice";
-import SignIn from "./components/SignIn";
-import StudentChoice from "./components/StudentChoice";
-import StudentRegistration from "./components/StudentRegistration";
+import Landing from "./components/student-registration/Landing";
+import SignUpChoice from "./components/student-registration/SignUpChoice";
+import SignIn from "./components/student-registration/SignIn";
+import StudentChoice from "./components/student-registration/StudentChoice";
+import StudentRegistration from "./components/student-registration/StudentRegistration";
 
 import { WidgetDashboard } from "./components/WidgetDashboard";
 import { TodoList } from "./components/TodoList";
