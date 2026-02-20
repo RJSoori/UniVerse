@@ -1,66 +1,79 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
+import { GraduationCap, Building2, ShoppingBag, ArrowRight } from "lucide-react";
 
-export default function SignUpChoice({ onNavigate }: { onNavigate: (id: string) => void }) {
+interface SignUpChoiceProps {
+  onNavigate: (section: string) => void;
+}
+
+export function SignUpChoice({ onNavigate }: SignUpChoiceProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-card text-center">
-      <h2 className="text-2xl font-bold mb-12">Start your journey as</h2>
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+        <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
 
-      {/* Cards + Buttons aligned */}
-      <div className="flex flex-row gap-12">
-        {/* Student Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Student</h3>
-              <p className="text-gray-600 text-sm">
-                Learn, grow, and connect with opportunities tailored for students.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("student-register")}
-          >
-            Student
-          </Button>
-        </div>
+          {/* Path 01: Students (Handled by Registration Team) */}
+          <Card className="relative overflow-hidden group hover:border-primary transition-all duration-300">
+            <CardHeader className="space-y-1">
+              <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <GraduationCap className="size-6" />
+              </div>
+              <CardTitle className="text-xl">I am a Student</CardTitle>
+              <CardDescription className="text-sm">
+                Access your dashboard to manage academic progress, finances, and habits.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" onClick={() => onNavigate("student-choice")}>
+                Student Portal <ArrowRight className="ml-2 size-4" />
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Seller Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Seller</h3>
-              <p className="text-gray-600 text-sm">
-                Showcase your products or services and reach the UniVerse community.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("seller-register")}
-          >
-            Seller
-          </Button>
-        </div>
+          {/* Path 02: Job Recruiters (YOUR RESPONSIBILITY) */}
+          <Card className="relative overflow-hidden group hover:border-primary transition-all duration-300 border-2 border-transparent">
+            <CardHeader className="space-y-1">
+              <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <Building2 className="size-6" />
+              </div>
+              <CardTitle className="text-xl">I am a Recruiter</CardTitle>
+              <CardDescription className="text-sm">
+                Register your organization and post job opportunities for undergraduates.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                  variant="outline"
+                  className="w-full group-hover:bg-primary group-hover:text-white transition-all"
+                  onClick={() => onNavigate("post-jobs")}
+              >
+                Partner Portal <ArrowRight className="ml-2 size-4" />
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Job Poster Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Job Poster</h3>
-              <p className="text-gray-600 text-sm">
-                Post opportunities and connect with talent across UniVerse.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("jobposter-register")}
-          >
-            Job Poster
-          </Button>
+          {/* Path 03: External Sellers (Handled by Marketplace Team) */}
+          <Card className="relative overflow-hidden group hover:border-primary transition-all duration-300">
+            <CardHeader className="space-y-1">
+              <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <ShoppingBag className="size-6" />
+              </div>
+              <CardTitle className="text-xl">I am a Seller</CardTitle>
+              <CardDescription className="text-sm">
+                List academic materials, electronics, or services for the campus community.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                  variant="outline"
+                  className="w-full group-hover:bg-primary group-hover:text-white transition-all"
+                  onClick={() => onNavigate("seller-reg")}
+              >
+                Seller Portal <ArrowRight className="ml-2 size-4" />
+              </Button>
+            </CardContent>
+          </Card>
+
         </div>
       </div>
-    </div>
   );
 }
