@@ -1,9 +1,5 @@
 # 🎓 UniVerse - Integrated Student Productivity Platform
 
-![Project Status](https://img.shields.io/badge/status-active-success.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.0.1-blue)
-
 > **Streamlining the chaotic life of a university student into one seamless experience.**
 
 ## 📖 Overview
