@@ -7,14 +7,14 @@ import { SignUpChoice } from "./components/student-registration/SignUpChoice";
 import SignIn from "./components/student-registration/SignIn";
 import StudentChoice from "./components/student-registration/StudentChoice";
 import StudentRegistration from "./components/student-registration/StudentRegistration";
-import { JobRegistration } from "./components/JobRegistration";
+import { JobRegistration } from "./components/JobHub/JobRegistration.tsx";
 
 import { WidgetDashboard } from "./components/WidgetDashboard";
 import { TodoList } from "./components/TodoList";
 import { Scheduler } from "./components/Scheduler";
 import { MoneyManager } from "./components/MoneyManager";
 import { HabitTracker } from "./components/HabitTracker";
-import { JobHub } from "./components/JobHub";
+import { JobHub } from "./components/JobHub/JobHub.tsx";
 import { Marketplace } from "./components/Marketplace";
 import { GPACalculator } from "./components/GPACalculator";
 import { FocusTimer } from "./components/FocusTimer";
@@ -76,7 +76,7 @@ export default function App() {
             case "habits":
                 return <HabitTracker />;
             case "jobs":
-                return <JobHub />;
+                return <JobHub onNavigate={setActiveSection} />;
             case "marketplace":
                 return <Marketplace />;
             case "gpa":

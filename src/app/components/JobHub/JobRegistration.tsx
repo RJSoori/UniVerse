@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Building2, User, Upload, CheckCircle, Plus, Trash2, Briefcase, Lock, UserPlus, Key } from "lucide-react";
-import { useUniStorage } from "../hooks/useUniStorage";
+import { useUniStorage } from "../../hooks/useUniStorage";
+import { AccessRecovery } from "./AccessRecovery"; // Importing the new recovery component
 
 export function JobRegistration() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showRecovery, setShowRecovery] = useState(false); // State to toggle recovery view
     const [accessKey, setAccessKey] = useState("");
     const [step, setStep] = useState(1);
     const [type, setType] = useState<"company" | "individual" | null>(null);
@@ -20,6 +22,9 @@ export function JobRegistration() {
     const handleLogin = () => {
         if (registeredKeys.includes(accessKey)) {
             setIsAuthenticated(true);
+            setStep(3); // Skip straight to dashboard
+            setIsRegistered(true);
+            if (!type) setType('company');
         } else {
             alert("Invalid Access Key. Please register or check your key.");
         }
@@ -36,7 +41,13 @@ export function JobRegistration() {
         }
         setRegisteredKeys([...registeredKeys, accessKey]);
         setIsAuthenticated(true);
+        setStep(1); // Start registration flow
     };
+
+    // Render Recovery View
+    if (showRecovery) {
+        return <AccessRecovery onBack={() => setShowRecovery(false)} />;
+    }
 
     if (!isAuthenticated) {
         return (
@@ -72,6 +83,15 @@ export function JobRegistration() {
                                     />
                                 </div>
                                 <Button className="w-full" onClick={handleLogin}>Access Account</Button>
+
+                                {/* Forgot Access Key Trigger */}
+                                <Button
+                                    variant="link"
+                                    className="w-full text-xs text-muted-foreground hover:text-primary"
+                                    onClick={() => setShowRecovery(true)}
+                                >
+                                    Forgot Access Key?
+                                </Button>
                             </TabsContent>
 
                             <TabsContent value="register" className="space-y-4">
@@ -163,7 +183,7 @@ export function JobRegistration() {
                             </div>
                         </div>
                     </div>
-                    <Button className="w-full" onClick={() => setIsRegistered(true)}>Submit Application</Button>
+                    <Button className="w-full" onClick={() => { setIsRegistered(true); setStep(3); }}>Submit Application</Button>
                 </CardContent>
             </Card>
         );
@@ -185,7 +205,7 @@ export function JobRegistration() {
                     <Button onClick={() => setMyJobs([{id: Date.now(), title: "New Job Posting", company: type === 'company' ? "Verified Company" : "Verified Recruiter"}, ...myJobs])}>
                         <Plus className="mr-2 size-4" /> Add Posting
                     </Button>
-                    <Button variant="outline" onClick={() => { setIsAuthenticated(false); setAccessKey(""); }}>
+                    <Button variant="outline" onClick={() => { setIsAuthenticated(false); setAccessKey(""); setStep(1); setIsRegistered(false); }}>
                         Log Out
                     </Button>
                 </div>

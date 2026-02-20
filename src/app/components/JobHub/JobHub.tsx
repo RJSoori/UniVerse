@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useUniStorage } from "../hooks/useUniStorage";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Badge } from "./ui/badge";
+import { useUniStorage } from "../../hooks/useUniStorage.ts";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card.tsx";
+import { Button } from "../ui/button.tsx";
+import { Input } from "../ui/input.tsx";
+import { Label } from "../ui/label.tsx";
+import { Badge } from "../ui/badge.tsx";
 import {
   Briefcase,
   Plus,
@@ -27,7 +27,12 @@ interface JobEntry {
   matchScore?: number;
 }
 
-export function JobHub() {
+// Added onNavigate to props interface to allow communication with App.tsx
+interface JobHubProps {
+  onNavigate?: (section: string) => void;
+}
+
+export function JobHub({ onNavigate }: JobHubProps) {
   const [jobs, setJobs] = useUniStorage<JobEntry[]>("university-jobs", []);
   const [searchTerm, setSearchTerm] = useState("");
   const [itFilterOnly, setItFilterOnly] = useState(true); // Default ON to show "Analysis"
@@ -72,7 +77,8 @@ export function JobHub() {
             <h2 className="text-3xl font-bold tracking-tight">Job Hub</h2>
             <p className="text-muted-foreground text-sm">AI-Powered career tracking for IT & Management students</p>
           </div>
-          <Button onClick={() => setShowAddForm(!showAddForm)}>
+          {/* Updated Button: Now directs to the Recruiter Portal (post-jobs) */}
+          <Button onClick={() => onNavigate?.("post-jobs")}>
             <Plus className="mr-2 h-4 w-4" /> Add Opportunity
           </Button>
         </div>
@@ -136,7 +142,7 @@ export function JobHub() {
           </Card>
         </div>
 
-        {/* Add Form */}
+        {/* Add Form (Kept for manual local tracking if needed, though button above now navigates away) */}
         {showAddForm && (
             <Card className="border-primary/20 shadow-lg">
               <CardHeader><CardTitle className="text-lg text-primary">New Job Opportunity</CardTitle></CardHeader>
