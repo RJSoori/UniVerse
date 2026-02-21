@@ -15,7 +15,7 @@ import { TodoList } from "./components/TodoList";
 import { Scheduler } from "./components/Scheduler";
 import { MoneyManager } from "./components/MoneyManager";
 import { HabitTracker } from "./components/HabitTracker";
-import { JobHub } from "./components/JobHub/JobHub";
+import { JobHub } from "./components/JobHub";
 import { Marketplace } from "./components/Marketplace";
 import { GPACalculator } from "./components/GPACalculator";
 import { FocusTimer } from "./components/FocusTimer";
@@ -90,7 +90,7 @@ export default function App() {
     }
   };
 
-  // Include reset-password in entry flow
+  // ✅ Include reset-password in entry flow
   const isEntryFlow =
     activeSection === "landing" ||
     activeSection === "signup" ||
