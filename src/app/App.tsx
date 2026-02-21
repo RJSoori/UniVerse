@@ -10,6 +10,7 @@ import StudentRegistration from "./components/student-registration/StudentRegist
 import ForgotPassword from "./components/student-registration/ForgotPassword";
 import ResetPassword from "./components/student-registration/ResetPassword";
 import { JobRegistration } from "./components/JobHub/JobRegistration";
+import SellerRegister from "./components/marketplace/SellerRegister.tsx";
 
 import { WidgetDashboard } from "./components/WidgetDashboard";
 import { TodoList } from "./components/TodoList";
@@ -71,6 +72,8 @@ export default function App() {
         // Added case to link the Job Poster button from SignUpChoice
       case "jobposter-register":
         return <JobRegistration />;
+      case "seller-register":
+        return <SellerRegister onNavigate={setActiveSection} />;
       case "dashboard":
         return <WidgetDashboard onNavigate={setActiveSection} />;
       case "todo":
@@ -102,7 +105,8 @@ export default function App() {
       activeSection === "student-register" ||
       activeSection === "forgot-password" ||
       activeSection === "reset-password" ||
-      activeSection === "jobposter-register";
+      activeSection === "jobposter-register"||
+      activeSection === "seller-register";
 
   return (
       <div className="min-h-screen bg-background overflow-x-hidden">
