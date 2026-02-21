@@ -9,8 +9,6 @@ import StudentAuthChoice from "./components/student-registration/StudentAuthChoi
 import StudentRegistration from "./components/student-registration/StudentRegistration";
 import ForgotPassword from "./components/student-registration/ForgotPassword";
 import ResetPassword from "./components/student-registration/ResetPassword";
-
-// Import the JobRegistration component
 import { JobRegistration } from "./components/JobHub/JobRegistration";
 
 import { WidgetDashboard } from "./components/WidgetDashboard";
@@ -96,7 +94,6 @@ export default function App() {
     }
   };
 
-  // Include jobposter-register in entry flow to hide the sidebar during registration
   const isEntryFlow =
       activeSection === "landing" ||
       activeSection === "signup" ||
