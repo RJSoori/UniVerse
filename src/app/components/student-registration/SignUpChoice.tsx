@@ -1,66 +1,89 @@
 import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import { GraduationCap, Store, Briefcase } from "lucide-react";
 
 export default function SignUpChoice({ onNavigate }: { onNavigate: (id: string) => void }) {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-card text-center">
-      <h2 className="text-2xl font-bold mb-12">Start your journey as</h2>
-
-      {/* Cards + Buttons aligned */}
-      <div className="flex flex-row gap-12">
-        {/* Student Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Student</h3>
-              <p className="text-gray-600 text-sm">
-                Learn, grow, and connect with opportunities tailored for students.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("student-auth-choice")}
-          >
-            Student
-          </Button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+        <div className="text-center space-y-4 mb-12">
+          <h2 className="text-3xl font-bold tracking-tight">Start your journey</h2>
+          <p className="text-muted-foreground">Select your role to join the UniVerse ecosystem.</p>
         </div>
 
-        {/* Seller Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Seller</h3>
-              <p className="text-gray-600 text-sm">
-                Showcase your products or services and reach the UniVerse community.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("seller-register")}
-          >
-            Seller
-          </Button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full">
+          {/* Student Column */}
+          <Card className="flex flex-col hover:border-primary transition-all group">
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
+                <GraduationCap className="text-primary size-8" />
+              </div>
+              <CardTitle>Student</CardTitle>
+              <CardDescription>
+                Access productivity tools, GPA calculators, and student resources.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto">
+              <Button
+                  className="w-full"
+                  onClick={() => onNavigate("student-auth-choice")}
+              >
+                Join as Student
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Seller Column */}
+          <Card className="flex flex-col hover:border-primary transition-all group">
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
+                <Store className="text-primary size-8" />
+              </div>
+              <CardTitle>Seller</CardTitle>
+              <CardDescription>
+                Showcase your products or services to the UniVerse community.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto">
+              <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => onNavigate("seller-register")}
+              >
+                Join as Seller
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Job Poster Column */}
+          <Card className="flex flex-col hover:border-primary transition-all group">
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
+                <Briefcase className="text-primary size-8" />
+              </div>
+              <CardTitle>Job Poster</CardTitle>
+              <CardDescription>
+                Post opportunities and connect with talent across the university.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="mt-auto">
+              <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => onNavigate("jobposter-register")}
+              >
+                Join as Recruiter
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Job Poster Column */}
-        <div className="flex flex-col items-center gap-6 w-64">
-          <div className="bg-white rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
-            <div>
-              <h3 className="text-xl font-semibold text-blue-600 mb-2">Job Poster</h3>
-              <p className="text-gray-600 text-sm">
-                Post opportunities and connect with talent across UniVerse.
-              </p>
-            </div>
-          </div>
-          <Button
-            className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("jobposter-register")}
-          >
-            Job Poster
-          </Button>
-        </div>
+        <Button
+            variant="ghost"
+            className="mt-8 text-muted-foreground"
+            onClick={() => onNavigate("landing")}
+        >
+          Back to Home
+        </Button>
       </div>
-    </div>
   );
 }
