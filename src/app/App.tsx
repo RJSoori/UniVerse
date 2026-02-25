@@ -35,6 +35,7 @@ import {
   Menu,
   X,
   GraduationCap,
+  UserRoundCheck,
 } from "lucide-react";
 
 export default function App() {
@@ -69,9 +70,8 @@ export default function App() {
         return <ResetPassword onNavigate={setActiveSection} />;
       case "student-register":
         return <StudentRegistration onNavigate={setActiveSection} />;
-        // Added case to link the Job Poster button from SignUpChoice
       case "jobposter-register":
-        return <JobRegistration />;
+        return <JobRegistration onNavigate={setActiveSection} />;
       case "seller-register":
         return <SellerRegister onNavigate={setActiveSection} />;
       case "dashboard":
@@ -85,7 +85,7 @@ export default function App() {
       case "habits":
         return <HabitTracker />;
       case "jobs":
-        return <JobHub />;
+        return <JobHub onNavigate={setActiveSection} />;
       case "marketplace":
         return <Marketplace />;
       case "gpa":
@@ -105,8 +105,8 @@ export default function App() {
       activeSection === "student-register" ||
       activeSection === "forgot-password" ||
       activeSection === "reset-password" ||
-      activeSection === "jobposter-register"||
-      activeSection === "seller-register";
+      activeSection === "seller-register" ||
+      activeSection === "jobposter-register";
 
   return (
       <div className="min-h-screen bg-background overflow-x-hidden">
@@ -190,6 +190,26 @@ export default function App() {
                             </Button>
                         );
                       })}
+
+                      <div className="my-4 border-t border-border" />
+
+                      <Button
+                          variant={activeSection === "jobposter-register" ? "secondary" : "ghost"}
+                          className={cn(
+                              "w-full justify-start gap-3",
+                              activeSection === "jobposter-register" ? "bg-secondary font-semibold" : ""
+                          )}
+                          onClick={() => {
+                            setActiveSection("jobposter-register");
+                            setSidebarOpen(false);
+                          }}
+                      >
+                        <UserRoundCheck className={cn(
+                            "size-5",
+                            activeSection === "jobposter-register" ? "text-primary" : "text-muted-foreground"
+                        )} />
+                        Recruiter Portal
+                      </Button>
                     </nav>
                   </aside>
 
