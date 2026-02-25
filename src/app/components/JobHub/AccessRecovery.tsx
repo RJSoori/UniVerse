@@ -20,8 +20,6 @@ export function AccessRecovery({ onBack }: AccessRecoveryProps) {
             alert("Please enter a valid registered email.");
             return;
         }
-        // Mock Logic: Determining type based on email for simulation
-        // In a real app, this would be an API call to your database
         const determinedType = email.includes("corp") || email.includes("hr") ? "company" : "individual";
         setUserType(determinedType);
         setStep(2);
@@ -37,14 +35,14 @@ export function AccessRecovery({ onBack }: AccessRecoveryProps) {
     };
 
     return (
-        <div className="max-w-md mx-auto pt-10">
+        <div className="max-w-md mx-auto pt-20">
             <Button
                 variant="ghost"
                 size="sm"
-                onClick={onBack}
+                onClick={step === 1 ? onBack : () => setStep(1)}
                 className="mb-4 text-muted-foreground hover:text-primary"
             >
-                <ArrowLeft className="mr-2 size-4" /> Back to Login
+                <ArrowLeft className="mr-2 size-4" /> {step === 1 ? "Back to Login" : "Back"}
             </Button>
 
             <Card className="border-primary/20 shadow-xl">
