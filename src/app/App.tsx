@@ -36,6 +36,7 @@ import {
   Menu,
   X,
   GraduationCap,
+  UserRoundCheck,
 } from "lucide-react";
 
 export default function App() {
@@ -78,7 +79,7 @@ export default function App() {
       case "student-register":
         return <StudentRegistration onNavigate={setActiveSection} />;
       case "jobposter-register":
-        return <JobRegistration />;
+        return <JobRegistration onNavigate={setActiveSection} />;
       case "seller-register":
         return <SellerRegister onNavigate={setActiveSection} />;
       case "dashboard":
@@ -92,7 +93,7 @@ export default function App() {
       case "habits":
         return <HabitTracker />;
       case "jobs":
-        return <JobHub />;
+        return <JobHub onNavigate={setActiveSection} />;
       case "marketplace":
         return <Marketplace />;
       case "gpa":
@@ -107,15 +108,15 @@ export default function App() {
   };
 
   const isEntryFlow =
-    activeSection === "landing" ||
-    activeSection === "signup" ||
-    activeSection === "signin" ||
-    activeSection === "student-auth-choice" ||
-    activeSection === "student-register" ||
-    activeSection === "forgot-password" ||
-    activeSection === "reset-password" ||
-    activeSection === "jobposter-register" ||
-    activeSection === "seller-register";
+      activeSection === "landing" ||
+      activeSection === "signup" ||
+      activeSection === "signin" ||
+      activeSection === "student-auth-choice" ||
+      activeSection === "student-register" ||
+      activeSection === "forgot-password" ||
+      activeSection === "reset-password" ||
+      activeSection === "seller-register" ||
+      activeSection === "jobposter-register";
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -177,31 +178,51 @@ export default function App() {
                     const Icon = item.icon;
                     const isActive = activeSection === item.id;
 
-                    return (
+                        return (
+                            <Button
+                                key={item.id}
+                                variant={isActive ? "secondary" : "ghost"}
+                                className={cn(
+                                    "w-full justify-start gap-3",
+                                    isActive ? "bg-secondary font-semibold" : ""
+                                )}
+                                onClick={() => {
+                                  setActiveSection(item.id);
+                                  setSidebarOpen(false);
+                                }}
+                            >
+                              <Icon
+                                  className={cn(
+                                      "size-5",
+                                      isActive ? "text-primary" : "text-muted-foreground"
+                                  )}
+                              />
+                              {item.name}
+                            </Button>
+                        );
+                      })}
+
+                      <div className="my-4 border-t border-border" />
+
                       <Button
-                        key={item.id}
-                        variant={isActive ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-3",
-                          isActive ? "bg-secondary font-semibold" : ""
-                        )}
-                        onClick={() => {
-                          setActiveSection(item.id);
-                          setSidebarOpen(false);
-                        }}
-                      >
-                        <Icon
+                          variant={activeSection === "jobposter-register" ? "secondary" : "ghost"}
                           className={cn(
-                            "size-5",
-                            isActive ? "text-primary" : "text-muted-foreground"
+                              "w-full justify-start gap-3",
+                              activeSection === "jobposter-register" ? "bg-secondary font-semibold" : ""
                           )}
-                        />
-                        {item.name}
+                          onClick={() => {
+                            setActiveSection("jobposter-register");
+                            setSidebarOpen(false);
+                          }}
+                      >
+                        <UserRoundCheck className={cn(
+                            "size-5",
+                            activeSection === "jobposter-register" ? "text-primary" : "text-muted-foreground"
+                        )} />
+                        Recruiter Portal
                       </Button>
-                    );
-                  })}
-                </nav>
-              </aside>
+                    </nav>
+                  </aside>
 
               {sidebarOpen && (
                 <div
