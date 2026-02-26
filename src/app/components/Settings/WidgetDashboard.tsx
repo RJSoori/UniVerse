@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { TodoList } from "./TodoList";
-import { FocusTimer } from "./FocusTimer";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { TodoList } from "../TodoList";
+import { FocusTimer } from "../FocusTimer/FocusTimer";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   CheckSquare,
   Wallet,
@@ -203,7 +203,7 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
               <Card className="cursor-pointer hover:shadow-md transition-all group" onClick={() => onNavigate("marketplace")}>
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-bold">Marketplace</CardTitle></CardHeader>
                 <CardContent>
-                  <p className="text-[10px] text-muted-foreground mb-3">UoM Community Trading</p>
+                  <p className="text-[10px] text-muted-foreground mb-3">Community Trading</p>
                   <Button variant="outline" size="sm" className="w-full text-xs h-8 group-hover:bg-primary group-hover:text-primary-foreground">View All</Button>
                 </CardContent>
               </Card>
