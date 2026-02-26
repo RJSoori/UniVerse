@@ -11,8 +11,8 @@ import ForgotPassword from "./components/student-registration/ForgotPassword";
 import ResetPassword from "./components/student-registration/ResetPassword";
 import { JobRegistration } from "./components/JobHub/JobRegistration";
 import SellerRegister from "./components/marketplace/SellerRegister.tsx";
-
 import { WidgetDashboard } from "./components/Settings/WidgetDashboard.tsx";
+import { SkillsManager } from "./components/JobHub/SkillsManager";
 import { TodoList } from "./components/TodoList";
 import { Scheduler } from "./components/Scheduler";
 import { MoneyManager } from "./components/MoneyManager";
@@ -102,6 +102,8 @@ export default function App() {
         return <FocusTimer />;
       case "settings": 
         return <SettingsPage onNavigate={setActiveSection} />;
+      case "skills-manager":
+        return <SkillsManager onBack={() => setActiveSection("jobs")} />;
       default:
         return <Landing onNavigate={setActiveSection} />;
     }
