@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import {
     ArrowLeft,
     Briefcase,
-    Wand2,
     Coins,
     Globe2,
     ClipboardCheck,
     SendHorizontal,
-    Sparkles
+    Sparkles,
+    Clock,
+    UserCheck
 } from "lucide-react";
 
 interface JobPostingProps {
@@ -30,7 +31,8 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
         requirements: "",
         skills: "",
         salary: "",
-        workType: "on-site"
+        workType: "on-site",
+        employmentType: "full-time"
     });
 
     const handleSubmit = () => {
@@ -40,7 +42,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
         }
         onPost({
             ...formData,
-            id: Date.now(),
+            id: Date.now().toString(),
             salaryInfo: `${formData.salary} LKR / ${salaryType}`,
             postedAt: new Date().toLocaleDateString()
         });
@@ -63,6 +65,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
             </div>
 
             <div className="grid grid-cols-1 gap-6">
+                {/* Section 1: Core Details */}
                 <Card className="border-primary/10 shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
@@ -90,6 +93,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                     </CardContent>
                 </Card>
 
+                {/* Section 2: Requirements & Skills */}
                 <Card className="border-primary/10 shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
@@ -118,6 +122,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                     </CardContent>
                 </Card>
 
+                {/* Section 3: Compensation & Environment */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card className="border-primary/10 shadow-sm">
                         <CardHeader>
@@ -159,18 +164,32 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Work Type</Label>
-                                <Select onValueChange={(val) => setFormData({...formData, workType: val})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select work type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="on-site">On-site</SelectItem>
-                                        <SelectItem value="remote">Remote</SelectItem>
-                                        <SelectItem value="hybrid">Hybrid</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Work Type</Label>
+                                    <Select onValueChange={(val) => setFormData({...formData, workType: val})}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="On-site" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="on-site">On-site</SelectItem>
+                                            <SelectItem value="remote">Remote</SelectItem>
+                                            <SelectItem value="hybrid">Hybrid</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Employment</Label>
+                                    <Select onValueChange={(val) => setFormData({...formData, employmentType: val})}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Full-time" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="full-time">Full-time</SelectItem>
+                                            <SelectItem value="part-time">Part-time</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -178,7 +197,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
 
                 <div className="pt-4 flex justify-end gap-3">
                     <Button variant="outline" onClick={onBack}>Save Draft</Button>
-                    <Button className="px-8 bg-primary hover:bg-primary/90" onClick={handleSubmit}>
+                    <Button className="px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" onClick={handleSubmit}>
                         Publish Opportunity <SendHorizontal className="ml-2 size-4" />
                     </Button>
                 </div>
