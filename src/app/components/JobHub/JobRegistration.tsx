@@ -17,6 +17,10 @@ import { RecruiterDashboard } from "./RecruiterDashboard";
 import { RecruiterSettings } from "./RecruiterSettings";
 
 export function JobRegistration({ onNavigate }: { onNavigate?: (section: string) => void }) {
+    // Shared state with student hub
+    const [allJobs, setAllJobs] = useUniStorage<any[]>("university-jobs", []);
+
+    // Auth and Step states
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showRecovery, setShowRecovery] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
@@ -27,7 +31,6 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
     const [isRegistered, setIsRegistered] = useState(false);
 
     const [registeredKeys, setRegisteredKeys] = useUniStorage<string[]>("registered-recruiter-keys", ["uom-recruiter"]);
-    const [myJobs, setMyJobs] = useUniStorage<any[]>("my-posted-jobs", []);
 
     const handleLogin = () => {
         if (registeredKeys.includes(accessKey)) {
@@ -48,12 +51,12 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
     };
 
     const handleNewPost = (job: any) => {
-        setMyJobs([job, ...myJobs]);
+        setAllJobs([job, ...allJobs]);
         setIsPosting(false);
     };
 
     const handleDeleteJob = (id: string) => {
-        setMyJobs(myJobs.filter(j => j.id !== id));
+        setAllJobs(allJobs.filter(j => j.id !== id));
     };
 
     if (showRecovery) return <AccessRecovery onBack={() => setShowRecovery(false)} />;
@@ -65,7 +68,7 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
             <RecruiterDashboard
                 type={type}
                 accessKey={accessKey}
-                jobs={myJobs}
+                jobs={allJobs}
                 onPostNew={() => setIsPosting(true)}
                 onDeleteJob={handleDeleteJob}
                 onSignOut={() => {
