@@ -1,3 +1,4 @@
+import SleepSuggestionCard from "./SleepSuggestionCard";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { TodoList } from "../TodoList";
@@ -96,6 +97,8 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
             <span className="text-sm font-bold text-primary">GPA: {stats.currentGPA}</span>
           </div>
         </div>
+
+        <SleepSuggestionCard />
 
         {/* Primary Statistics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
