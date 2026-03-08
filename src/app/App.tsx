@@ -15,13 +15,13 @@ import { WidgetDashboard } from "./components/Settings/WidgetDashboard.tsx";
 import { SkillsManager } from "./components/JobHub/SkillsManager";
 import { TodoList } from "./components/TodoList";
 import { Scheduler } from "./components/Scheduler";
-import { MoneyManager } from "./components/MoneyManager";
+import { MoneyManager } from "./components/MoneyManager/MoneyManager";
 import { HabitTracker } from "./components/HabitTracker";
 import { JobHub } from "./components/JobHub/JobHub";
 import { Marketplace } from "./components/Marketplace";
-import { GPACalculator } from "./components/GPACalculator";
+import { GpaCalculator as GPACalculator } from "./components/gpa-calculator/GpaCalculator";
 import { FocusTimer } from "./components/FocusTimer/FocusTimer.tsx";
-import SettingsPage from "./components/Settings/SettingsPage"; 
+import SettingsPage from "./components/Settings/SettingsPage";
 
 import {
   LayoutDashboard,
@@ -100,7 +100,7 @@ export default function App() {
         return <GPACalculator />;
       case "timer":
         return <FocusTimer />;
-      case "settings": 
+      case "settings":
         return <SettingsPage onNavigate={setActiveSection} />;
       case "skills-manager":
         return <SkillsManager onBack={() => setActiveSection("jobs")} />;
@@ -110,15 +110,15 @@ export default function App() {
   };
 
   const isEntryFlow =
-      activeSection === "landing" ||
-      activeSection === "signup" ||
-      activeSection === "signin" ||
-      activeSection === "student-auth-choice" ||
-      activeSection === "student-register" ||
-      activeSection === "forgot-password" ||
-      activeSection === "reset-password" ||
-      activeSection === "seller-register" ||
-      activeSection === "jobposter-register";
+    activeSection === "landing" ||
+    activeSection === "signup" ||
+    activeSection === "signin" ||
+    activeSection === "student-auth-choice" ||
+    activeSection === "student-register" ||
+    activeSection === "forgot-password" ||
+    activeSection === "reset-password" ||
+    activeSection === "seller-register" ||
+    activeSection === "jobposter-register";
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -136,14 +136,20 @@ export default function App() {
                     className="lg:hidden"
                     onClick={() => setSidebarOpen(!sidebarOpen)}
                   >
-                    {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                    {sidebarOpen ? (
+                      <X className="size-5" />
+                    ) : (
+                      <Menu className="size-5" />
+                    )}
                   </Button>
                   <div className="flex items-center gap-3">
                     <div className="size-10 bg-primary rounded-lg flex items-center justify-center shadow-sm">
                       <GraduationCap className="size-6 text-primary-foreground" />
                     </div>
                     <div>
-                      <h1 className="text-xl font-bold tracking-tight text-foreground">UniVerse</h1>
+                      <h1 className="text-xl font-bold tracking-tight text-foreground">
+                        UniVerse
+                      </h1>
                       <p className="text-xs text-muted-foreground hidden sm:block font-medium">
                         Undergraduate Life Management System
                       </p>
@@ -156,10 +162,16 @@ export default function App() {
                     <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
                       UoM Undergraduate
                     </p>
-                    <p className="text-[10px] text-muted-foreground italic">Sprint Phase 2026</p>
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Sprint Phase 2026
+                    </p>
                   </div>
                   {/* Settings button wired to navigation */}
-                  <Button variant="outline" size="sm" onClick={() => setActiveSection("settings")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveSection("settings")}
+                  >
                     Settings
                   </Button>
                 </div>
@@ -172,7 +184,7 @@ export default function App() {
               <aside
                 className={cn(
                   "fixed inset-y-0 left-0 z-40 w-64 border-r bg-background pt-24 transition-transform lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:translate-x-0",
-                  sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                  sidebarOpen ? "translate-x-0" : "-translate-x-full",
                 )}
               >
                 <nav className="space-y-1 p-4">
@@ -180,51 +192,61 @@ export default function App() {
                     const Icon = item.icon;
                     const isActive = activeSection === item.id;
 
-                        return (
-                            <Button
-                                key={item.id}
-                                variant={isActive ? "secondary" : "ghost"}
-                                className={cn(
-                                    "w-full justify-start gap-3",
-                                    isActive ? "bg-secondary font-semibold" : ""
-                                )}
-                                onClick={() => {
-                                  setActiveSection(item.id);
-                                  setSidebarOpen(false);
-                                }}
-                            >
-                              <Icon
-                                  className={cn(
-                                      "size-5",
-                                      isActive ? "text-primary" : "text-muted-foreground"
-                                  )}
-                              />
-                              {item.name}
-                            </Button>
-                        );
-                      })}
-
-                      <div className="my-4 border-t border-border" />
-
+                    return (
                       <Button
-                          variant={activeSection === "jobposter-register" ? "secondary" : "ghost"}
-                          className={cn(
-                              "w-full justify-start gap-3",
-                              activeSection === "jobposter-register" ? "bg-secondary font-semibold" : ""
-                          )}
-                          onClick={() => {
-                            setActiveSection("jobposter-register");
-                            setSidebarOpen(false);
-                          }}
+                        key={item.id}
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3",
+                          isActive ? "bg-secondary font-semibold" : "",
+                        )}
+                        onClick={() => {
+                          setActiveSection(item.id);
+                          setSidebarOpen(false);
+                        }}
                       >
-                        <UserRoundCheck className={cn(
+                        <Icon
+                          className={cn(
                             "size-5",
-                            activeSection === "jobposter-register" ? "text-primary" : "text-muted-foreground"
-                        )} />
-                        Recruiter Portal
+                            isActive ? "text-primary" : "text-muted-foreground",
+                          )}
+                        />
+                        {item.name}
                       </Button>
-                    </nav>
-                  </aside>
+                    );
+                  })}
+
+                  <div className="my-4 border-t border-border" />
+
+                  <Button
+                    variant={
+                      activeSection === "jobposter-register"
+                        ? "secondary"
+                        : "ghost"
+                    }
+                    className={cn(
+                      "w-full justify-start gap-3",
+                      activeSection === "jobposter-register"
+                        ? "bg-secondary font-semibold"
+                        : "",
+                    )}
+                    onClick={() => {
+                      setActiveSection("jobposter-register");
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <UserRoundCheck
+                      className={cn(
+                        "size-5",
+                        activeSection === "jobposter-register"
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                    Recruiter Portal
+                  </Button>
+                </nav>
+              </aside>
 
               {sidebarOpen && (
                 <div
