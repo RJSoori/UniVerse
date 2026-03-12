@@ -11,6 +11,7 @@ import ForgotPassword from "./components/student-registration/ForgotPassword";
 import ResetPassword from "./components/student-registration/ResetPassword";
 import { JobRegistration } from "./components/JobHub/JobRegistration";
 import SellerRegister from "./components/marketplace/SellerRegister.tsx";
+import SellerDashboard from "./components/marketplace/SellerDashboard.tsx";
 import { WidgetDashboard } from "./components/Settings/WidgetDashboard.tsx";
 import { SkillsManager } from "./components/JobHub/SkillsManager";
 import { TodoList } from "./components/TodoList";
@@ -43,7 +44,6 @@ export default function App() {
   const [activeSection, setActiveSection] = useState("landing");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  //  Apply saved theme globally on load
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
     document.documentElement.classList.remove("light", "dark");
@@ -82,6 +82,8 @@ export default function App() {
         return <JobRegistration onNavigate={setActiveSection} />;
       case "seller-register":
         return <SellerRegister onNavigate={setActiveSection} />;
+      case "seller-dashboard":
+        return <SellerDashboard onNavigate={setActiveSection} />;
       case "dashboard":
         return <WidgetDashboard onNavigate={setActiveSection} />;
       case "todo":
@@ -95,7 +97,7 @@ export default function App() {
       case "jobs":
         return <JobHub onNavigate={setActiveSection} />;
       case "marketplace":
-        return <Marketplace />;
+        return <Marketplace onNavigate={setActiveSection} />;
       case "gpa":
         return <GPACalculator />;
       case "timer":
@@ -118,12 +120,13 @@ export default function App() {
     activeSection === "forgot-password" ||
     activeSection === "reset-password" ||
     activeSection === "seller-register" ||
+    activeSection === "seller-dashboard" ||
     activeSection === "jobposter-register";
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {isEntryFlow ? (
-        <main className="flex-1 min-w-0">{renderContent()}</main>
+        <main key={activeSection} className="flex-1 min-w-0">{renderContent()}</main>
       ) : (
         <>
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -166,7 +169,6 @@ export default function App() {
                       Sprint Phase 2026
                     </p>
                   </div>
-                  {/* Settings button wired to navigation */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -245,6 +247,36 @@ export default function App() {
                     />
                     Recruiter Portal
                   </Button>
+
+                  {/* ✅ Seller Portal */}
+                  <Button
+                    variant={
+                      activeSection === "seller-register" || activeSection === "seller-dashboard"
+                        ? "secondary"
+                        : "ghost"
+                    }
+                    className={cn(
+                      "w-full justify-start gap-3",
+                      activeSection === "seller-register" || activeSection === "seller-dashboard"
+                        ? "bg-secondary font-semibold"
+                        : "",
+                    )}
+                    onClick={() => {
+                      setActiveSection("seller-register");
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <ShoppingBag
+                      className={cn(
+                        "size-5",
+                        activeSection === "seller-register" || activeSection === "seller-dashboard"
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                    Seller Portal
+                  </Button>
+
                 </nav>
               </aside>
 
