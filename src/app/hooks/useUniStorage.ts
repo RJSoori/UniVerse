@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function useUniStorage<T>(key: string, initialValue: T) {
     const [storedValue, setStoredValue] = useState<T>(() => {
@@ -23,6 +23,20 @@ export function useUniStorage<T>(key: string, initialValue: T) {
             console.error(`Error saving ${key}:`, error);
         }
     };
+
+    // listen for local-storage-update events so multiple components stay in sync
+    useEffect(() => {
+        const handler = () => {
+            try {
+                const item = window.localStorage.getItem(key);
+                setStoredValue(item ? JSON.parse(item) : initialValue);
+            } catch (error) {
+                console.error(`Error syncing ${key}:`, error);
+            }
+        };
+        window.addEventListener("local-storage-update", handler);
+        return () => window.removeEventListener("local-storage-update", handler);
+    }, [key, initialValue]);
 
     return [storedValue, setValue] as const;
 }
