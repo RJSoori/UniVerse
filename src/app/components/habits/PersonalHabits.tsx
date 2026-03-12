@@ -5,7 +5,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Plus, Trash2, Trophy, Calendar } from "lucide-react";
+import { Badge } from "../ui/badge";
+import { Plus, Trash2, Trophy, Calendar, TrendingUp, TrendingDown } from "lucide-react";
 import { PersonalHabit } from "./types";
 import { calculateStreak, getRecentDays, toDateKey } from "./utils";
 import { HeatmapCalendar } from "./HeatmapCalendar";
@@ -17,6 +18,7 @@ export function PersonalHabits() {
   const [newHabitName, setNewHabitName] = useState("");
   const [newHabitDescription, setNewHabitDescription] = useState("");
   const [newHabitIcon, setNewHabitIcon] = useState("activity");
+  const [newHabitCategory, setNewHabitCategory] = useState<"build" | "break">("build");
   const [showAddForm, setShowAddForm] = useState(false);
   const [openCalendarId, setOpenCalendarId] = useState<string | null>(null);
 
@@ -32,12 +34,14 @@ export function PersonalHabits() {
       color: colors[habits.length % colors.length],
       description: newHabitDescription.trim(),
       iconId: newHabitIcon,
+      category: newHabitCategory,
     };
 
     setHabits([...habits, newHabit]);
     setNewHabitName("");
     setNewHabitDescription("");
     setNewHabitIcon("activity");
+    setNewHabitCategory("build");
     setShowAddForm(false);
   };
 
@@ -63,6 +67,44 @@ export function PersonalHabits() {
   };
 
   const recentDays = getRecentDays();
+
+  // Analyze break habit progress with intelligent logic
+  const analyzeBreakHabitProgress = (habit: PersonalHabit) => {
+    if (habit.category !== "break") return null;
+    
+    const streak = calculateStreak(habit.completedDates);
+    const last7Days = recentDays.slice(-7).map(d => toDateKey(d));
+    const trackedIn7Days = last7Days.filter(d => habit.completedDates.includes(d)).length;
+    
+    // Calculate maximum streak ever achieved
+    let maxStreak = 0;
+    let currentStreak = 0;
+    const sortedDates = [...habit.completedDates].sort();
+    
+    for (let i = 0; i < sortedDates.length; i++) {
+      const currDate = new Date(sortedDates[i]);
+      const nextDate = i + 1 < sortedDates.length ? new Date(sortedDates[i + 1]) : null;
+      const dayDiff = nextDate ? (nextDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24) : 1;
+      
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+      
+      if (dayDiff > 1) currentStreak = 0;
+    }
+    
+    // Logical assessment:
+    // - If student has achieved 3+ days before, they've proven capability (don't flag for one slip)
+    // - If they haven't reached 3 days AND less than 3 days tracked in last 7, flag as struggling
+    // - If habit just created (< 2 tracked), don't flag yet
+    const isStruggling = maxStreak < 3 && trackedIn7Days < 3 && habit.completedDates.length >= 2;
+    
+    return {
+      streak,
+      maxStreak,
+      trackedIn7Days,
+      isStruggling
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -104,6 +146,31 @@ export function PersonalHabits() {
               <Label>Choose Icon</Label>
               <IconPicker selectedIconId={newHabitIcon} onSelect={setNewHabitIcon} />
             </div>
+            <div className="space-y-2">
+              <Label>Habit Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={newHabitCategory === "build" ? "default" : "outline"}
+                  className="flex items-center gap-1.5"
+                  onClick={() => setNewHabitCategory("build")}
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  <span>Build</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={newHabitCategory === "break" ? "default" : "outline"}
+                  className="flex items-center gap-1.5"
+                  onClick={() => setNewHabitCategory("break")}
+                >
+                  <TrendingDown className="h-3.5 w-3.5" />
+                  <span>Break</span>
+                </Button>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button onClick={addHabit} className="flex-1">Start Tracking</Button>
               <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
@@ -127,13 +194,39 @@ export function PersonalHabits() {
                   <div className="flex items-start gap-3">
                     <IconBadge iconId={habit.iconId} size="md" color={habit.color} />
                     <div className="space-y-1">
-                      <CardTitle className="text-lg">{habit.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{habit.name}</CardTitle>
+                        {habit.category && (
+                          <Badge
+                            className={`text-[10px] h-5 ${
+                              habit.category === "build"
+                                ? "bg-green-500 hover:bg-green-600 text-white"
+                                : "bg-red-500 hover:bg-red-600 text-white"
+                            }`}
+                          >
+                            {habit.category === "build" ? (
+                              <>
+                                <TrendingUp className="h-3 w-3 mr-1" />
+                                Build
+                              </>
+                            ) : (
+                              <>
+                                <TrendingDown className="h-3 w-3 mr-1" />
+                                Break
+                              </>
+                            )}
+                          </Badge>
+                        )}
+                      </div>
                       {habit.description && (
                         <p className="text-xs text-muted-foreground">{habit.description}</p>
                       )}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                         <Trophy className="h-4 w-4 text-yellow-500" />
-                        <span>{calculateStreak(habit.completedDates)} day streak</span>
+                        <span>
+                          {calculateStreak(habit.completedDates)} day{" "}
+                          {habit.category === "break" ? "free" : "streak"}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -5,6 +5,7 @@ export interface PersonalHabit {
   color: string;
   iconId?: string;
   description?: string;
+  category?: "build" | "break";
 }
 
 export interface HabitGroupMember {
@@ -30,4 +31,5 @@ export interface HabitGroup {
 export interface GroupHabitProgress {
   groupId: string;
   completedDates: string[]; // Format: YYYY-MM-DD
+  memberProgress?: Record<string, string[]>;
 }

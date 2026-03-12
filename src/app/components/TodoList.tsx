@@ -7,6 +7,19 @@ import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { Bell, Plus, Trash2, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 export interface TodoItem {
   id: string;
@@ -28,12 +41,12 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
   // Persistence hook for syncing with the Dashboard
   const [todos, setTodos] = useUniStorage<TodoItem[]>("todos", []);
 
-  const [newTodo, setNewTodo] = useState({
+  const [newTodo, setNewTodo] = useState<Omit<TodoItem, "id" | "completed">>({
     title: "",
     description: "",
     dueDate: "",
     dueTime: "",
-    priority: "medium" as const,
+    priority: "medium",
     reminderEnabled: true,
   });
   const [showAddForm, setShowAddForm] = useState(false);
@@ -135,41 +148,58 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                 <CardTitle>Todo List</CardTitle>
                 <CardDescription>{todos.filter((t) => !t.completed).length} pending tasks</CardDescription>
               </div>
-              <Button onClick={() => setShowAddForm(!showAddForm)}>
+              <Button onClick={() => setShowAddForm(true)}>
                 <Plus className="mr-2 size-4" /> Add Task
               </Button>
             </div>
           </CardHeader>
-          {showAddForm && (
-              <CardContent className="border-t pt-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Task Title</Label>
-                    <Input
-                        placeholder="Enter task..."
-                        value={newTodo.title}
-                        onChange={(e) => setNewTodo({ ...newTodo, title: e.target.value })}
-                        onKeyDown={(e) => e.key === "Enter" && addTodo()}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Due Date</Label>
-                      <Input type="date" value={newTodo.dueDate} onChange={(e) => setNewTodo({ ...newTodo, dueDate: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Due Time</Label>
-                      <Input type="time" value={newTodo.dueTime} onChange={(e) => setNewTodo({ ...newTodo, dueTime: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={addTodo} className="flex-1">Add Task</Button>
-                    <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
-                  </div>
-                </div>
-              </CardContent>
-          )}
         </Card>
+
+        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Add New Task</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Task Title</Label>
+                <Input
+                  placeholder="Enter task..."
+                  value={newTodo.title}
+                  onChange={(e) => setNewTodo({ ...newTodo, title: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && addTodo()}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" value={newTodo.dueDate} onChange={(e) => setNewTodo({ ...newTodo, dueDate: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Due Time</Label>
+                  <Input type="time" value={newTodo.dueTime} onChange={(e) => setNewTodo({ ...newTodo, dueTime: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select value={newTodo.priority} onValueChange={(value) => setNewTodo({ ...newTodo, priority: value as "low" | "medium" | "high" })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={addTodo} className="flex-1">Add Task</Button>
+                <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="space-y-2">
           {todos.length === 0 ? (

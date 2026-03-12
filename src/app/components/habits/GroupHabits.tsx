@@ -101,7 +101,7 @@ export function GroupHabits() {
     };
 
     setGroups([...groups, newGroup]);
-    setProgress([...progress, { groupId, completedDates: [] }]);
+    setProgress([...progress, { groupId, completedDates: [], memberProgress: { [currentUser.id]: [] } }]);
     setCreateForm({ name: "", habitName: "", description: "", iconId: "activity" });
     setStatus({ type: "success", message: "Group created. Share the invite link and code." });
   };
@@ -143,8 +143,18 @@ export function GroupHabits() {
 
     const hasProgress = progress.some((item) => item.groupId === group.id);
     const updatedProgress = hasProgress
-      ? progress
-      : [...progress, { groupId: group.id, completedDates: [] }];
+      ? progress.map((item) =>
+          item.groupId === group.id
+            ? {
+                ...item,
+                memberProgress: {
+                  ...(item.memberProgress ?? {}),
+                  [currentUser.id]: (item.memberProgress ?? {})[currentUser.id] ?? [],
+                },
+              }
+            : item,
+        )
+      : [...progress, { groupId: group.id, completedDates: [], memberProgress: { [currentUser.id]: [] } }];
 
     setGroups(updatedGroups);
     setProgress(updatedProgress);
@@ -184,12 +194,26 @@ export function GroupHabits() {
     setProgress(
       progress.map((item) => {
         if (item.groupId !== groupId) return item;
-        const isDone = item.completedDates.includes(dateStr);
+        const memberProgress = item.memberProgress ?? {};
+        const userDates = memberProgress[currentUser.id] ?? [];
+        const isDone = userDates.includes(dateStr);
+        const updatedUserDates = isDone
+          ? userDates.filter((d) => d !== dateStr)
+          : [...userDates, dateStr];
+
+        const updatedMemberProgress = {
+          ...memberProgress,
+          [currentUser.id]: updatedUserDates,
+        };
+
+        const groupDates = Array.from(
+          new Set(Object.values(updatedMemberProgress).flat()),
+        ).sort();
+
         return {
           ...item,
-          completedDates: isDone
-            ? item.completedDates.filter((d) => d !== dateStr)
-            : [...item.completedDates, dateStr],
+          completedDates: groupDates,
+          memberProgress: updatedMemberProgress,
         };
       }),
     );
@@ -309,7 +333,12 @@ export function GroupHabits() {
           joinedGroups.map((group) => {
             const isOwner = group.ownerId === currentUser.id;
             const groupProgress = progress.find((item) => item.groupId === group.id);
-            const streak = calculateStreak(groupProgress?.completedDates ?? []);
+            const personalDates = (groupProgress?.memberProgress ?? {})[currentUser.id] ?? groupProgress?.completedDates ?? [];
+            const groupDates = Array.from(
+              new Set(Object.values(groupProgress?.memberProgress ?? {}).flat()),
+            );
+            const normalizedGroupDates = groupDates.length > 0 ? groupDates : groupProgress?.completedDates ?? [];
+            const streak = calculateStreak(normalizedGroupDates);
             const inviteEmail = buildInviteEmail(
               group.inviteLink,
               group.code,
@@ -403,10 +432,18 @@ export function GroupHabits() {
 
                     <div className="space-y-3">
                       <div className="space-y-2">
-                        <Label>Contribution Heatmap</Label>
+                        <Label>Your Progress</Label>
                         <HeatmapCalendar
-                          completedDates={groupProgress?.completedDates ?? []}
+                          completedDates={personalDates}
                           color="#3b82f6"
+                          months={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Group Progress</Label>
+                        <HeatmapCalendar
+                          completedDates={normalizedGroupDates}
+                          color="#10b981"
                           months={3}
                         />
                       </div>
@@ -420,7 +457,7 @@ export function GroupHabits() {
                       <CalendarModal
                         open={openCalendarId === group.id}
                         onOpenChange={(open) => setOpenCalendarId(open ? group.id : null)}
-                        completedDates={groupProgress?.completedDates ?? []}
+                        completedDates={personalDates}
                         onDateClick={(dateStr) => toggleGroupDate(group.id, dateStr)}
                         habitName={group.habitName}
                         color="#3b82f6"
