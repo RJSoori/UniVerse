@@ -145,11 +145,11 @@ export function Scheduler() {
   const weekDays = getWeekDays();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Schedule</h2>
-          <p className="text-muted-foreground text-sm">Organize your lectures and sessions</p>
+    <div className="app-page">
+      <div className="app-page-header">
+        <div className="space-y-1">
+          <h2 className="app-page-title">Schedule</h2>
+          <p className="app-page-subtitle">Organize your lectures and sessions</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>
           <Plus className="mr-2 h-4 w-4" /> New Event
@@ -215,7 +215,7 @@ export function Scheduler() {
         </TabsList>
 
         <TabsContent value="week" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-12">
                 <h3 className="text-sm font-medium">
@@ -273,7 +273,7 @@ export function Scheduler() {
         </TabsContent>
 
         <TabsContent value="month" className="space-y-4">
-          <Card>
+          <Card className="app-surface">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-12">
                 <h3 className="text-sm font-medium">

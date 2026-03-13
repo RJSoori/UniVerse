@@ -109,7 +109,7 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">
-            <div className="text-7xl font-mono tabular-nums">{formatTime(timeLeft)}</div>
+            <div className="text-6xl font-semibold tracking-tight tabular-nums">{formatTime(timeLeft)}</div>
             <Progress value={progress} className="h-2" />
           </div>
           <div className="flex justify-center gap-3">
@@ -126,34 +126,41 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
 
   // --- FULL FEATURE VIEW ---
   return (
-    <div className="space-y-6">
+    <div className="app-page">
+      <div className="app-page-header">
+        <div className="space-y-1">
+          <h2 className="app-page-title">Focus Timer</h2>
+          <p className="app-page-subtitle">Timed study sessions for your university work</p>
+        </div>
+      </div>
+
       {/* GPA REMINDER CARD */}
       <Card className="border-blue-100 bg-blue-50/20 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2 duration-500">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Target className="size-4 text-blue-600" />
-              <h3 className="text-[12px] font-bold text-blue-600 uppercase tracking-[0.2em] font-mono">GPA Focus Goal</h3>
+              <h3 className="text-sm font-semibold text-blue-700">GPA Focus Goal</h3>
             </div>
             <div className="px-4 py-1.5 bg-white border border-blue-100 rounded-full">
-              <span className="text-[12px] font-mono font-bold text-slate-500 uppercase">
-                Current CGPA: <span className="text-blue-600 text-[14px]">{currentCgpa.toFixed(2)}</span>
+              <span className="text-xs font-semibold text-slate-600">
+                Current CGPA: <span className="text-blue-600 text-sm">{currentCgpa.toFixed(2)}</span>
               </span>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-mono tabular-nums font-medium text-slate-900 leading-none">{suggestedHours}</span>
-                <span className="text-sm font-bold text-slate-400 uppercase font-sans">Hrs / Day</span>
+                <span className="text-4xl font-semibold tracking-tight tabular-nums text-slate-900 leading-none">{suggestedHours}</span>
+                <span className="text-sm font-semibold text-slate-500">hrs/day</span>
               </div>
-              <p className="text-[12px] font-mono text-slate-500 uppercase mt-2 tracking-tighter">
-                Targeting <span className="text-blue-600 font-black text-[14px]">{targetGpa.toFixed(2)}</span>
+              <p className="text-xs text-slate-600 mt-2">
+                Targeting <span className="text-blue-600 font-semibold text-sm">{targetGpa.toFixed(2)}</span>
               </p>
             </div>
             <div className="bg-white/60 border border-blue-100/50 p-4 rounded-xl flex gap-3 items-start">
               <TrendingUp className="size-5 text-emerald-500 mt-0.5 shrink-0" />
-              <p className="text-[13px] font-sans text-slate-700 leading-relaxed">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 <span className="font-semibold text-slate-900">To reach your goal,</span> dedicate <span className="font-bold text-blue-600">{suggestedHours} hours</span> today.
               </p>
             </div>
@@ -164,12 +171,12 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
       {/* FOCUS TIMER CARD */}
       <Card>
         <CardHeader>
-          <CardTitle>Focus Timer</CardTitle>
-          <CardDescription>Timed study sessions for your university work</CardDescription>
+          <CardTitle>Session Timer</CardTitle>
+          <CardDescription>Start, pause, or reset your current focus block</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">
-            <div className="text-7xl font-mono tabular-nums">{formatTime(timeLeft)}</div>
+            <div className="text-6xl font-semibold tracking-tight tabular-nums">{formatTime(timeLeft)}</div>
             <Progress value={progress} className="h-2" />
           </div>
           <div className="flex justify-center gap-3">
@@ -198,44 +205,44 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
           </Button>
 
           {showAnalysis && (
-            <div className="mt-12 space-y-12 animate-in fade-in slide-in-from-top-4 duration-500 font-mono">
+            <div className="mt-12 space-y-12 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="bg-blue-50/20 p-6 pb-12 rounded-2xl border border-blue-100/50 shadow-sm">
                 <div className="flex items-center gap-2 mb-8">
                   <BarChart2 className="size-4 text-blue-500" />
-                  <h2 className="text-[14px] font-bold text-blue-600 uppercase tracking-[0.2em] tabular-nums">Weekly Focus Trend</h2>
+                  <h2 className="text-sm font-semibold text-blue-700">Weekly Focus Trend</h2>
                 </div>
                 <div className="h-[240px] w-full px-2"><FocusTrendChart data={weeklyData} /></div>
               </div>
 
               <div className="pt-4 space-y-8">
-                <h2 className="text-[14px] font-bold text-blue-600 uppercase tracking-[0.2em] ml-1 tabular-nums">Performance Metrics</h2>
+                <h2 className="text-sm font-semibold text-blue-700 ml-1">Performance Metrics</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="bg-white border border-blue-100/50 p-6 rounded-2xl shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Today</p>
-                    <div className="text-4xl font-mono tabular-nums font-medium text-slate-900 leading-none">60<span className="text-base ml-1 text-slate-300 font-sans font-normal">m</span></div>
+                    <p className="text-xs font-semibold text-slate-500 mb-3">Today</p>
+                    <div className="text-4xl font-semibold tracking-tight tabular-nums text-slate-900 leading-none">60<span className="text-base ml-1 text-slate-400 font-normal">m</span></div>
                   </div>
                   <div className="bg-white border border-blue-100/50 p-6 rounded-2xl shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Avg Session</p>
-                    <div className="text-4xl font-mono tabular-nums font-medium text-slate-900 leading-none">54<span className="text-base ml-1 text-slate-300 font-sans font-normal">m</span></div>
+                    <p className="text-xs font-semibold text-slate-500 mb-3">Avg Session</p>
+                    <div className="text-4xl font-semibold tracking-tight tabular-nums text-slate-900 leading-none">54<span className="text-base ml-1 text-slate-400 font-normal">m</span></div>
                   </div>
                   <div className="bg-white border border-blue-100/50 p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center min-h-[160px]">
-                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-4">Weekly Diff</p>
+                    <p className="text-xs font-semibold text-blue-500 mb-4">Weekly Diff</p>
                     <div className="relative size-20">
                       <svg className="size-full -rotate-90" viewBox="0 0 36 36">
                         <circle cx="18" cy="18" r="16" fill="none" className="text-blue-50" strokeWidth="3" stroke="currentColor" />
                         <circle cx="18" cy="18" r="16" fill="none" className="text-emerald-500" strokeWidth="3" strokeDasharray="35, 100" strokeLinecap="round" stroke="currentColor" />
                       </svg>
-                      <div className="absolute inset-0 flex items-center justify-center text-emerald-600 font-mono font-bold text-sm">↑35%</div>
+                      <div className="absolute inset-0 flex items-center justify-center text-emerald-600 font-semibold text-sm">↑35%</div>
                     </div>
                   </div>
                   <div className="bg-white border border-blue-100/50 p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center min-h-[160px]">
-                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-4">Monthly Diff</p>
+                    <p className="text-xs font-semibold text-blue-500 mb-4">Monthly Diff</p>
                     <div className="relative size-20">
                       <svg className="size-full -rotate-90" viewBox="0 0 36 36">
                         <circle cx="18" cy="18" r="16" fill="none" className="text-blue-50" strokeWidth="3" stroke="currentColor" />
                         <circle cx="18" cy="18" r="16" fill="none" className="text-emerald-500" strokeWidth="3" strokeDasharray="57, 100" strokeLinecap="round" stroke="currentColor" />
                       </svg>
-                      <div className="absolute inset-0 flex items-center justify-center text-emerald-600 font-mono font-bold text-sm">↑57%</div>
+                      <div className="absolute inset-0 flex items-center justify-center text-emerald-600 font-semibold text-sm">↑57%</div>
                     </div>
                   </div>
                 </div>
@@ -243,11 +250,11 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
                 <div className="pt-4 space-y-4">
                   <div className="bg-white border border-blue-100/50 p-2 px-5 rounded-full inline-flex items-center gap-3 shadow-sm">
                     <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                    <p className="text-[11px] font-mono text-blue-600 uppercase tracking-widest">Current Trend: Sustained Growth</p>
+                    <p className="text-xs font-medium text-blue-700">Current Trend: Sustained Growth</p>
                   </div>
                   <div className="bg-emerald-50/40 border border-emerald-100/50 p-5 rounded-2xl flex items-center gap-4">
                     <span className="text-2xl">🔥</span>
-                    <p className="text-[15px] font-sans text-emerald-900 leading-tight">
+                    <p className="text-sm text-emerald-900 leading-tight">
                       <span className="font-bold">Great job!</span> You've already exceeded last month's focus time. Keep up the momentum!
                     </p>
                   </div>

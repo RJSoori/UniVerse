@@ -38,11 +38,17 @@ import {
   X,
   GraduationCap,
   UserRoundCheck,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function App() {
   const [activeSection, setActiveSection] = useState("landing");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const [logoHovering, setLogoHovering] = useState(false);
+  const [featureHovering, setFeatureHovering] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
@@ -124,72 +130,93 @@ export default function App() {
     activeSection === "jobposter-register";
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div
+      className={cn(
+        "min-h-screen overflow-x-hidden",
+        isEntryFlow
+          ? "bg-background"
+          : "bg-[radial-gradient(circle_at_15%_5%,rgba(37,99,235,0.10),transparent_34%),radial-gradient(circle_at_90%_100%,rgba(37,99,235,0.08),transparent_35%)] bg-background",
+      )}
+    >
       {isEntryFlow ? (
         <main key={activeSection} className="flex-1 min-w-0">{renderContent()}</main>
       ) : (
         <>
-          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="lg:hidden"
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                  >
-                    {sidebarOpen ? (
-                      <X className="size-5" />
-                    ) : (
-                      <Menu className="size-5" />
-                    )}
-                  </Button>
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 bg-primary rounded-lg flex items-center justify-center shadow-sm">
-                      <GraduationCap className="size-6 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-bold tracking-tight text-foreground">
-                        UniVerse
-                      </h1>
-                      <p className="text-xs text-muted-foreground hidden sm:block font-medium">
-                        Undergraduate Life Management System
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="fixed left-4 top-4 z-50 border-border/70 bg-background/95 shadow-md backdrop-blur-sm lg:hidden"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </Button>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right hidden md:block">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                      UoM Undergraduate
-                    </p>
-                    <p className="text-[10px] text-muted-foreground italic">
-                      Sprint Phase 2026
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveSection("settings")}
-                  >
-                    Settings
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <div className="container mx-auto px-4 py-6">
+          <div className="container mx-auto max-w-[1600px] px-4 py-6">
             <div className="flex gap-6">
               <aside
                 className={cn(
-                  "fixed inset-y-0 left-0 z-40 w-64 border-r bg-background pt-24 transition-transform lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:translate-x-0",
+                  "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-border/70 bg-gradient-to-b from-background via-background to-muted/25 shadow-xl shadow-black/5 transition-[width,transform] duration-300",
                   sidebarOpen ? "translate-x-0" : "-translate-x-full",
+                  "lg:translate-x-0",
+                  desktopSidebarCollapsed ? "lg:w-20" : "lg:w-72",
                 )}
               >
-                <nav className="space-y-1 p-4">
+                <div className="border-b border-border/70 bg-background/85 p-4 backdrop-blur-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="size-10 bg-primary rounded-lg flex items-center justify-center shadow-sm transition-all hover:brightness-110"
+                        onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
+                        onMouseEnter={() => setLogoHovering(true)}
+                        onMouseLeave={() => setLogoHovering(false)}
+                        aria-label={desktopSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        title={desktopSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                      >
+                        {logoHovering || (!desktopSidebarCollapsed && featureHovering) ? (
+                          desktopSidebarCollapsed ? (
+                            <ChevronRight className="size-6 text-primary-foreground" />
+                          ) : (
+                            <ChevronLeft className="size-6 text-primary-foreground" />
+                          )
+                        ) : (
+                          <GraduationCap className="size-6 text-primary-foreground" />
+                        )}
+                      </button>
+                      <div className={cn(desktopSidebarCollapsed && "lg:hidden")}>
+                        <h1 className="text-xl font-bold tracking-tight text-foreground">
+                          UniVerse
+                        </h1>
+                        <p className="text-xs text-muted-foreground font-medium">
+                          Undergraduate Life Management System
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="lg:hidden"
+                      onClick={() => setSidebarOpen(false)}
+                      aria-label="Close sidebar"
+                    >
+                      <X className="size-5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <nav
+                  className="flex-1 space-y-1 overflow-y-auto p-4"
+                  onMouseEnter={() => setFeatureHovering(true)}
+                  onMouseLeave={() => setFeatureHovering(false)}
+                >
+                  <p
+                    className={cn(
+                      "mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80",
+                      desktopSidebarCollapsed && "lg:hidden",
+                    )}
+                  >
+                    Navigation
+                  </p>
                   {navigation.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeSection === item.id;
@@ -198,9 +225,15 @@ export default function App() {
                       <Button
                         key={item.id}
                         variant={isActive ? "secondary" : "ghost"}
+                        title={item.name}
                         className={cn(
-                          "w-full justify-start gap-3",
-                          isActive ? "bg-secondary font-semibold" : "",
+                          "w-full rounded-xl transition-all duration-200",
+                          desktopSidebarCollapsed
+                            ? "justify-center px-0"
+                            : "justify-start gap-3",
+                          isActive
+                            ? "bg-primary/12 font-semibold text-primary ring-1 ring-primary/20 shadow-sm"
+                            : "hover:bg-muted/80 hover:translate-x-0.5",
                         )}
                         onClick={() => {
                           setActiveSection(item.id);
@@ -213,12 +246,21 @@ export default function App() {
                             isActive ? "text-primary" : "text-muted-foreground",
                           )}
                         />
-                        {item.name}
+                        <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>{item.name}</span>
                       </Button>
                     );
                   })}
 
                   <div className="my-4 border-t border-border" />
+
+                  <p
+                    className={cn(
+                      "mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80",
+                      desktopSidebarCollapsed && "lg:hidden",
+                    )}
+                  >
+                    Quick Access
+                  </p>
 
                   <Button
                     variant={
@@ -226,11 +268,15 @@ export default function App() {
                         ? "secondary"
                         : "ghost"
                     }
+                    title="Recruiter Portal"
                     className={cn(
-                      "w-full justify-start gap-3",
+                      "w-full rounded-xl transition-all duration-200",
+                      desktopSidebarCollapsed
+                        ? "justify-center px-0"
+                        : "justify-start gap-3",
                       activeSection === "jobposter-register"
-                        ? "bg-secondary font-semibold"
-                        : "",
+                        ? "bg-primary/12 font-semibold text-primary ring-1 ring-primary/20 shadow-sm"
+                        : "hover:bg-muted/80 hover:translate-x-0.5",
                     )}
                     onClick={() => {
                       setActiveSection("jobposter-register");
@@ -245,7 +291,7 @@ export default function App() {
                           : "text-muted-foreground",
                       )}
                     />
-                    Recruiter Portal
+                    <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Recruiter Portal</span>
                   </Button>
 
                   {/* ✅ Seller Portal */}
@@ -278,6 +324,36 @@ export default function App() {
                   </Button>
 
                 </nav>
+
+                <div className="border-t border-border/70 bg-background/80 p-4">
+                  <Button
+                    variant={activeSection === "settings" ? "secondary" : "ghost"}
+                    title="Settings"
+                    className={cn(
+                      "w-full rounded-xl transition-all duration-200",
+                      desktopSidebarCollapsed
+                        ? "justify-center px-0"
+                        : "justify-start gap-3",
+                      activeSection === "settings"
+                        ? "bg-primary/12 font-semibold text-primary ring-1 ring-primary/20 shadow-sm"
+                        : "hover:bg-muted/80 hover:translate-x-0.5",
+                    )}
+                    onClick={() => {
+                      setActiveSection("settings");
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <Settings
+                      className={cn(
+                        "size-5",
+                        activeSection === "settings"
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                    <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Settings</span>
+                  </Button>
+                </div>
               </aside>
 
               {sidebarOpen && (
@@ -287,8 +363,13 @@ export default function App() {
                 />
               )}
 
-              <main className="flex-1 min-w-0">
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <main
+                className={cn(
+                  "flex-1 min-w-0 transition-[margin] duration-300",
+                  desktopSidebarCollapsed ? "lg:ml-20" : "lg:ml-72",
+                )}
+              >
+                <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border/70 bg-background/80 p-3 backdrop-blur-[1px] duration-500 md:p-4">
                   {renderContent()}
                 </div>
               </main>

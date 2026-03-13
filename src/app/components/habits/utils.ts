@@ -16,18 +16,52 @@ export function toDateKey(date: Date) {
 }
 
 export function calculateStreak(completedDates: string[]) {
-  let streak = 0;
+  if (!completedDates || completedDates.length === 0) return 0;
+
+  const normalizeDateKey = (value: string): string | null => {
+    if (!value) return null;
+
+    // Current format used by app storage.
+    const plainDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (plainDatePattern.test(value)) return value;
+
+    // Legacy/ISO values: convert to local-day key to avoid timezone shifts.
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return toDateKey(parsed);
+  };
+
+  const normalizedDates = new Set<string>();
+  for (const raw of completedDates) {
+    const normalized = normalizeDateKey(raw);
+    if (normalized) normalizedDates.add(normalized);
+  }
+
+  if (normalizedDates.size === 0) return 0;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  for (let i = 0; i < 365; i += 1) {
-    const checkDate = new Date(today);
-    checkDate.setDate(today.getDate() - i);
-    const dateKey = toDateKey(checkDate);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
 
-    if (completedDates.includes(dateKey)) {
+  const hasToday = normalizedDates.has(toDateKey(today));
+  const hasYesterday = normalizedDates.has(toDateKey(yesterday));
+
+  // If neither today nor yesterday is completed, streak is broken.
+  if (!hasToday && !hasYesterday) return 0;
+
+  const startDate = hasToday ? today : yesterday;
+  let streak = 0;
+
+  for (let i = 0; i < 365; i += 1) {
+    const checkDate = new Date(startDate);
+    checkDate.setDate(startDate.getDate() - i);
+    const key = toDateKey(checkDate);
+
+    if (normalizedDates.has(key)) {
       streak += 1;
-    } else if (i !== 0) {
+    } else {
       break;
     }
   }

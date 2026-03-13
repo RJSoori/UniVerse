@@ -140,13 +140,13 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
   }
 
   return (
-      <div className="space-y-4">
-        <Card>
+      <div className="app-page">
+        <Card className="app-surface">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Todo List</CardTitle>
-                <CardDescription>{todos.filter((t) => !t.completed).length} pending tasks</CardDescription>
+            <div className="app-page-header">
+              <div className="space-y-1">
+                <h2 className="app-page-title">Todo List</h2>
+                <CardDescription className="app-page-subtitle">{todos.filter((t) => !t.completed).length} pending tasks</CardDescription>
               </div>
               <Button onClick={() => setShowAddForm(true)}>
                 <Plus className="mr-2 size-4" /> Add Task
