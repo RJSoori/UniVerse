@@ -8,7 +8,7 @@ import { Textarea } from "../ui/textarea";
 import {
     Building2, User, Upload, ArrowLeft, GraduationCap,
     Lock, UserPlus, Key, ImageIcon, Globe, Mail, MapPin, FileText,
-    ShieldCheck
+    ShieldCheck, Eye, EyeOff
 } from "lucide-react";
 import { useUniStorage } from "../../hooks/useUniStorage";
 import { AccessRecovery } from "./AccessRecovery";
@@ -25,27 +25,38 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
     const [showRecovery, setShowRecovery] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [isSettings, setIsSettings] = useState(false);
-    const [accessKey, setAccessKey] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Form States
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
     const [step, setStep] = useState(1);
     const [type, setType] = useState<"company" | "individual" | null>(null);
     const [isRegistered, setIsRegistered] = useState(false);
 
-    const [registeredKeys, setRegisteredKeys] = useUniStorage<string[]>("registered-recruiter-keys", ["uom-recruiter"]);
+    // Mock Data Store (Replace with Spring Boot API later)
+    const [registeredUsers, setRegisteredUsers] = useUniStorage<any[]>("registered-recruiters", [
+        { email: "recruiter@uom.lk", password: "password123" }
+    ]);
 
     const handleLogin = () => {
-        if (registeredKeys.includes(accessKey)) {
+        const user = registeredUsers.find(u => u.email === email && u.password === password);
+        if (user) {
             setIsAuthenticated(true);
             setStep(3);
             setIsRegistered(true);
             if (!type) setType('company');
         } else {
-            alert("Invalid Access Key.");
+            alert("Invalid email or password.");
         }
     };
 
-    const handleRegisterKey = () => {
-        if (accessKey.length < 6) return alert("Key too short.");
-        setRegisteredKeys([...registeredKeys, accessKey]);
+    const handleRegisterAccount = () => {
+        if (!email.includes("@")) return alert("Please enter a valid email.");
+        if (password.length < 6) return alert("Password must be at least 6 characters.");
+
+        setRegisteredUsers([...registeredUsers, { email, password }]);
         setIsAuthenticated(true);
         setStep(1);
     };
@@ -67,13 +78,14 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
         return (
             <RecruiterDashboard
                 type={type}
-                accessKey={accessKey}
+                accessKey={email} // Passing email as the identifier now
                 jobs={allJobs}
                 onPostNew={() => setIsPosting(true)}
                 onDeleteJob={handleDeleteJob}
                 onSignOut={() => {
                     setIsAuthenticated(false);
-                    setAccessKey("");
+                    setEmail("");
+                    setPassword("");
                     setStep(1);
                     setIsRegistered(false);
                 }}
@@ -97,7 +109,7 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                             <Lock className="text-primary size-6" />
                         </div>
                         <CardTitle>Recruiter Portal</CardTitle>
-                        <CardDescription>Secure access for talent acquisition</CardDescription>
+                        <CardDescription>Enter your credentials to manage postings</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Tabs defaultValue="login" className="w-full">
@@ -109,33 +121,62 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                     <UserPlus className="size-3" /> Register
                                 </TabsTrigger>
                             </TabsList>
+
                             <TabsContent value="login" className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Existing Access Key</Label>
+                                    <Label>Work Email</Label>
                                     <Input
-                                        type="password"
-                                        placeholder="Enter your key"
-                                        value={accessKey}
-                                        onChange={(e) => setAccessKey(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                                        type="email"
+                                        placeholder="name@company.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
-                                <Button className="w-full" onClick={handleLogin}>Access Account</Button>
+                                <div className="space-y-2">
+                                    <Label>Password</Label>
+                                    <div className="relative">
+                                        <Input
+                                            type={showPassword ? "text" : "password"}
+                                            placeholder="Enter password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                                        >
+                                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <Button className="w-full" onClick={handleLogin}>Sign In</Button>
                                 <Button variant="link" className="w-full text-xs text-muted-foreground hover:text-primary" onClick={() => setShowRecovery(true)}>
-                                    Forgot Access Key?
+                                    Forgot Password?
                                 </Button>
                             </TabsContent>
+
                             <TabsContent value="register" className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Create New Access Key</Label>
+                                    <Label>Work Email</Label>
                                     <Input
-                                        type="text"
-                                        placeholder="e.g. company-name-2026"
-                                        value={accessKey}
-                                        onChange={(e) => setAccessKey(e.target.value)}
+                                        type="email"
+                                        placeholder="recruitment@company.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
-                                <Button className="w-full" variant="secondary" onClick={handleRegisterKey}>Create Account</Button>
+                                <div className="space-y-2">
+                                    <Label>Create Password</Label>
+                                    <Input
+                                        type="password"
+                                        placeholder="Min. 6 characters"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                </div>
+                                <Button className="w-full" variant="secondary" onClick={handleRegisterAccount}>Create Account</Button>
                             </TabsContent>
                         </Tabs>
                     </CardContent>
@@ -233,7 +274,7 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                         <Label className="text-xs font-bold uppercase tracking-widest opacity-70">Official Email</Label>
                                         <div className="relative">
                                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                                            <Input className="pl-10 h-11 bg-muted/20 border-none" type="email" placeholder="recruitment@org.com" />
+                                            <Input className="pl-10 h-11 bg-muted/20 border-none" type="email" value={email} readOnly />
                                         </div>
                                     </div>
                                 </div>
@@ -259,7 +300,7 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                 </div>
                                 <div className="md:col-span-2 space-y-2">
                                     <Label className="text-xs font-bold uppercase tracking-widest opacity-70">Brief Description</Label>
-                                    <Textarea className="resize-none h-28 bg-muted/20 border-none p-4" placeholder="Briefly describe your recruitment focus or mission..." />
+                                    <Textarea className="resize-none h-28 bg-muted/20 border-none p-4" placeholder="Briefly describe your recruitment focus..." />
                                 </div>
 
                                 <div className="md:col-span-2 pt-6">
@@ -270,7 +311,6 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                                 <Upload className="size-6 text-muted-foreground group-hover:text-primary" />
                                             </div>
                                             <span className="text-xs font-bold mt-1">{type === 'company' ? 'BR Certificate' : 'ID Document'}</span>
-                                            <p className="text-[10px] text-muted-foreground text-center">PDF or High-res Image</p>
                                         </div>
                                         {type === 'company' && (
                                             <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
@@ -278,7 +318,6 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                                     <ImageIcon className="size-6 text-muted-foreground group-hover:text-primary" />
                                                 </div>
                                                 <span className="text-xs font-bold mt-1">Company Logo</span>
-                                                <p className="text-[10px] text-muted-foreground text-center">PNG / SVG Preferred</p>
                                             </div>
                                         )}
                                         <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
@@ -286,7 +325,6 @@ export function JobRegistration({ onNavigate }: { onNavigate?: (section: string)
                                                 <ShieldCheck className="size-6 text-muted-foreground group-hover:text-primary" />
                                             </div>
                                             <span className="text-xs font-bold mt-1">Letter of Auth</span>
-                                            <p className="text-[10px] text-muted-foreground text-center">Optional verification proof</p>
                                         </div>
                                     </div>
                                 </div>
