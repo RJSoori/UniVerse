@@ -301,11 +301,15 @@ export default function App() {
                         ? "secondary"
                         : "ghost"
                     }
+                    title="Seller Portal"
                     className={cn(
-                      "w-full justify-start gap-3",
+                      "w-full rounded-xl transition-all duration-200",
+                      desktopSidebarCollapsed
+                        ? "justify-center px-0"
+                        : "justify-start gap-3",
                       activeSection === "seller-register" || activeSection === "seller-dashboard"
-                        ? "bg-secondary font-semibold"
-                        : "",
+                        ? "bg-primary/12 font-semibold text-primary ring-1 ring-primary/20 shadow-sm"
+                        : "hover:bg-muted/80 hover:translate-x-0.5",
                     )}
                     onClick={() => {
                       setActiveSection("seller-register");
@@ -320,7 +324,7 @@ export default function App() {
                           : "text-muted-foreground",
                       )}
                     />
-                    Seller Portal
+                    <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Seller Portal</span>
                   </Button>
 
                 </nav>
