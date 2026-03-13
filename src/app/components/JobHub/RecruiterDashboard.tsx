@@ -48,9 +48,7 @@ export function RecruiterDashboard({
                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-primary/5">
                                     Verified {type}
                                 </Badge>
-                                <span className="text-[10px] text-muted-foreground font-mono">
-                                    KEY: {accessKey.replace(/./g, '*')}
-                                </span>
+                                
                             </div>
                         </div>
                     </div>
