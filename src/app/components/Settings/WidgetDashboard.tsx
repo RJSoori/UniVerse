@@ -1,4 +1,5 @@
 import SleepSuggestionCard from "./SleepSuggestionCard";
+import ProductivityGapCard from "./ProductivityGapCard";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -113,7 +114,6 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
     };
 
     loadData();
-    // Listening for custom event to ensure real-time dashboard updates
     window.addEventListener("local-storage-update", loadData);
     return () => window.removeEventListener("local-storage-update", loadData);
   }, []);
@@ -135,7 +135,11 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
         </div>
       </div>
 
-      <SleepSuggestionCard />
+      {/* SUGGESTION CARDS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SleepSuggestionCard />
+        <ProductivityGapCard />
+      </div>
 
       {/* Primary Statistics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -186,6 +190,7 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Left Section */}
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <TodoList compact maxItems={5} />
@@ -318,13 +323,8 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
               </CardContent>
             </Card>
           </div>
-        </div>
 
-        {/* Sidebar Widgets */}
-        <div className="space-y-6">
-          <MoneyWidget onNavigate={onNavigate} compact />
-          <GpaWidget onNavigate={onNavigate} compact />
-          <FocusTimer compact />
+          {/* Project Team Card - Moved here to the bottom left section */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
@@ -335,8 +335,8 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-2 rounded-lg border bg-slate-50/50">
                   <div className="flex items-center gap-2">
                     <div className="size-7 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700">
                       SC
@@ -347,7 +347,7 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
                     12d streak
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-2 rounded-lg border bg-slate-50/50">
                   <div className="flex items-center gap-2">
                     <div className="size-7 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-bold text-purple-700">
                       MJ
@@ -361,6 +361,13 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Sidebar Widgets (Right) */}
+        <div className="space-y-6">
+          <MoneyWidget onNavigate={onNavigate} compact />
+          <GpaWidget onNavigate={onNavigate} compact />
+          <FocusTimer compact />
         </div>
       </div>
     </div>
