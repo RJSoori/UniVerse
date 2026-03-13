@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
@@ -71,32 +72,34 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
 
   // --- ZEN MODE / FULLSCREEN OVERLAY ---
   if (isFullscreen) {
-    return (
-      <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[9999] animate-in fade-in duration-300">
-        <div className="text-center space-y-12 w-full max-w-5xl px-10">
+    const fullscreenOverlay = (
+      <div className="fixed inset-0 z-[9999] bg-white/95 backdrop-blur-sm flex items-center justify-center p-6 sm:p-10 overflow-hidden">
+        <div className="text-center space-y-8 w-full max-w-6xl animate-in fade-in duration-300">
           {/* Huge Countdown Display */}
-          <div className="text-[15rem] md:text-[22rem] font-mono tabular-nums text-slate-900 leading-none tracking-tighter">
+          <div className="text-[clamp(4.5rem,20vw,14rem)] font-mono tabular-nums text-slate-900 leading-[0.9] tracking-tight">
             {formatTime(timeLeft)}
           </div>
-          
+
           <div className="w-full max-w-3xl mx-auto">
              <Progress value={progress} className="h-3 bg-slate-100" />
           </div>
 
-          <div className="flex gap-6 justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
-            <Button onClick={toggleTimer} variant="outline" size="lg" className="rounded-full h-20 w-20 border-slate-200">
+          <div className="flex gap-4 justify-center">
+            <Button onClick={toggleTimer} variant="outline" size="lg" className="rounded-full h-16 w-16 border-slate-200">
               {isRunning ? <Pause className="size-8" /> : <Play className="size-8 fill-slate-900" />}
             </Button>
-            <Button onClick={resetTimer} variant="outline" size="lg" className="rounded-full h-20 w-20 border-slate-200">
+            <Button onClick={resetTimer} variant="outline" size="lg" className="rounded-full h-16 w-16 border-slate-200">
               <RotateCcw className="size-8 text-slate-600" />
             </Button>
-            <Button onClick={toggleFullscreen} variant="outline" size="lg" className="rounded-full h-20 w-20 border-slate-200">
+            <Button onClick={toggleFullscreen} variant="outline" size="lg" className="rounded-full h-16 w-16 border-slate-200">
               <Minimize className="size-8 text-slate-600" />
             </Button>
           </div>
         </div>
       </div>
     );
+
+    return createPortal(fullscreenOverlay, document.body);
   }
 
   // --- DASHBOARD VIEW (COMPACT) ---
