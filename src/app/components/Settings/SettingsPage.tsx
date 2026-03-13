@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
+import { Lock, X } from "lucide-react";
 
 interface SettingsPageProps {
   onNavigate?: (id: string) => void;
@@ -14,16 +15,44 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const [theme, setTheme] = useState<"light" | "dark">(
     (localStorage.getItem("theme") as "light" | "dark") || "light"
   );
+  
+  // New States for Password Verification
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // Apply theme globally on mount
   useEffect(() => {
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(theme);
   }, [theme]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSaveAttempt = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if sensitive fields (Name or Username) changed
+    const hasSensitiveChanges = name !== storedUser.name || username !== storedUser.username;
+
+    if (hasSensitiveChanges) {
+      setIsVerifying(true);
+    } else {
+      performSave();
+    }
+  };
+
+  const verifyAndSave = () => {
+    // Check against the password stored in local storage
+    if (passwordInput === storedUser.password) {
+      performSave();
+      setIsVerifying(false);
+      setPasswordInput("");
+      setError("");
+    } else {
+      setError("Incorrect password. Please try again.");
+    }
+  };
+
+  const performSave = () => {
     const updatedUser = { ...storedUser, name, username, email };
     localStorage.setItem("user", JSON.stringify(updatedUser));
     setMessage("Changes saved!");
@@ -38,9 +67,52 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col justify-center p-4 relative">
+      
+      {/* Password Verification Modal */}
+      {isVerifying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-foreground">
+                <Lock className="size-4 text-blue-600" />
+                <h3 className="font-bold text-sm">Verify Identity</h3>
+              </div>
+              <button onClick={() => setIsVerifying(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-5" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Please enter your password to confirm changes to your Name or Username.
+            </p>
+
+            <div className="space-y-2">
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                autoFocus
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                onKeyDown={(e) => e.key === 'Enter' && verifyAndSave()}
+              />
+              {error && <p className="text-[10px] font-bold text-destructive">{error}</p>}
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 text-xs" onClick={() => setIsVerifying(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={verifyAndSave}>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto w-full">
-        
         {/* Header */}
         <div className="flex items-end justify-between mb-4 px-2">
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">Settings</h1>
@@ -56,7 +128,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
         {/* Profile Card */}
         <div className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden">
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSaveAttempt}>
             <div className="p-6 md:p-8 space-y-6">
               
               {/* Profile Section */}
