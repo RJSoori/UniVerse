@@ -70,10 +70,10 @@ export function HabitTracker() {
   const suggestedHabitExists = habits.some((h) => h.name === "Early Morning Focus");
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Habit Tracker</h2>
-        <p className="text-muted-foreground text-sm">Build consistency in your daily routine</p>
+    <div className="app-page">
+      <div className="space-y-1">
+        <h2 className="app-page-title">Habit Tracker</h2>
+        <p className="app-page-subtitle">Build consistency in your daily routine</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -41,14 +41,13 @@ export function JobHub({ onNavigate }: JobHubProps) {
   });
 
   return (
-      <div className="space-y-6 pb-20 animate-in fade-in duration-700">
-        {/* --- Header Section --- */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-black tracking-tighter">Job Hub</h2>
-            <p className="text-muted-foreground text-sm font-medium">Verified opportunities from the UniVerse network.</p>
+      <div className="app-page pb-20">
+        <div className="app-page-header">
+          <div className="space-y-1">
+            <h2 className="app-page-title">Job Hub</h2>
+            <p className="app-page-subtitle">Verified opportunities from the UniVerse network.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="app-page-actions gap-3">
             <Button
                 variant="outline"
                 onClick={() => onNavigate?.("skills-manager")}

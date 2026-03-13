@@ -27,7 +27,12 @@ export function GpaCalculator() {
   const insightMessage = getInsightMessage();
 
   return (
-    <div className="space-y-6">
+    <div className="app-page">
+      <div className="space-y-1">
+        <h2 className="app-page-title">GPA Calculator</h2>
+        <p className="app-page-subtitle">Track your CGPA, semesters, and graduation targets</p>
+      </div>
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

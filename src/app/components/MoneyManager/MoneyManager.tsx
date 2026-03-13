@@ -60,16 +60,16 @@ export function MoneyManager() {
   const totalExpenses = getTotalExpenses();
 
   return (
-    <div className="space-y-6">
+    <div className="app-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Money Manager</h2>
-          <p className="text-muted-foreground text-sm">
+      <div className="app-page-header">
+        <div className="space-y-1">
+          <h2 className="app-page-title">Money Manager</h2>
+          <p className="app-page-subtitle">
             Manage your budget, wallets, and track spending
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="app-page-actions">
           <Button
             variant="outline"
             size="sm"
