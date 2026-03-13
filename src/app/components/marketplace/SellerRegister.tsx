@@ -4,15 +4,14 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { ShoppingBag, CheckCircle, UserPlus, Key } from "lucide-react";
+import { ShoppingBag, UserPlus, Key, Loader2 } from "lucide-react";
 
 export default function SellerRegister({ onNavigate }: { onNavigate: (id: string) => void }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // Register state
   const [fullName, setFullName] = useState("");
@@ -22,6 +21,7 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   const [registerError, setRegisterError] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   const handleLogin = () => {
     if (!loginEmail || !loginPassword) {
@@ -34,7 +34,11 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
     }
     // Placeholder: connect to backend here
     console.log("Seller login:", { loginEmail, loginPassword });
-    setIsAuthenticated(true);
+    setLoginLoading(true);
+    // ✅ setTimeout forces a real re-render cycle before navigation
+    setTimeout(() => {
+      onNavigate("seller-dashboard");
+    }, 100);
   };
 
   const handleRegister = () => {
@@ -56,31 +60,12 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
     }
     // Placeholder: connect to backend here
     console.log("Seller registration:", { fullName, email, password, storeName, storeDescription });
-    setIsAuthenticated(true);
+    setRegisterLoading(true);
+    // ✅ setTimeout forces a real re-render cycle before navigation
+    setTimeout(() => {
+      onNavigate("seller-dashboard");
+    }, 100);
   };
-
-  // Success screen after login or register
-  if (isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto pt-20">
-        <Card className="border-primary/20 shadow-xl">
-          <CardContent className="p-10 flex flex-col items-center gap-4 text-center">
-            <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center">
-              <CheckCircle className="text-green-600 size-8" />
-            </div>
-            <h2 className="text-2xl font-bold">Welcome to UniVerse!</h2>
-            <p className="text-muted-foreground text-sm">
-              Your seller account is ready. Start listing your products for the campus community.
-            </p>
-            {/* TODO: Replace with seller dashboard navigation once built */}
-            <Button className="w-full mt-2" onClick={() => onNavigate("marketplace")}>
-              Go to Marketplace
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-md mx-auto pt-20">
@@ -128,7 +113,8 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
               {loginError && (
                 <p className="text-xs text-destructive">{loginError}</p>
               )}
-              <Button className="w-full" onClick={handleLogin}>
+              <Button className="w-full" onClick={handleLogin} disabled={loginLoading}>
+                {loginLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Access Account
               </Button>
               <Button
@@ -199,8 +185,9 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
               {registerError && (
                 <p className="text-xs text-destructive">{registerError}</p>
               )}
-              <Button className="w-full" variant="secondary" onClick={handleRegister}>
-                <UserPlus className="mr-2 size-4" /> Create Seller Account
+              <Button className="w-full" variant="secondary" onClick={handleRegister} disabled={registerLoading}>
+                {registerLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <UserPlus className="mr-2 size-4" />}
+                Create Seller Account
               </Button>
               <Button
                 variant="link"
