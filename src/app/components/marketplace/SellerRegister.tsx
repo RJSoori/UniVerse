@@ -6,6 +6,25 @@ import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ShoppingBag, UserPlus, Key, Loader2 } from "lucide-react";
 
+interface SellerAccount {
+  fullName: string;
+  storeName: string;
+  storeDescription: string;
+  password: string;
+}
+
+function getAccounts(): Record<string, SellerAccount> {
+  try {
+    return JSON.parse(localStorage.getItem("universe-seller-accounts") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveAccounts(accounts: Record<string, SellerAccount>) {
+  localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
+}
+
 export default function SellerRegister({ onNavigate }: { onNavigate: (id: string) => void }) {
   // Login state
   const [loginEmail, setLoginEmail] = useState("");
@@ -24,47 +43,85 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
   const [registerLoading, setRegisterLoading] = useState(false);
 
   const handleLogin = () => {
+    setLoginError("");
+
+    // 1. Empty field check
     if (!loginEmail || !loginPassword) {
       setLoginError("Please fill in all fields.");
       return;
     }
+
+    // 2. Email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
       setLoginError("Please enter a valid email address.");
       return;
     }
-    // Placeholder: connect to backend here
-    console.log("Seller login:", { loginEmail, loginPassword });
+
+    // 3. Password length check
+    if (loginPassword.length < 8) {
+      setLoginError("Password must be at least 8 characters.");
+      return;
+    }
+
+    // 4. Check account exists
+    const accounts = getAccounts();
+    const account = accounts[loginEmail.toLowerCase()];
+    if (!account) {
+      setLoginError("No seller account found with this email. Please register first.");
+      return;
+    }
+
+    // 5. Check password matches
+    if (account.password !== loginPassword) {
+      setLoginError("Incorrect password. Please try again.");
+      return;
+    }
+
+    // ✅ All checks passed — now navigate
     setLoginLoading(true);
-    // ✅ setTimeout forces a real re-render cycle before navigation
-    setTimeout(() => {
-      onNavigate("seller-dashboard");
-    }, 100);
+    setTimeout(() => onNavigate("seller-dashboard"), 100);
   };
 
   const handleRegister = () => {
+    setRegisterError("");
+
+    // 1. Empty field check
     if (!fullName || !email || !password || !confirmPassword || !storeName || !storeDescription) {
       setRegisterError("Please fill in all fields.");
       return;
     }
+
+    // 2. Email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setRegisterError("Please enter a valid email address.");
       return;
     }
+
+    // 3. Password length check
     if (password.length < 8) {
       setRegisterError("Password must be at least 8 characters.");
       return;
     }
+
+    // 4. Password match check
     if (password !== confirmPassword) {
       setRegisterError("Passwords do not match.");
       return;
     }
-    // Placeholder: connect to backend here
-    console.log("Seller registration:", { fullName, email, password, storeName, storeDescription });
+
+    // 5. Duplicate account check
+    const accounts = getAccounts();
+    if (accounts[email.toLowerCase()]) {
+      setRegisterError("An account with this email already exists. Please log in.");
+      return;
+    }
+
+    // ✅ All checks passed — save account and navigate
+    accounts[email.toLowerCase()] = { fullName, storeName, storeDescription, password };
+    saveAccounts(accounts);
+
     setRegisterLoading(true);
-    // ✅ setTimeout forces a real re-render cycle before navigation
-    setTimeout(() => {
-      onNavigate("seller-dashboard");
-    }, 100);
+    setTimeout(() => onNavigate("seller-dashboard"), 100);
   };
 
   return (
@@ -88,7 +145,7 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
               </TabsTrigger>
             </TabsList>
 
-            {/* Login Tab */}
+            {/* ── Login Tab ── */}
             <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
                 <Label>Email Address</Label>
@@ -126,7 +183,7 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
               </Button>
             </TabsContent>
 
-            {/* Register Tab */}
+            {/* ── Register Tab ── */}
             <TabsContent value="register" className="space-y-4">
               <div className="space-y-2">
                 <Label>Full Name</Label>
