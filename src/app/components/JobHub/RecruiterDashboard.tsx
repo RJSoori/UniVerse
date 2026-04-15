@@ -34,6 +34,10 @@ export function RecruiterDashboard({
                                        onDeleteJob,
                                        onOpenSettings
                                    }: RecruiterDashboardProps) {
+
+    // ✅ FILTER: Only show jobs posted by THIS recruiter's email (accessKey)
+    const myJobs = jobs.filter(job => job.postedBy === accessKey);
+
     return (
         <div className="min-h-screen bg-background p-6 animate-in fade-in duration-500">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -48,7 +52,7 @@ export function RecruiterDashboard({
                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-primary/5">
                                     Verified {type}
                                 </Badge>
-                                
+                                <span className="text-xs text-muted-foreground font-medium italic">{accessKey}</span>
                             </div>
                         </div>
                     </div>
@@ -87,7 +91,8 @@ export function RecruiterDashboard({
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground font-medium">Active Posts</p>
-                                <p className="text-2xl font-bold">{jobs.length}</p>
+                                {/* ✅ Stat now reflects only personal jobs */}
+                                <p className="text-2xl font-bold">{myJobs.length}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -123,15 +128,16 @@ export function RecruiterDashboard({
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
-                        {jobs.length === 0 ? (
+                        {/* ✅ Logic now checks the filtered list length */}
+                        {myJobs.length === 0 ? (
                             <div className="py-24 bg-muted/20 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center text-muted-foreground text-center px-4">
                                 <Briefcase className="size-16 mb-4 opacity-10" />
                                 <p className="font-semibold text-lg">Your dashboard is empty</p>
                                 <p className="text-sm max-w-xs">Click "Create Posting" to attract university talent from across the ecosystem.</p>
                             </div>
                         ) : (
-                            jobs.map(job => (
-                                <Card key={job.id} className="group hover:border-primary/40 transition-all border-border/60">
+                            myJobs.map(job => (
+                                <Card key={job.id} className="group hover:border-primary/40 transition-all border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
                                     <CardContent className="p-0">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
                                             <div className="flex items-start gap-5">
@@ -139,10 +145,10 @@ export function RecruiterDashboard({
                                                     <Briefcase className="size-7 text-muted-foreground group-hover:text-primary transition-colors" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-xl font-bold">{job.title}</h4>
+                                                    <h4 className="text-xl font-bold tracking-tight">{job.title}</h4>
                                                     <div className="flex flex-wrap gap-2 mt-2">
-                                                        <Badge variant="secondary" className="text-[10px] uppercase">{job.workType}</Badge>
-                                                        <Badge variant="outline" className="text-[10px]">{job.salaryInfo}</Badge>
+                                                        <Badge variant="secondary" className="text-[10px] uppercase font-bold">{job.workType}</Badge>
+                                                        <Badge variant="outline" className="text-[10px] font-medium border-primary/20">{job.salaryInfo}</Badge>
                                                         <span className="text-[11px] text-muted-foreground flex items-center gap-1 ml-2">
                                                             <Clock className="size-3" /> Posted {job.postedAt}
                                                         </span>
@@ -150,13 +156,13 @@ export function RecruiterDashboard({
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <Button variant="outline" size="sm" className="h-10">
+                                                <Button variant="outline" size="sm" className="h-10 rounded-xl">
                                                     <ExternalLink className="mr-2 size-4" /> View Applicants
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-10 w-10 text-destructive hover:bg-destructive/10"
+                                                    className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-xl"
                                                     onClick={() => {
                                                         if(confirm("Are you sure you want to delete this posting?")) {
                                                             onDeleteJob(job.id);

@@ -14,16 +14,15 @@ import {
     ClipboardCheck,
     SendHorizontal,
     Sparkles,
-    Clock,
-    UserCheck
 } from "lucide-react";
 
 interface JobPostingProps {
     onBack: () => void;
     onPost: (job: any) => void;
+    recruiterEmail: string;
 }
 
-export function JobPosting({ onBack, onPost }: JobPostingProps) {
+export function JobPosting({ onBack, onPost, recruiterEmail }: JobPostingProps) {
     const [salaryType, setSalaryType] = useState("monthly");
     const [formData, setFormData] = useState({
         title: "",
@@ -40,9 +39,11 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
             alert("Please fill in the essential job details.");
             return;
         }
+
         onPost({
             ...formData,
             id: Date.now().toString(),
+            postedBy: recruiterEmail,
             salaryInfo: `${formData.salary} LKR / ${salaryType}`,
             postedAt: new Date().toLocaleDateString()
         });
@@ -85,7 +86,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                             <Label>Job Description</Label>
                             <Textarea
                                 placeholder="Describe the role and day-to-day responsibilities..."
-                                className="min-h-[120px] resize-none"
+                                className="min-h-[120px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
                                 value={formData.description}
                                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                             />
@@ -105,7 +106,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                             <Label>Qualifications</Label>
                             <Textarea
                                 placeholder="Education, certifications, or experience..."
-                                className="min-h-[100px] resize-none"
+                                className="min-h-[100px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
                                 value={formData.requirements}
                                 onChange={(e) => setFormData({...formData, requirements: e.target.value})}
                             />
@@ -114,7 +115,7 @@ export function JobPosting({ onBack, onPost }: JobPostingProps) {
                             <Label>Technical/Soft Skills</Label>
                             <Textarea
                                 placeholder="e.g. React, Python, Project Management..."
-                                className="min-h-[100px] resize-none"
+                                className="min-h-[100px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
                                 value={formData.skills}
                                 onChange={(e) => setFormData({...formData, skills: e.target.value})}
                             />
