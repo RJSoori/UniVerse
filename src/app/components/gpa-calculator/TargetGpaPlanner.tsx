@@ -4,41 +4,49 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import { Target, TrendingUp } from "lucide-react";
+import { AlertCircle, Target, TrendingUp } from "lucide-react";
 import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 import { getTargetGpaResult } from "./utils/targetGpaCalculator";
+import { getEffectiveGpaScale } from "./utils/gpaPrediction";
+import {
+  validatePlannerInputs,
+  validateRecommendationFeasibility,
+} from "../../utils/validation";
 
 export function TargetGpaPlanner() {
-  const { getCgpa, getTotalCredits, settings } = useGpaCalculator();
+  const { getCgpa, getGpaCredits, settings } = useGpaCalculator();
   const [targetCgpa, setTargetCgpa] = useState<string>("");
   const [nextCredits, setNextCredits] = useState<string>("");
   const [result, setResult] = useState<any>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const currentCgpa = getCgpa();
-  const completedCredits = getTotalCredits();
-  const maxGpa = settings.gradingMode === "extended" ? 4.2 : 4.0;
+  const completedCredits = getGpaCredits();
+  const maxGpa = getEffectiveGpaScale(settings);
 
   const handleCalculate = () => {
-    const target = parseFloat(targetCgpa);
-    const credits = parseFloat(nextCredits);
-
-    if (
-      isNaN(target) ||
-      isNaN(credits) ||
-      target < 0 ||
-      target > maxGpa ||
-      credits <= 0
-    ) {
+    setErrors({});
+    const validation = validatePlannerInputs({ targetCgpa, nextCredits }, maxGpa);
+    if (!validation.ok) {
+      setResult(null);
+      setErrors(validation.errors);
       return;
     }
 
     const calculationResult = getTargetGpaResult(
       currentCgpa,
       completedCredits,
-      credits,
-      target,
+      validation.value.nextCredits,
+      validation.value.targetCgpa,
       maxGpa,
     );
+    const feasibility = validateRecommendationFeasibility(
+      calculationResult.requiredSgpa,
+      maxGpa,
+    );
+    if (!feasibility.ok) {
+      setErrors(feasibility.errors);
+    }
     setResult(calculationResult);
   };
 
@@ -68,7 +76,7 @@ export function TargetGpaPlanner() {
               <div className="text-2xl font-bold">{currentCgpa.toFixed(2)}</div>
             </div>
             <div className="space-y-2">
-              <Label>Completed Credits</Label>
+              <Label>Completed GPA Credits</Label>
               <div className="text-2xl font-bold">{completedCredits}</div>
             </div>
           </div>
@@ -83,9 +91,21 @@ export function TargetGpaPlanner() {
                 min="0"
                 max={maxGpa}
                 value={targetCgpa}
-                onChange={(e) => setTargetCgpa(e.target.value)}
+                onChange={(e) => {
+                  setTargetCgpa(e.target.value);
+                  if (errors.targetCgpa) {
+                    setErrors((prev) => ({ ...prev, targetCgpa: "" }));
+                  }
+                }}
                 placeholder={`e.g., 3.75`}
+                className={errors.targetCgpa ? "border-red-500" : ""}
               />
+              {errors.targetCgpa && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.targetCgpa}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="nextCredits">Next Semester Credits</Label>
@@ -94,9 +114,21 @@ export function TargetGpaPlanner() {
                 type="number"
                 min="1"
                 value={nextCredits}
-                onChange={(e) => setNextCredits(e.target.value)}
+                onChange={(e) => {
+                  setNextCredits(e.target.value);
+                  if (errors.nextCredits) {
+                    setErrors((prev) => ({ ...prev, nextCredits: "" }));
+                  }
+                }}
                 placeholder="e.g., 18"
+                className={errors.nextCredits ? "border-red-500" : ""}
               />
+              {errors.nextCredits && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.nextCredits}
+                </p>
+              )}
             </div>
           </div>
 
@@ -136,14 +168,24 @@ export function TargetGpaPlanner() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Result</Label>
-              <p className="text-sm">{result.message}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Result</Label>
+                <p className="text-sm">{result.message}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Difficulty</Label>
+                <p className="text-sm font-medium">{result.difficulty}</p>
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label>Insight</Label>
-              <p className="text-sm text-muted-foreground">{result.insight}</p>
+              <p
+                className={`text-sm ${result.isFeasible ? "text-muted-foreground" : "text-red-600"}`}
+              >
+                {result.insight}
+              </p>
             </div>
           </CardContent>
         </Card>

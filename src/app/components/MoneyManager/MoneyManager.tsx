@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import { useMoneyManager } from "../../hooks/useMoneyManager";
+import { formatCurrency } from "../../utils/currencyUtils";
 import { SetupWizard } from "./SetupWizard";
 import { WalletManager } from "./WalletManager";
 import { AddTransactionForm } from "./AddTransactionForm";
@@ -19,6 +20,7 @@ import { BudgetTracker } from "./BudgetTracker";
 import { InsightsEngine } from "./InsightsEngine";
 import { SearchTransactions } from "./SearchTransactions";
 import { ReportsDashboard } from "./ReportsDashboard";
+import { QuickAddTransaction } from "./QuickAddTransaction";
 import {
   Wallet,
   TrendingUp,
@@ -26,11 +28,13 @@ import {
   PieChart,
   BarChart3,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 
 export function MoneyManager() {
   const {
     settings,
+    wallets,
     getBalance,
     getTotalIncome,
     getTotalExpenses,
@@ -39,6 +43,7 @@ export function MoneyManager() {
   } = useMoneyManager();
   const [activeTab, setActiveTab] = useState("overview");
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showWizard, setShowWizard] = useState(
     !settings.firstTimeSetupCompleted,
   );
@@ -59,6 +64,11 @@ export function MoneyManager() {
   const totalIncome = getTotalIncome();
   const totalExpenses = getTotalExpenses();
 
+  // Helper function to get balance color based on value
+  const getBalanceColorClassName = (bal: number) => {
+    return bal >= 0 ? "text-emerald-600" : "text-destructive";
+  };
+
   return (
     <div className="app-page">
       {/* Header */}
@@ -78,10 +88,11 @@ export function MoneyManager() {
             Edit Budget
           </Button>
           <Button
-            onClick={() => setShowAddTransaction(!showAddTransaction)}
+            variant="secondary"
+            onClick={() => setShowQuickAdd(true)}
             className="gap-2"
           >
-            <TrendingDown className="h-4 w-4" /> Add Transaction
+            <Plus className="h-4 w-4" /> Quick Add
           </Button>
         </div>
       </div>
@@ -97,9 +108,9 @@ export function MoneyManager() {
           </CardHeader>
           <CardContent>
             <div
-              className={`text-2xl font-bold ${balance >= 0 ? "text-emerald-600" : "text-destructive"}`}
+              className={`text-2xl font-bold ${getBalanceColorClassName(balance)}`}
             >
-              LKR {balance.toLocaleString()}
+              {formatCurrency(balance)}
             </div>
           </CardContent>
         </Card>
@@ -111,7 +122,7 @@ export function MoneyManager() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">
-              LKR {totalIncome.toLocaleString()}
+              {formatCurrency(totalIncome)}
             </div>
           </CardContent>
         </Card>
@@ -125,7 +136,7 @@ export function MoneyManager() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              LKR {totalExpenses.toLocaleString()}
+              {formatCurrency(totalExpenses)}
             </div>
           </CardContent>
         </Card>
@@ -137,6 +148,16 @@ export function MoneyManager() {
           <AddTransactionForm onClose={() => setShowAddTransaction(false)} />
         </div>
       )}
+
+      {/* Quick Add Floating Action Button */}
+      <QuickAddTransaction open={showQuickAdd} onOpenChange={setShowQuickAdd} />
+      <button
+        className="fixed bottom-6 right-6 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30"
+        onClick={() => setShowQuickAdd(true)}
+        aria-label="Quick add transaction"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -191,7 +212,31 @@ export function MoneyManager() {
               <TransactionList />
             </div>
             <div>
-              <AddTransactionForm compact />
+              {wallets.length === 0 ? (
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="pt-6">
+                    <div className="text-center space-y-3">
+                      <p className="text-sm font-semibold text-amber-900">
+                        Create a wallet first
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        Go to the Wallets tab to create your first wallet before
+                        adding transactions.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("wallets")}
+                        className="mt-2"
+                      >
+                        Go to Wallets
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AddTransactionForm compact />
+              )}
             </div>
           </div>
         </TabsContent>

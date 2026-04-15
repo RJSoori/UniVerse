@@ -11,6 +11,24 @@ export function SearchTransactions() {
   const [query, setQuery] = useState("");
   const results = query.trim() ? searchTransactions(query) : [];
 
+  const highlightText = (text: string, term: string) => {
+    if (!term) return text;
+    const regex = new RegExp(
+      `(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+      "gi",
+    );
+    const parts = text.split(regex);
+    return parts.map((part, index) =>
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 text-foreground">
+          {part}
+        </mark>
+      ) : (
+        <span key={index}>{part}</span>
+      ),
+    );
+  };
+
   const getWalletName = (walletId: string) => {
     return (
       wallets.find((w: Wallet) => w.id === walletId)?.name || "Unknown Wallet"
@@ -98,12 +116,15 @@ export function SearchTransactions() {
                               {getCategoryEmoji(tx.category)}
                             </span>
                             <h4 className="font-medium text-sm truncate">
-                              {tx.category}
+                              {highlightText(tx.category, query)}
                             </h4>
                           </div>
                           <p className="text-xs text-muted-foreground truncate">
-                            {tx.description || getWalletName(tx.walletId)} •{" "}
-                            {tx.date}
+                            {highlightText(
+                              tx.description || getWalletName(tx.walletId),
+                              query,
+                            )}{" "}
+                            • {tx.date}
                           </p>
                         </div>
                       </div>
@@ -122,7 +143,7 @@ export function SearchTransactions() {
                           variant="ghost"
                           size="sm"
                           onClick={() => deleteTransaction(tx.id)}
-                          className="text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-destructive hover:text-destructive opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

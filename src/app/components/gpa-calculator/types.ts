@@ -1,8 +1,24 @@
+export type PlannerGrade =
+  | "A+"
+  | "A"
+  | "A-"
+  | "B+"
+  | "B"
+  | "B-"
+  | "C+"
+  | "C"
+  | "C-"
+  | "D+"
+  | "D"
+  | "E"
+  | "F";
+
 export interface Subject {
   id: string;
   name: string;
   credits: number;
-  grade: string;
+  grade: PlannerGrade;
+  isGpa: boolean;
 }
 
 export interface Semester {
@@ -14,6 +30,7 @@ export interface Semester {
 
 export interface GpaSettings {
   gradingMode: "standard" | "extended";
+  gpaScale: 4.0 | 4.2;
   degreeClasses: {
     firstClass: number;
     secondUpper: number;
@@ -27,6 +44,15 @@ export interface GpaData {
   settings: GpaSettings;
 }
 
+export interface PlannerSubject {
+  id: string;
+  name: string;
+  credits: number;
+  grade: PlannerGrade;
+  category: string;
+  lockedGrade?: PlannerGrade;
+}
+
 export interface DegreeClassPrediction {
   firstClass: number;
   secondUpper: number;
@@ -38,7 +64,8 @@ export interface ProjectionSubject {
   id: string;
   name: string;
   credits: number;
-  grade: string;
+  grade: PlannerGrade;
+  isGpa?: boolean;
 }
 
 export interface GpaProjection {

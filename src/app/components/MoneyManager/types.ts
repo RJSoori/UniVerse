@@ -5,6 +5,7 @@ export interface Wallet {
   balance: number;
   createdDate: string;
   type: "cash" | "debit" | "credit" | "savings" | "digital";
+  includeInTotal: boolean;
 }
 
 // Transaction Types
@@ -43,6 +44,27 @@ export interface Transaction {
   description?: string;
   date: string;
   time?: string;
+  isRecurring?: boolean;
+  recurringId?: string;
+}
+
+export interface RecurringExpense {
+  id: string;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  walletId: string;
+  frequency: "monthly";
+  startDate: string;
+  endDate: string;
+  lastProcessedDate?: string;
+}
+
+export interface CategoryBudget {
+  id: string;
+  category: ExpenseCategory;
+  limit: number;
+  month: string; // YYYY-MM
 }
 
 // Budget Types

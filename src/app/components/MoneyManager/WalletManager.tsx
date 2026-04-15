@@ -17,13 +17,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
-import { Plus, Trash2, Edit2, Wallet } from "lucide-react";
+import { Switch } from "../ui/switch";
+import { AlertCircle, Plus, Trash2, Edit2, Wallet } from "lucide-react";
 import { useMoneyManager } from "../../hooks/useMoneyManager";
 import { Wallet as WalletType } from "./types";
+import { formatCurrencyLabel, formatCurrency } from "../../utils/currencyUtils";
 
 export function WalletManager() {
-  const { wallets, createWallet, deleteWallet, updateWalletBalance } =
-    useMoneyManager();
+  const {
+    wallets,
+    createWallet,
+    deleteWallet,
+    updateWalletBalance,
+    updateWallet,
+    getIncludedWalletBalance,
+  } = useMoneyManager();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState("");
@@ -32,22 +40,44 @@ export function WalletManager() {
     name: "",
     balance: "",
     type: "cash" as WalletType["type"],
+    includeInTotal: true,
   });
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState("");
 
   const handleCreate = () => {
-    if (formData.name && formData.balance) {
-      createWallet(formData.name, parseFloat(formData.balance), formData.type);
-      setFormData({ name: "", balance: "", type: "cash" });
-      setIsOpen(false);
+    setCreateErrors({});
+    setGeneralError("");
+    const result = createWallet(
+      formData.name,
+      Number(formData.balance),
+      formData.type,
+      formData.includeInTotal,
+    );
+    if (!result.ok) {
+      setCreateErrors(result.errors);
+      return;
     }
+
+    setFormData({
+      name: "",
+      balance: "",
+      type: "cash",
+      includeInTotal: true,
+    });
+    setIsOpen(false);
   };
 
   const handleUpdateBalance = (walletId: string) => {
-    if (editBalance) {
-      updateWalletBalance(walletId, parseFloat(editBalance));
-      setEditingId(null);
-      setEditBalance("");
+    setEditErrors({});
+    const result = updateWalletBalance(walletId, Number(editBalance));
+    if (!result.ok) {
+      setEditErrors(result.errors);
+      return;
     }
+    setEditingId(null);
+    setEditBalance("");
   };
 
   const walletTypeIcons: Record<WalletType["type"], string> = {
@@ -58,10 +88,7 @@ export function WalletManager() {
     digital: "📱",
   };
 
-  const totalBalance = wallets.reduce(
-    (sum: number, w: WalletType) => sum + w.balance,
-    0,
-  );
+  const totalBalance = getIncludedWalletBalance();
 
   return (
     <div className="space-y-6">
@@ -94,10 +121,17 @@ export function WalletManager() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
+                  className={createErrors.name ? "border-red-500" : ""}
                 />
+                {createErrors.name && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {createErrors.name}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label>Initial Balance (LKR)</Label>
+                <Label>{formatCurrencyLabel()}</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
@@ -105,7 +139,14 @@ export function WalletManager() {
                   onChange={(e) =>
                     setFormData({ ...formData, balance: e.target.value })
                   }
+                  className={createErrors.balance ? "border-red-500" : ""}
                 />
+                {createErrors.balance && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {createErrors.balance}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Type</Label>
@@ -126,9 +167,29 @@ export function WalletManager() {
                   <option value="digital">Digital Wallet</option>
                 </select>
               </div>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label>Include in total balance</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Wallet totals will be included in the main balance.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.includeInTotal}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, includeInTotal: checked })
+                  }
+                />
+              </div>
               <Button onClick={handleCreate} className="w-full">
                 Create Wallet
               </Button>
+              {generalError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {generalError}
+                </p>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -141,7 +202,7 @@ export function WalletManager() {
             <div>
               <p className="text-sm text-muted-foreground">Total Balance</p>
               <p className="text-3xl font-bold mt-1">
-                LKR {totalBalance.toLocaleString()}
+                {formatCurrency(totalBalance)}
               </p>
             </div>
             <Wallet className="h-8 w-8 text-primary/40" />
@@ -180,7 +241,13 @@ export function WalletManager() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteWallet(wallet.id)}
+                  onClick={() => {
+                    setGeneralError("");
+                    const result = deleteWallet(wallet.id);
+                    if (!result.ok) {
+                      setGeneralError(result.errors.general || "Unable to delete wallet.");
+                    }
+                  }}
                   className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -195,7 +262,7 @@ export function WalletManager() {
                         placeholder="New balance"
                         value={editBalance}
                         onChange={(e) => setEditBalance(e.target.value)}
-                        className="text-sm"
+                        className={`text-sm ${editErrors.balance ? "border-red-500" : ""}`}
                       />
                       <Button
                         size="sm"
@@ -215,6 +282,12 @@ export function WalletManager() {
                     >
                       Cancel
                     </Button>
+                    {editErrors.balance && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {editErrors.balance}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -238,15 +311,34 @@ export function WalletManager() {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="text-xs text-muted-foreground pt-2 border-t">
-                      Created{" "}
-                      {new Date(wallet.createdDate).toLocaleDateString()}
+                    <div className="flex flex-col gap-3 pt-2 border-t">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Include in total balance</span>
+                        <Switch
+                          checked={wallet.includeInTotal}
+                          onCheckedChange={(checked) =>
+                            updateWallet(wallet.id, { includeInTotal: checked })
+                          }
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Created{" "}
+                        {new Date(wallet.createdDate).toLocaleDateString()}
+                      </div>
                     </div>
                   </>
                 )}
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+      {generalError && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3">
+          <p className="text-sm text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" />
+            {generalError}
+          </p>
         </div>
       )}
     </div>
