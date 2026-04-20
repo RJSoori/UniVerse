@@ -54,12 +54,17 @@ export function useGpaCalculator() {
 
   // Helper to sort semesters chronologically
   const sortSemesters = useCallback((semesters: Semester[]) => {
+    const extractNumericPart = (value: string): number => {
+      const match = value.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+
     return [...semesters].sort((firstSemester, secondSemester) => {
-      const firstYear = parseInt(firstSemester.year.replace('Y', ''));
-      const secondYear = parseInt(secondSemester.year.replace('Y', ''));
+      const firstYear = extractNumericPart(firstSemester.year);
+      const secondYear = extractNumericPart(secondSemester.year);
       if (firstYear !== secondYear) return secondYear - firstYear;
-      const firstSemesterNum = parseInt(firstSemester.semester.replace('S', ''));
-      const secondSemesterNum = parseInt(secondSemester.semester.replace('S', ''));
+      const firstSemesterNum = extractNumericPart(firstSemester.semester);
+      const secondSemesterNum = extractNumericPart(secondSemester.semester);
       return secondSemesterNum - firstSemesterNum;
     });
   }, []);

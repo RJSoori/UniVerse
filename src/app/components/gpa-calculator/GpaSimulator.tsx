@@ -24,7 +24,7 @@ import {
   calculateSemesterGpa,
   getEffectiveGpaScale,
 } from "./utils/gpaPrediction";
-import { assignCategory } from "./utils/plannerAnalytics";
+import { assignCategory } from "../../utils/gpaPerformanceUtils";
 import { getAllowedGrades } from "../../utils/validation";
 
 export function GpaSimulator() {

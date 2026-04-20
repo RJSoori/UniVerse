@@ -49,18 +49,6 @@ export function getPlanDifficulty(requiredSgpa: number, gpaScale: number) {
   return "ACHIEVABLE" as const;
 }
 
-export function isSimilarPlan(
-  planA: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  planB: Array<{ subject: PlannerSubject; grade: PlannerGrade }>
-): boolean {
-  if (planA.length !== planB.length) return false;
-  let sameCount = 0;
-  for (let i = 0; i < planA.length; i++) {
-    if (planA[i].grade === planB[i].grade) sameCount++;
-  }
-  return sameCount / planA.length > 0.7;
-}
-
 function getPlanSignature(
   combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
   gpaScale: number,
@@ -313,7 +301,6 @@ export function generateExplanation(
 
   const gradeExplanations: string[] = [];
   let hasHighRiskGrades = false;
-  let confidenceReasons: string[] = [];
   const gradesPreferredOrder = getGradesPreferringEasiest(gpaScale);
 
   // Analyze each subject-grade pairing

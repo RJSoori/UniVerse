@@ -129,7 +129,7 @@ export function AddTransactionForm({
 
     const payload = {
       type,
-      amount,
+      amount: parseFloat(amount),
       category: category as any,
       walletId,
       description: description || undefined,

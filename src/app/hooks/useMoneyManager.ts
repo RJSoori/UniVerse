@@ -51,14 +51,25 @@ function getCategoryType(category: string): "needs" | "wants" | "savings" | "inc
 }
 
 function getMonthKey(date: string | Date): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  if (typeof date === "string") {
+    return date.slice(0, 7);
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getDateForMonth(year: number, monthIndex: number, day: number): string {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const normalizedDay = Math.min(day, daysInMonth);
-  return new Date(year, monthIndex, normalizedDay).toISOString().split("T")[0];
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(normalizedDay).padStart(2, "0")}`;
+}
+
+function datePartsFromYmd(value: string): { year: number; month: number; day: number } {
+  const [year, month, day] = value.split("-").map(Number);
+  return { year, month, day };
+}
+
+function formatLocalDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 // Note: escapeCsvValue now imported from csvUtils.ts for DRY principle
@@ -150,7 +161,7 @@ export function useMoneyManager() {
         id: Date.now().toString(),
         name: validation.value.name,
         balance: validation.value.balance,
-        createdDate: new Date().toISOString().split("T")[0],
+        createdDate: getCurrentISTDate(),
         type,
         includeInTotal,
       };
@@ -272,22 +283,23 @@ export function useMoneyManager() {
   }, [wallets]);
 
   const getCurrentMonthKey = useCallback(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return getCurrentISTDate().slice(0, 7);
   }, []);
 
   const isExpenseActiveForMonth = useCallback(
     (expense: RecurringExpense, monthKey: string) => {
       const [year, month] = monthKey.split("-").map(Number);
       const monthStart = new Date(year, month - 1, 1);
+      const startDateParts = datePartsFromYmd(expense.startDate);
+      const endDateParts = datePartsFromYmd(expense.endDate);
       const startMonth = new Date(
-        new Date(expense.startDate).getFullYear(),
-        new Date(expense.startDate).getMonth(),
+        startDateParts.year,
+        startDateParts.month - 1,
         1
       );
       const endMonth = new Date(
-        new Date(expense.endDate).getFullYear(),
-        new Date(expense.endDate).getMonth(),
+        endDateParts.year,
+        endDateParts.month - 1,
         1
       );
       return monthStart >= startMonth && monthStart <= endMonth;
@@ -297,8 +309,8 @@ export function useMoneyManager() {
 
   const processRecurringExpenses = useCallback(
     (expenses: RecurringExpense[] = recurringExpenses) => {
-      const today = new Date();
-      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayParts = datePartsFromYmd(getCurrentISTDate());
+      const endOfToday = new Date(todayParts.year, todayParts.month - 1, todayParts.day);
       const generatedTransactions: Transaction[] = [];
       const walletBalanceMap = new Map(wallets.map((w) => [w.id, w.balance]));
       let updatedExpenses = expenses;
@@ -306,8 +318,18 @@ export function useMoneyManager() {
       expenses.forEach((expense) => {
         if (expense.frequency !== "monthly") return;
 
-        const expenseStart = new Date(expense.startDate);
-        const expenseEnd = new Date(expense.endDate);
+        const startDateParts = datePartsFromYmd(expense.startDate);
+        const endDateParts = datePartsFromYmd(expense.endDate);
+        const expenseStart = new Date(
+          startDateParts.year,
+          startDateParts.month - 1,
+          startDateParts.day,
+        );
+        const expenseEnd = new Date(
+          endDateParts.year,
+          endDateParts.month - 1,
+          endDateParts.day,
+        );
         const lastProcessed = expense.lastProcessedDate
           ? new Date(expense.lastProcessedDate)
           : null;
@@ -377,7 +399,7 @@ export function useMoneyManager() {
         if (processedMonths.length > 0) {
           const latestProcessed = processedMonths[processedMonths.length - 1];
           const [year, month] = latestProcessed.split("-").map(Number);
-          const newLastProcessedDate = new Date(year, month - 1, 1).toISOString().split("T")[0];
+          const newLastProcessedDate = `${year}-${String(month).padStart(2, "0")}-01`;
           updatedExpenses = updatedExpenses.map((entry) =>
             entry.id === expense.id
               ? { ...entry, lastProcessedDate: newLastProcessedDate }
@@ -768,9 +790,7 @@ export function useMoneyManager() {
 
       // adjust budget
       if (tx.type === "expense") {
-        const monthKey = `${new Date(tx.date).getFullYear()}-${String(
-          new Date(tx.date).getMonth() + 1
-        ).padStart(2, "0")}`;
+        const monthKey = tx.date.slice(0, 7);
         setBudgets((prev) =>
           prev.map((b) =>
             b.month === monthKey ? { ...b, totalSpent: b.totalSpent - tx.amount } : b
@@ -793,8 +813,7 @@ export function useMoneyManager() {
         return validation;
       }
 
-      const now = new Date();
-      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthKey = getCurrentISTDate().slice(0, 7);
 
       // recalc spent from existing transactions for accuracy
       const spent = transactions
@@ -849,9 +868,10 @@ export function useMoneyManager() {
       };
     }
 
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysPassed = now.getDate();
+      const todayDate = getCurrentISTDate();
+      const [year, month, day] = todayDate.split("-").map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const daysPassed = day;
     const daysLeft = daysInMonth - daysPassed;
     const dailyBudget = budget.monthlyBudget / daysInMonth;
     const remainingBudget = budget.monthlyBudget - budget.totalSpent;
@@ -859,7 +879,7 @@ export function useMoneyManager() {
     const dailyAllowance = daysLeft > 0 ? Math.max(0, remainingBudget / daysLeft) : 0;
 
     // Today's spending
-    const today = new Date().toISOString().split("T")[0];
+      const today = getCurrentISTDate();
     const todaySpending = transactions
       .filter((t) => t.type === "expense" && t.date === today)
       .reduce((sum, t) => sum + t.amount, 0);
@@ -885,8 +905,8 @@ export function useMoneyManager() {
         start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       }
 
-      const startStr = start.toISOString().split("T")[0];
-      const endStr = end.toISOString().split("T")[0];
+      const startStr = formatLocalDate(start);
+      const endStr = formatLocalDate(end);
 
       const periodTransactions = transactions.filter(
         (t) => t.date >= startStr && t.date <= endStr
@@ -953,7 +973,7 @@ export function useMoneyManager() {
       const trends = [];
       const currentDate = new Date(start);
       while (currentDate <= end) {
-        const dateStr = currentDate.toISOString().split("T")[0];
+        const dateStr = formatLocalDate(currentDate);
         const dayIncome = periodTransactions
           .filter((t) => t.type === "income" && t.date === dateStr)
           .reduce((sum, t) => sum + t.amount, 0);

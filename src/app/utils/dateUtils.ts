@@ -6,7 +6,38 @@
  * Centralizing these utilities ensures consistency and maintainability.
  */
 
-import { TIME_CONFIG } from "../constants/appConfig";
+const COLOMBO_TIMEZONE = "Asia/Colombo";
+
+function formatDatePartsInColombo(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: COLOMBO_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+
+  return { year, month, day };
+}
+
+function formatTimePartsInColombo(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: COLOMBO_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+
+  return { hour, minute };
+}
 
 /**
  * Converts a date to UTC timestamp adjusted for IST timezone
@@ -23,8 +54,8 @@ export function convertToIST(date: Date = new Date()): number {
  */
 export function getCurrentISTDate(): string {
   const now = new Date();
-  const istTime = now.getTime() + TIME_CONFIG.IST_OFFSET_MS;
-  return new Date(istTime).toISOString().split("T")[0];
+  const { year, month, day } = formatDatePartsInColombo(now);
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -33,11 +64,8 @@ export function getCurrentISTDate(): string {
  */
 export function getCurrentISTTime(): string {
   const now = new Date();
-  const istTime = now.getTime() + TIME_CONFIG.IST_OFFSET_MS;
-  const istDate = new Date(istTime);
-  const hours = String(istDate.getHours()).padStart(2, "0");
-  const minutes = String(istDate.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
+  const { hour, minute } = formatTimePartsInColombo(now);
+  return `${hour}:${minute}`;
 }
 
 /**
@@ -57,8 +85,7 @@ export function formatMonthYear(yearMonth: string): string {
  * @returns True if the given month is the current month
  */
 export function isCurrentMonth(yearMonth: string): boolean {
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentMonth = getCurrentISTDate().slice(0, 7);
   return yearMonth === currentMonth;
 }
 
@@ -69,12 +96,12 @@ export function isCurrentMonth(yearMonth: string): boolean {
  */
 export function getMonthDateRange(yearMonth: string): { startDate: string; endDate: string } {
   const [year, month] = yearMonth.split("-").map(Number);
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // Last day of the month
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthPadded = String(month).padStart(2, "0");
 
   return {
-    startDate: startDate.toISOString().split("T")[0],
-    endDate: endDate.toISOString().split("T")[0]
+    startDate: `${year}-${monthPadded}-01`,
+    endDate: `${year}-${monthPadded}-${String(lastDay).padStart(2, "0")}`
   };
 }
 
@@ -83,8 +110,7 @@ export function getMonthDateRange(yearMonth: string): { startDate: string; endDa
  * @returns Number of days remaining in the current month
  */
 export function getDaysLeftInMonth(): number {
-  const now = new Date();
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const currentDay = now.getDate();
-  return Math.max(0, lastDay.getDate() - currentDay + 1);
+  const [year, month, day] = getCurrentISTDate().split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return Math.max(0, daysInMonth - day + 1);
 }

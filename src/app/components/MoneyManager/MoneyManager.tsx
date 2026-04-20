@@ -2,14 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "../ui/dialog";
 import { useMoneyManager } from "../../hooks/useMoneyManager";
 import { formatCurrency } from "../../utils/currencyUtils";
 import { SetupWizard } from "./SetupWizard";
@@ -38,10 +30,8 @@ export function MoneyManager() {
     getTotalIncome,
     getTotalExpenses,
     getCurrentMonthBudget,
-    resetAll,
   } = useMoneyManager();
   const [activeTab, setActiveTab] = useState("overview");
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showWizard, setShowWizard] = useState(
     !settings.firstTimeSetupCompleted,
@@ -49,8 +39,9 @@ export function MoneyManager() {
 
   const currentBudget = getCurrentMonthBudget();
 
-  // show wizard for first-time or when editing
-  if (showWizard || !settings.firstTimeSetupCompleted) {
+  // Show wizard for first-time setup or when user explicitly edits budget.
+  // Keep this gate local to avoid re-opening due to stale settings snapshots.
+  if (showWizard) {
     return (
       <SetupWizard
         initialData={currentBudget || undefined}
@@ -63,10 +54,26 @@ export function MoneyManager() {
   const totalIncome = getTotalIncome();
   const totalExpenses = getTotalExpenses();
 
-  // Helper function to get balance color based on value
-  const getBalanceColorClassName = (bal: number) => {
-    return bal >= 0 ? "text-emerald-600" : "text-destructive";
-  };
+  const summaryCards = [
+    {
+      title: "Current Balance",
+      value: formatCurrency(balance),
+      valueClass: balance >= 0 ? "text-emerald-600" : "text-destructive",
+      icon: <Wallet className="size-4 text-muted-foreground" />,
+    },
+    {
+      title: "Total Income",
+      value: formatCurrency(totalIncome),
+      valueClass: "text-emerald-600",
+      icon: <TrendingUp className="size-4 text-emerald-500" />,
+    },
+    {
+      title: "Total Expenses",
+      value: formatCurrency(totalExpenses),
+      valueClass: "text-destructive",
+      icon: <TrendingDown className="size-4 text-destructive" />,
+    },
+  ];
 
   return (
     <div className="app-page">
@@ -98,55 +105,22 @@ export function MoneyManager() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Current Balance
-            </CardTitle>
-            <Wallet className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${getBalanceColorClassName(balance)}`}
-            >
-              {formatCurrency(balance)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-            <TrendingUp className="size-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
-              {formatCurrency(totalIncome)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Expenses
-            </CardTitle>
-            <TrendingDown className="size-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(totalExpenses)}
-            </div>
-          </CardContent>
-        </Card>
+        {summaryCards.map((card) => (
+          <Card key={card.title}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                {card.title}
+              </CardTitle>
+              {card.icon}
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${card.valueClass}`}>
+                {card.value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-
-      {/* Add Transaction Form */}
-      {showAddTransaction && (
-        <div>
-          <AddTransactionForm onClose={() => setShowAddTransaction(false)} />
-        </div>
-      )}
 
       {/* Quick Add Floating Action Button */}
       <QuickAddTransaction open={showQuickAdd} onOpenChange={setShowQuickAdd} />
