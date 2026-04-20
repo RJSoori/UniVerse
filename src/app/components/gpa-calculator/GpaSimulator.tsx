@@ -24,7 +24,7 @@ import {
   calculateSemesterGpa,
   getEffectiveGpaScale,
 } from "./utils/gpaPrediction";
-import { assignCategory } from "./utils/gpaPlannerUtils";
+import { assignCategory } from "./utils/plannerAnalytics";
 import { getAllowedGrades } from "../../utils/validation";
 
 export function GpaSimulator() {
@@ -146,7 +146,7 @@ export function GpaSimulator() {
                 }
               >
                 <SelectTrigger>
-                <SelectValue />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {allowedGrades.map((grade) => (
@@ -191,7 +191,8 @@ export function GpaSimulator() {
 
           {simulationSubjects.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Add subjects with valid grades and credits to compute your projected GPA.
+              Add subjects with valid grades and credits to compute your
+              projected GPA.
             </p>
           ) : (
             <Table>

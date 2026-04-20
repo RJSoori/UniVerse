@@ -8,7 +8,6 @@ export { AddTransactionForm } from "./AddTransactionForm";
 export { TransactionList } from "./TransactionList";
 export { BudgetTracker } from "./BudgetTracker";
 export { InsightsEngine } from "./InsightsEngine";
-export { SearchTransactions } from "./SearchTransactions";
 export { ReportsDashboard } from "./ReportsDashboard";
 export { MoneyWidget } from "./MoneyWidget";
 

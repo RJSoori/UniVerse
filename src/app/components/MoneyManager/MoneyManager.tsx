@@ -18,7 +18,6 @@ import { AddTransactionForm } from "./AddTransactionForm";
 import { TransactionList } from "./TransactionList";
 import { BudgetTracker } from "./BudgetTracker";
 import { InsightsEngine } from "./InsightsEngine";
-import { SearchTransactions } from "./SearchTransactions";
 import { ReportsDashboard } from "./ReportsDashboard";
 import { QuickAddTransaction } from "./QuickAddTransaction";
 import {
@@ -249,7 +248,7 @@ export function MoneyManager() {
         {/* Search Tab */}
         <TabsContent value="search" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SearchTransactions />
+            <TransactionList searchable />
             <InsightsEngine />
           </div>
         </TabsContent>

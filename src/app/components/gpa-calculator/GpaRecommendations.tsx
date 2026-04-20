@@ -24,12 +24,14 @@ import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 import {
   assignCategory,
   analyzePastPerformance,
+  type PlannerSubject,
+} from "./utils/plannerAnalytics";
+import {
   buildRecommendations,
   buildRecommendationsV2,
-  PlannerSubject,
-  CombinationResult,
-  PlannerGrade,
-} from "./utils/gpaPlannerUtils";
+  type CombinationResult,
+  type PlannerGrade,
+} from "./utils/plannerRecommendations";
 import { getTargetGpaResult } from "./utils/targetGpaCalculator";
 import { getEffectiveGpaScale } from "./utils/gpaPrediction";
 import {

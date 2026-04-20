@@ -382,7 +382,10 @@ export function AddTransactionForm({
         {warnings.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-1">
             {warnings.map((warning) => (
-              <p key={warning} className="text-sm text-amber-700 flex items-center gap-1">
+              <p
+                key={warning}
+                className="text-sm text-amber-700 flex items-center gap-1"
+              >
                 <AlertCircle className="h-4 w-4" />
                 {warning}
               </p>

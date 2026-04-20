@@ -1199,20 +1199,6 @@ export function useMoneyManager() {
     return insights;
   }, [getCurrentMonthBudget, generateReport, getCurrentMonthKey, getDailyAllowance, settings, transactions]);
 
-  // Search
-  const searchTransactions = useCallback(
-    (query: string): Transaction[] => {
-      const lowerQuery = query.toLowerCase();
-      return transactions.filter(
-        (t) =>
-          t.description?.toLowerCase().includes(lowerQuery) ||
-          t.category.toLowerCase().includes(lowerQuery) ||
-          t.amount.toString().includes(query)
-      );
-    },
-    [transactions]
-  );
-
   // Settings
   const completeFirstTimeSetup = useCallback(() => {
     setSettings({
@@ -1295,9 +1281,6 @@ export function useMoneyManager() {
 
     // Insights
     generateInsights,
-
-    // Search
-    searchTransactions,
 
     // Settings
     completeFirstTimeSetup,

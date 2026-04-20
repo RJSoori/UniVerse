@@ -19,15 +19,24 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { AlertCircle, Plus, Trash2, Target, BookOpen, CheckCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Plus,
+  Trash2,
+  Target,
+  BookOpen,
+  CheckCircle,
+} from "lucide-react";
 import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 import {
   assignCategory,
   analyzePastPerformance,
+  type PlannerSubject,
+} from "./utils/plannerAnalytics";
+import {
   buildRecommendations,
-  PlannerSubject,
-  CombinationResult,
-} from "./utils/gpaPlannerUtils";
+  type CombinationResult,
+} from "./utils/plannerRecommendations";
 import { getTargetGpaResult } from "./utils/targetGpaCalculator";
 import { getEffectiveGpaScale } from "./utils/gpaPrediction";
 import {
@@ -56,7 +65,9 @@ export function AcademicGoalPlanner() {
   const [subjectCredits, setSubjectCredits] = useState("");
   const [subjects, setSubjects] = useState<PlannerSubject[]>([]);
   const [goalErrors, setGoalErrors] = useState<Record<string, string>>({});
-  const [subjectErrors, setSubjectErrors] = useState<Record<string, string>>({});
+  const [subjectErrors, setSubjectErrors] = useState<Record<string, string>>(
+    {},
+  );
 
   // Results
   const [targetResult, setTargetResult] = useState<any>(null);
@@ -86,7 +97,10 @@ export function AcademicGoalPlanner() {
   // Step 1: Goal Setup
   const handleGoalSetup = () => {
     setGoalErrors({});
-    const validation = validatePlannerInputs({ targetCgpa, nextCredits }, gpaScale);
+    const validation = validatePlannerInputs(
+      { targetCgpa, nextCredits },
+      gpaScale,
+    );
     if (!validation.ok) {
       setTargetResult(null);
       setGoalErrors(validation.errors);
@@ -349,7 +363,13 @@ export function AcademicGoalPlanner() {
                             </Badge>
                           </p>
                           {result.message && (
-                            <p className={result.isFeasible ? "text-muted-foreground" : "text-red-600"}>
+                            <p
+                              className={
+                                result.isFeasible
+                                  ? "text-muted-foreground"
+                                  : "text-red-600"
+                              }
+                            >
                               {result.message}
                             </p>
                           )}
@@ -431,7 +451,10 @@ export function AcademicGoalPlanner() {
                 <Button
                   onClick={handleAddSubject}
                   className="w-full"
-                  disabled={!targetResult?.isFeasible || safeCompare(remainingCredits, 0) <= 0}
+                  disabled={
+                    !targetResult?.isFeasible ||
+                    safeCompare(remainingCredits, 0) <= 0
+                  }
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Subject
@@ -456,7 +479,8 @@ export function AcademicGoalPlanner() {
               </div>
               {safeCompare(remainingCredits, 0) === 1 && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Add {remainingCredits.toFixed(1)} more credits or reduce next semester credits.
+                  Add {remainingCredits.toFixed(1)} more credits or reduce next
+                  semester credits.
                 </p>
               )}
             </div>
@@ -528,7 +552,8 @@ export function AcademicGoalPlanner() {
             </div>
             {!canProceedToGenerate && subjects.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                Add subjects and match the semester credit total to generate plans.
+                Add subjects and match the semester credit total to generate
+                plans.
               </p>
             )}
           </CardContent>

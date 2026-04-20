@@ -5,6 +5,7 @@ import { useMoneyManager } from "../../hooks/useMoneyManager";
 import { Search, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { type Wallet } from "./types";
+import { getCategoryEmoji, getWalletName } from "../../utils/moneyManagerUtils";
 
 export function SearchTransactions() {
   const { searchTransactions, deleteTransaction, wallets } = useMoneyManager();
@@ -27,37 +28,6 @@ export function SearchTransactions() {
         <span key={index}>{part}</span>
       ),
     );
-  };
-
-  const getWalletName = (walletId: string) => {
-    return (
-      wallets.find((w: Wallet) => w.id === walletId)?.name || "Unknown Wallet"
-    );
-  };
-
-  const getCategoryEmoji = (category: string): string => {
-    const mapping: Record<string, string> = {
-      Food: "🍽️",
-      "Dining Out": "🍕",
-      Transportation: "🚗",
-      "Rent / Accommodation": "🏠",
-      Education: "📚",
-      Shopping: "🛍️",
-      Entertainment: "🎬",
-      Health: "⚕️",
-      Clothing: "👕",
-      Bills: "💵",
-      Allowance: "💰",
-      Salary: "💼",
-      Freelance: "💻",
-      Scholarship: "🎓",
-      Business: "📊",
-      Dividends: "📈",
-      Investments: "🏦",
-      Tips: "🎁",
-      Other: "📌",
-    };
-    return mapping[category] || "💳";
   };
 
   return (
@@ -121,7 +91,8 @@ export function SearchTransactions() {
                           </div>
                           <p className="text-xs text-muted-foreground truncate">
                             {highlightText(
-                              tx.description || getWalletName(tx.walletId),
+                              tx.description ||
+                                getWalletName(tx.walletId, wallets),
                               query,
                             )}{" "}
                             • {tx.date}
