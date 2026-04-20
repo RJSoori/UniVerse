@@ -95,7 +95,10 @@ export function RecruiterSettings({ type, onBack }: RecruiterSettingsProps) {
                             </div>
                             <div className="space-y-2">
                                 <Label>Organization Description</Label>
-                                <Textarea className="min-h-[100px] resize-none" placeholder="Briefly describe your goals..." />
+                                <Textarea
+                                    className="min-h-[100px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
+                                    placeholder="Briefly describe your goals..."
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
