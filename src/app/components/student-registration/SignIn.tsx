@@ -7,66 +7,100 @@ export default function SignIn({ onNavigate }: { onNavigate: (id: string) => voi
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError(""); 
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
     if (formData.username === savedUser.username && formData.password === savedUser.password) {
-      onNavigate("dashboard"); // ✅ successful login
+      onNavigate("dashboard");
     } else {
-      setError("Invalid credentials. Please try again.");
+      setError("The username or password you entered is incorrect.");
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-white">
-      <h2 className="text-3xl font-bold text-blue-700 mb-2">Welcome back to UniVerse</h2>
-      <p className="text-gray-600 mb-8">Sign in to continue your journey</p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 to-slate-200 px-4">
+      
+      {/* Subtle Back Navigation */}
+      <button 
+        onClick={() => onNavigate("welcome")}
+        className="absolute top-8 left-8 text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-2 text-sm font-medium"
+      >
+        ← Back to Home
+      </button>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-800 rounded w-full max-w-md text-center">
-          {error}
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome back</h2>
+          <p className="text-slate-500 mt-2">Enter your credentials to access your UniVerse</p>
         </div>
-      )}
 
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="flex flex-col text-left">
-            <label className="text-sm font-medium text-gray-700 mb-2">Username</label>
-            <input
-              type="text"
-              name="username"
-              placeholder="Enter your username"
-              value={formData.username}
-              onChange={handleChange}
-              className="border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              required
-            />
-          </div>
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-10">
+          
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r-md animate-in fade-in slide-in-from-top-1">
+              {error}
+            </div>
+          )}
 
-          <div className="flex flex-col text-left">
-            <label className="text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              name="password"
-              placeholder="Enter your password"
-              value={formData.password}
-              onChange={handleChange}
-              className="border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 ml-1">Username</label>
+              <input
+                type="text"
+                name="username"
+                placeholder="johndoe123"
+                value={formData.username}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-all placeholder:text-slate-300"
+                required
+              />
+            </div>
 
-          <Button
-            type="submit"
-            className="bg-blue-600 text-white py-3 text-lg shadow-md hover:scale-105 transition-transform"
-          >
-            Sign In
-          </Button>
-        </form>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <label className="text-sm font-semibold text-slate-700">Password</label>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("forgot-password")}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  Forgot?
+                </button>
+              </div>
+              <input
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-all placeholder:text-slate-300"
+                required
+              />
+            </div>
+
+            {/* NEW BLUE BUTTON STYLE */}
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-xl text-lg font-bold shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+            >
+              Sign In
+            </Button>
+          </form>
+
+          <p className="text-center mt-8 text-sm text-slate-500">
+            Don't have an account?{" "}
+            <span 
+              className="text-blue-600 font-bold cursor-pointer hover:underline"
+              onClick={() => onNavigate("student-register")}
+            >
+              Sign up
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );

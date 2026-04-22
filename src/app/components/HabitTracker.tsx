@@ -1,184 +1,143 @@
 import { useState } from "react";
-import { useUniStorage } from "../hooks/useUniStorage";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { CheckCircle2, Circle, Plus, Trash2, Trophy } from "lucide-react";
-
-interface Habit {
-  id: string;
-  name: string;
-  completedDates: string[]; // Format: YYYY-MM-DD
-  color: string;
-}
+import { AlertTriangle, Lightbulb, Plus, Target } from "lucide-react";
+import { GroupHabits } from "./habits/GroupHabits";
+import { PersonalHabits } from "./habits/PersonalHabits";
+import { useUniStorage } from "../hooks/useUniStorage";
+import { PersonalHabit } from "./habits/types";
+import { calculateStreak } from "./habits/utils";
 
 export function HabitTracker() {
-  const [habits, setHabits] = useUniStorage<Habit[]>("habits", []);
-  const [newHabitName, setNewHabitName] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [habits, setHabits] = useUniStorage<PersonalHabit[]>("habits", []);
+  const [addedSuggestion, setAddedSuggestion] = useState(false);
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-  const addHabit = () => {
-    if (!newHabitName.trim()) return;
-
-    const newHabit: Habit = {
+  const addSuggestedHabit = () => {
+    const newHabit: PersonalHabit = {
       id: Date.now().toString(),
-      name: newHabitName,
+      name: "Early Morning Focus",
       completedDates: [],
       color: colors[habits.length % colors.length],
+      description: "Wake up early to prepare for morning lectures",
+      iconId: "clock",
+      category: "build",
     };
 
     setHabits([...habits, newHabit]);
-    setNewHabitName("");
-    setShowAddForm(false);
+    setAddedSuggestion(true);
+    setTimeout(() => setAddedSuggestion(false), 2000);
   };
 
-  const toggleHabitDate = (habitId: string, dateStr: string) => {
-    setHabits(
-        habits.map((habit) => {
-          if (habit.id === habitId) {
-            const isDone = habit.completedDates.includes(dateStr);
-            return {
-              ...habit,
-              completedDates: isDone
-                  ? habit.completedDates.filter((d) => d !== dateStr)
-                  : [...habit.completedDates, dateStr],
-            };
-          }
-          return habit;
-        })
-    );
-  };
+  const analyzeBreakHabitProgress = (habit: PersonalHabit) => {
+    if (habit.category !== "break") return null;
 
-  const deleteHabit = (id: string) => {
-    setHabits(habits.filter((h) => h.id !== id));
-  };
+    const streak = calculateStreak(habit.completedDates);
 
-  const getRecentDays = () => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      days.push(d);
+    let maxStreak = 0;
+    let currentStreak = 0;
+    const sortedDates = [...habit.completedDates].sort();
+
+    for (let i = 0; i < sortedDates.length; i++) {
+      const currDate = new Date(sortedDates[i]);
+      const nextDate = i + 1 < sortedDates.length ? new Date(sortedDates[i + 1]) : null;
+      const dayDiff = nextDate ? (nextDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24) : 1;
+
+      currentStreak += 1;
+      maxStreak = Math.max(maxStreak, currentStreak);
+
+      if (dayDiff > 1) currentStreak = 0;
     }
-    return days;
-  };
 
-  const calculateStreak = (habit: Habit) => {
-    let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < 365; i++) {
-      const checkDate = new Date(today);
-      checkDate.setDate(today.getDate() - i);
-      const dateStr = checkDate.toISOString().split("T")[0];
-
-      if (habit.completedDates.includes(dateStr)) {
-        streak++;
-      } else if (i !== 0) {
-        // If it's not today and the habit wasn't completed, the streak breaks.
-        break;
-      }
+    let daysSinceLastTrack = Number.POSITIVE_INFINITY;
+    if (sortedDates.length > 0) {
+      const lastTracked = new Date(sortedDates[sortedDates.length - 1]);
+      const today = new Date();
+      daysSinceLastTrack = (today.getTime() - lastTracked.getTime()) / (1000 * 60 * 60 * 24);
     }
-    return streak;
+
+    const isStruggling = daysSinceLastTrack >= 3 && maxStreak < 3 && habit.completedDates.length >= 2;
+
+    return {
+      daysSinceLastTrack: Math.floor(daysSinceLastTrack),
+      isStruggling,
+    };
   };
 
-  const recentDays = getRecentDays();
+  const strugglingBreakHabit = habits.find((h) => analyzeBreakHabitProgress(h)?.isStruggling);
+  const suggestedHabitExists = habits.some((h) => h.name === "Early Morning Focus");
 
   return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Habit Tracker</h2>
-            <p className="text-muted-foreground text-sm">Build consistency in your daily routine</p>
-          </div>
-          <Button onClick={() => setShowAddForm(!showAddForm)}>
-            <Plus className="mr-2 h-4 w-4" /> New Habit
-          </Button>
-        </div>
+    <div className="app-page">
+      <div className="space-y-1">
+        <h2 className="app-page-title">Habit Tracker</h2>
+        <p className="app-page-subtitle">Build consistency in your daily routine</p>
+      </div>
 
-        {showAddForm && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Add New Habit</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Habit Name</Label>
-                  <Input
-                      placeholder="e.g., Morning Gym, LeetCode, Drink Water"
-                      value={newHabitName}
-                      onChange={(e) => setNewHabitName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addHabit()}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={addHabit} className="flex-1">Start Tracking</Button>
-                  <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
-                </div>
-              </CardContent>
-            </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {!suggestedHabitExists && (
+          <Card className={`border-primary/20 transition-colors ${
+            addedSuggestion ? "bg-green-100 border-green-300" : "bg-primary/5"
+          }`}>
+            <CardHeader className="pb-3">
+              <CardTitle className={`flex items-center gap-2 text-sm font-semibold ${
+                addedSuggestion ? "text-green-700" : "text-primary"
+              }`}>
+                <Lightbulb className="h-4 w-4" />
+                {addedSuggestion ? "Habit Added!" : "Lifestyle Insight: Suggested Habits"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Early Morning Focus</p>
+                <p className="text-xs text-muted-foreground">
+                  Based on your 8:00 AM lectures on Monday/Tuesday
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={addSuggestedHabit} disabled={addedSuggestion}>
+                <Plus className="h-4 w-4" /> {addedSuggestion ? "Added" : "Add"}
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
-        <div className="grid grid-cols-1 gap-4">
-          {habits.length === 0 ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No habits yet. Start one to build your streak!</CardContent></Card>
-          ) : (
-              habits.map((habit) => (
-                  <Card key={habit.id}>
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: habit.color }} />
-                            <CardTitle className="text-lg">{habit.name}</CardTitle>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Trophy className="h-4 w-4 text-yellow-500" />
-                            <span>{calculateStreak(habit)} day streak</span>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => deleteHabit(habit.id)} className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-7 gap-2">
-                        {recentDays.map((date, idx) => {
-                          const dateStr = date.toISOString().split("T")[0];
-                          const isDone = habit.completedDates.includes(dateStr);
-                          const isToday = idx === 6;
-
-                          return (
-                              <button
-                                  key={idx}
-                                  onClick={() => toggleHabitDate(habit.id, dateStr)}
-                                  className={`flex flex-col items-center gap-1 p-2 rounded-md border transition-all ${
-                                      isDone ? "bg-primary/5 border-primary" : "hover:bg-accent"
-                                  } ${isToday ? "ring-1 ring-primary/30" : ""}`}
-                              >
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                          {date.toLocaleDateString("en-US", { weekday: "short" })}
-                        </span>
-                                <span className="text-sm font-medium">{date.getDate()}</span>
-                                {isDone ? (
-                                    <CheckCircle2 className="h-5 w-5" style={{ color: habit.color }} />
-                                ) : (
-                                    <Circle className="h-5 w-5 text-muted-foreground/30" />
-                                )}
-                              </button>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-              ))
-          )}
-        </div>
+        {strugglingBreakHabit && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold text-amber-700">
+                <AlertTriangle className="h-4 w-4" />
+                Pattern Alert: Habits to Break
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">{strugglingBreakHabit.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Haven't continued for {analyzeBreakHabitProgress(strugglingBreakHabit)?.daysSinceLastTrack} days
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="border-amber-200 text-amber-700 hover:text-amber-700">
+                <Target className="h-4 w-4" /> Track Break
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <Tabs defaultValue="personal" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="personal">Personal</TabsTrigger>
+          <TabsTrigger value="group">Groups</TabsTrigger>
+        </TabsList>
+        <TabsContent value="personal">
+          <PersonalHabits />
+        </TabsContent>
+        <TabsContent value="group">
+          <GroupHabits />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

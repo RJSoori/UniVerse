@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="21c18458-afc9-4aa8-8bdc-c540b0e9d39d" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/components/JobHub/JobPosting.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/components/JobHub/JobPosting.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/components/JobHub/JobRegistration.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/components/JobHub/JobRegistration.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/components/JobHub/RecruiterDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/components/JobHub/RecruiterDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/components/JobHub/RecruiterSettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/components/JobHub/RecruiterSettings.tsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+        <option value="tsconfig.json" />
+        <option value="TypeScript JSX File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="39T6AZ9hZBPiY1DzoeEMWJebORp" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Recruiter__Backend&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\rakhi\\AppData\\Local\\Programs\\WebStorm\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="R:\Projects\UniVerse\Student productivity platform" />
+      <recent name="R:\Projects\UniVerse\Student productivity platform\src\app\components\JobHub" />
+      <recent name="R:\Projects\UniVerse\Student productivity platform\src\app\components" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="dev" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="npm.dev" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-f27c65a3e318-JavaScript-WS-251.23774.424" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="21c18458-afc9-4aa8-8bdc-c540b0e9d39d" name="Changes" comment="" />
+      <created>1770707571027</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1770707571027</updated>
+      <workItem from="1770707572373" duration="2477000" />
+      <workItem from="1770713645693" duration="8944000" />
+      <workItem from="1770814937101" duration="634000" />
+      <workItem from="1770866030140" duration="9192000" />
+      <workItem from="1771253096178" duration="1479000" />
+      <workItem from="1771298622341" duration="4192000" />
+      <workItem from="1771561157525" duration="4928000" />
+      <workItem from="1771585712319" duration="6237000" />
+      <workItem from="1771606715047" duration="1889000" />
+      <workItem from="1771640855907" duration="4667000" />
+      <workItem from="1771673486775" duration="2201000" />
+      <workItem from="1771755012834" duration="1223000" />
+      <workItem from="1771819877011" duration="2623000" />
+      <workItem from="1771986185534" duration="12543000" />
+      <workItem from="1772033673885" duration="3708000" />
+      <workItem from="1772067359337" duration="857000" />
+      <workItem from="1772074464559" duration="2856000" />
+      <workItem from="1772118153778" duration="2027000" />
+      <workItem from="1772714914954" duration="650000" />
+      <workItem from="1772725518808" duration="636000" />
+      <workItem from="1773197934834" duration="1891000" />
+      <workItem from="1773217009429" duration="1938000" />
+      <workItem from="1773288264028" duration="1768000" />
+      <workItem from="1773313343755" duration="1075000" />
+      <workItem from="1773368110156" duration="180000" />
+      <workItem from="1773368563615" duration="4764000" />
+      <workItem from="1773938661105" duration="6021000" />
+      <workItem from="1774616837847" duration="3097000" />
+      <workItem from="1775292334495" duration="192000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

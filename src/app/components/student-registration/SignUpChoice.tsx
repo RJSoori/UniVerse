@@ -19,7 +19,7 @@ export default function SignUpChoice({ onNavigate }: { onNavigate: (id: string) 
           </div>
           <Button
             className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => onNavigate("student-register")}
+            onClick={() => onNavigate("student-auth-choice")}
           >
             Student
           </Button>
