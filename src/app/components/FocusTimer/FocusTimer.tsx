@@ -11,6 +11,8 @@ import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 
 export function FocusTimer({ compact = false }: { compact?: boolean }) {
   const { getCgpa } = useGpaCalculator();
+
+  // Timer configuration and current countdown state.
   const [duration, setDuration] = useState(25);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -18,9 +20,9 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
   const intervalRef = useRef<number | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
-  // GPA Logic
+  // GPA progress suggestion data for the dashboard cards.
   const currentCgpa = getCgpa();
-  const targetGpa = 3.80; 
+  const targetGpa = 3.80;
   const gpaGap = Math.max(0, targetGpa - currentCgpa);
   const suggestedHours = gpaGap > 0 ? (2 + gpaGap * 4).toFixed(1) : "2.0";
 
@@ -32,6 +34,7 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
   ];
 
   useEffect(() => {
+    // Start or stop the countdown interval based on timer state.
     if (isRunning) {
       intervalRef.current = window.setInterval(() => {
         setTimeLeft((prev) => (prev <= 1 ? (setIsRunning(false), 0) : prev - 1));
@@ -42,7 +45,7 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isRunning]);
 
-  // Listen for escape key or browser exit to sync state
+  // Keep fullscreen state in sync with browser fullscreen changes.
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleChange);
@@ -70,7 +73,8 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
 
   const progress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
 
-  // --- ZEN MODE / FULLSCREEN OVERLAY ---
+  // --- FULLSCREEN EXPERIENCE ---
+  // When fullscreen mode is enabled, render a focused overlay with large controls.
   if (isFullscreen) {
     const fullscreenOverlay = (
       <div className="fixed inset-0 z-[9999] bg-white/95 backdrop-blur-sm flex items-center justify-center p-6 sm:p-10 overflow-hidden">
@@ -104,6 +108,7 @@ export function FocusTimer({ compact = false }: { compact?: boolean }) {
 
   // --- DASHBOARD VIEW (COMPACT) ---
   if (compact) {
+    // Compact mode for smaller dashboard cards.
     return (
       <Card>
         <CardHeader>

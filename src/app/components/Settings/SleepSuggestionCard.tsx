@@ -3,7 +3,6 @@ import { Moon, Sparkles } from "lucide-react";
 
 export default function SleepSuggestionCard() {
   return (
-    /* We use max-w-[450px] or similar to ensure it only takes up half the row space */
     <Card className="relative overflow-hidden border-none shadow-sm bg-[#0f172a] text-white w-full max-w-md h-full min-h-[180px]">
       {/* Background Decorative Sparkle Icon (Top Right) */}
       <Sparkles className="absolute top-4 right-4 size-8 text-slate-700 opacity-50" />
