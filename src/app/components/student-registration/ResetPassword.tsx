@@ -21,13 +21,13 @@ export default function ResetPassword({ onNavigate }: { onNavigate: (id: string)
     const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
     if (savedUser.username) {
-      // ✅ Update password in localStorage
+      // Update password in localStorage
       const updatedUser = { ...savedUser, password: formData.password };
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
       setSuccess("Password reset successful! Redirecting to Sign In...");
       setTimeout(() => {
-        onNavigate("signin"); // ✅ back to SignIn, not dashboard
+        onNavigate("signin"); // back to SignIn, not dashboard
       }, 2000);
     } else {
       setError("No user found. Please sign up first.");
