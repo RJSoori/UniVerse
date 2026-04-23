@@ -1,8 +1,24 @@
 import { Semester, GpaSettings, DegreeClassPrediction } from "../types";
+import {
+  SIMULATION_GPA_MIN,
+  SIMULATION_GPA_MAX_4_0,
+  SIMULATION_GPA_MAX_4_2,
+  MONTE_CARLO_SIMULATIONS,
+} from "../../../constants/gradeScales";
+import { normalizeGrade, roundGpa } from "../../../utils/validation";
 
-export function getGradePoint(grade: string, gradingMode: "standard" | "extended"): number {
-  const points: Record<string, number> = {
-    "A+": gradingMode === "extended" ? 4.2 : 4.0,
+/**
+ * Get the effective GPA scale from settings, with fallback logic
+ * @param settings - GPA settings object
+ * @returns The effective GPA scale (4.0 or 4.2)
+ */
+export function getEffectiveGpaScale(settings: GpaSettings): number {
+  return settings.gpaScale ?? (settings.gradingMode === "extended" ? 4.2 : 4.0);
+}
+
+export function getGradePointsMap(gpaScale: number): Record<string, number> {
+  return {
+    "A+": gpaScale === 4.2 ? 4.2 : 4.0,
     "A": 4.0,
     "A-": 3.7,
     "B+": 3.3,
@@ -11,37 +27,45 @@ export function getGradePoint(grade: string, gradingMode: "standard" | "extended
     "C+": 2.3,
     "C": 2.0,
     "C-": 1.7,
-    "D+": 1.3,
+    "D+": 1.0,
     "D": 1.0,
+    "F": 0.0,
     "E": 0.0,
   };
-  return points[grade] || 0;
 }
 
-export function calculateSemesterGpa(subjects: any[], gradingMode: "standard" | "extended"): number {
-  if (subjects.length === 0) return 0;
+export function getGradePoint(grade: string, gpaScale: number): number {
+  const points = getGradePointsMap(gpaScale);
+  const normalizedGrade = normalizeGrade(grade, gpaScale);
+  return points[normalizedGrade || grade] || 0;
+}
+
+export function calculateSemesterGpa(subjects: any[], gpaScale: number): number {
+  const gpaSubjects = subjects.filter((subject) => subject.isGpa !== false); // default true if undefined
+  if (gpaSubjects.length === 0) return 0;
   let totalPoints = 0;
   let totalCredits = 0;
-  subjects.forEach((subject) => {
-    totalPoints += getGradePoint(subject.grade, gradingMode) * subject.credits;
+  gpaSubjects.forEach((subject) => {
+    totalPoints += getGradePoint(subject.grade, gpaScale) * subject.credits;
     totalCredits += subject.credits;
   });
-  return totalCredits > 0 ? totalPoints / totalCredits : 0;
+  return totalCredits > 0 ? roundGpa(totalPoints / totalCredits) : 0;
 }
 
-export function calculateCgpa(semesters: Semester[], gradingMode: "standard" | "extended"): number {
+export function calculateCgpa(semesters: Semester[], gpaScale: number): number {
   let totalPoints = 0;
   let totalCredits = 0;
   semesters.forEach((sem) => {
-    sem.subjects.forEach((subject) => {
-      totalPoints += getGradePoint(subject.grade, gradingMode) * subject.credits;
+    const gpaSubjects = sem.subjects.filter((subject) => subject.isGpa !== false);
+    gpaSubjects.forEach((subject) => {
+      totalPoints += getGradePoint(subject.grade, gpaScale) * subject.credits;
       totalCredits += subject.credits;
     });
   });
-  return totalCredits > 0 ? totalPoints / totalCredits : 0;
+  return totalCredits > 0 ? roundGpa(totalPoints / totalCredits) : 0;
 }
 
-export function simulateFutureGpa(minGpa: number = 2.5, maxGpa: number = 4.2): number {
+export function simulateFutureGpa(minGpa: number = SIMULATION_GPA_MIN, maxGpa: number = SIMULATION_GPA_MAX_4_2): number {
   return Math.random() * (maxGpa - minGpa) + minGpa;
 }
 
@@ -54,7 +78,7 @@ export function calculateFinalCgpa(
   const existingPoints = currentCgpa * creditsCompleted;
   const futurePoints = futureGpas.reduce((sum, gpa) => sum + gpa * avgCreditsPerSemester, 0);
   const totalCredits = creditsCompleted + futureGpas.length * avgCreditsPerSemester;
-  return totalCredits > 0 ? (existingPoints + futurePoints) / totalCredits : 0;
+  return totalCredits > 0 ? roundGpa((existingPoints + futurePoints) / totalCredits) : 0;
 }
 
 export function classifyDegree(cgpa: number, thresholds: GpaSettings["degreeClasses"]): string {
@@ -71,7 +95,7 @@ export function runMonteCarloSimulation(
   completedSemesters: number,
   totalSemesters: number,
   settings: GpaSettings,
-  simulations: number = 1000
+  simulations: number = MONTE_CARLO_SIMULATIONS
 ): DegreeClassPrediction {
   const remainingSemesters = totalSemesters - completedSemesters;
   if (remainingSemesters <= 0) {
@@ -84,8 +108,8 @@ export function runMonteCarloSimulation(
     };
   }
 
-  const avgCreditsPerSemester = creditsCompleted / completedSemesters;
-  const maxGpa = settings.gradingMode === "extended" ? 4.2 : 4.0;
+  const avgCreditsPerSemester = completedSemesters > 0 ? creditsCompleted / completedSemesters : 0;
+  const maxGpa = (settings as any).gpaScale ?? (settings.gradingMode === "extended" ? SIMULATION_GPA_MAX_4_2 : SIMULATION_GPA_MAX_4_0);
 
   const results = {
     firstClass: 0,
@@ -96,7 +120,7 @@ export function runMonteCarloSimulation(
 
   for (let i = 0; i < simulations; i++) {
     const futureGpas = Array.from({ length: remainingSemesters }, () =>
-      simulateFutureGpa(2.5, maxGpa)
+      simulateFutureGpa(SIMULATION_GPA_MIN, maxGpa)
     );
     const finalCgpa = calculateFinalCgpa(
       currentCgpa,
@@ -145,17 +169,17 @@ export function generateInsightMessage(
     (key) => prediction[key as keyof DegreeClassPrediction] === highestProb
   );
 
-  if (bestClass === "firstClass" && highestProb > 50) {
-    return "You have a strong chance of achieving First Class honors!";
-  }
-  if (bestClass === "secondUpper" && highestProb > 50) {
-    return "You're on track for Second Upper classification.";
-  }
   if (currentCgpa >= thresholds.firstClass) {
     return "Congratulations! You've already achieved First Class standing!";
   }
   if (currentCgpa >= thresholds.secondUpper) {
     return "You're performing well. Maintain your current grades to secure Second Upper.";
+  }
+  if (bestClass === "firstClass" && highestProb > 50) {
+    return "You have a strong chance of achieving First Class honors!";
+  }
+  if (bestClass === "secondUpper" && highestProb > 50) {
+    return "You're on track for Second Upper classification.";
   }
   if (currentCgpa === 0) {
     return "Start by adding your first semester and subject to track your academic progress.";

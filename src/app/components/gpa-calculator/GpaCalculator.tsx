@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
 import { GraduationCap, Lightbulb } from "lucide-react";
 import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 import { SemesterManager } from "./SemesterManager";
 import { GpaCharts } from "./GpaCharts";
 import { DegreeClassification } from "./DegreeClassification";
-import { GpaProjectionTool } from "./GpaProjectionTool";
-import { TargetGpaPlanner } from "./TargetGpaPlanner";
+import { GpaSimulator } from "./GpaSimulator";
+import { AcademicGoalPlanner } from "./AcademicGoalPlanner";
 
 export function GpaCalculator() {
   const {
@@ -17,6 +19,8 @@ export function GpaCalculator() {
     getTotalCredits,
     semesters,
     getInsightMessage,
+    settings,
+    updateSettings,
   } = useGpaCalculator();
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -30,7 +34,33 @@ export function GpaCalculator() {
     <div className="app-page">
       <div className="space-y-1">
         <h2 className="app-page-title">GPA Calculator</h2>
-        <p className="app-page-subtitle">Track your CGPA, semesters, and graduation targets</p>
+        <p className="app-page-subtitle">
+          Track your CGPA, semesters, and graduation targets
+        </p>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium">GPA Scale</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">4.0</span>
+              <Switch
+                checked={settings.gpaScale === 4.2}
+                onCheckedChange={(checked) =>
+                  updateSettings({
+                    gpaScale: checked ? 4.2 : 4.0,
+                    gradingMode: checked ? "extended" : "standard",
+                  })
+                }
+              />
+              <span className="text-xs text-muted-foreground">4.2</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {settings.gpaScale === 4.2
+              ? "A+ is weighted as 4.2"
+              : "A+ is weighted as 4.0"}
+          </p>
+        </div>
       </div>
 
       {/* Overview Cards */}
@@ -103,32 +133,31 @@ export function GpaCalculator() {
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="semesters">Semesters</TabsTrigger>
-          <TabsTrigger value="charts">Charts</TabsTrigger>
-          <TabsTrigger value="projection">Projection</TabsTrigger>
+          <TabsTrigger value="degree">Degree</TabsTrigger>
+          <TabsTrigger value="analysis">Analysis</TabsTrigger>
           <TabsTrigger value="planner">Academic Goal Planner</TabsTrigger>
+          <TabsTrigger value="simulator">Simulator</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <SemesterManager />
-          <DegreeClassification />
-        </TabsContent>
 
         <TabsContent value="semesters">
           <SemesterManager showAll={true} />
         </TabsContent>
 
-        <TabsContent value="charts">
+        <TabsContent value="degree">
+          <DegreeClassification />
+        </TabsContent>
+
+        <TabsContent value="analysis">
           <GpaCharts />
         </TabsContent>
 
-        <TabsContent value="projection">
-          <GpaProjectionTool />
+        <TabsContent value="planner">
+          <AcademicGoalPlanner />
         </TabsContent>
 
-        <TabsContent value="planner">
-          <TargetGpaPlanner />
+        <TabsContent value="simulator">
+          <GpaSimulator />
         </TabsContent>
       </Tabs>
     </div>

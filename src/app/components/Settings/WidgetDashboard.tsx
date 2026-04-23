@@ -83,8 +83,9 @@ export function WidgetDashboard({ onNavigate }: DashboardProps) {
         "C+": 2.3,
         C: 2.0,
         "C-": 1.7,
-        "D+": 1.3,
+        "D+": 1.0,
         D: 1.0,
+        F: 0.0,
         E: 0.0,
       };
 
