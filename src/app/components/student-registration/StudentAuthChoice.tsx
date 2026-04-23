@@ -2,7 +2,7 @@ import { Button } from "../ui/button";
 
 export default function StudentAuthChoice({ onNavigate }: { onNavigate: (id: string) => void }) {
   return (
-    // Background: Deep grey to black gradient for a premium feel
+    // Background: Deep grey to black gradient 
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 to-slate-200 px-4">
       
       {/* Main Container Card */}

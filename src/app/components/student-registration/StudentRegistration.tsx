@@ -16,9 +16,22 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
     username: "",
     password: "",
   });
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "confirmPassword") {
+      setConfirmPassword(value);
+      if (passwordError && value === formData.password) {
+        setPasswordError("");
+      }
+    } else {
+      setFormData({ ...formData, [name]: value });
+      if (name === "password" && confirmPassword && value === confirmPassword) {
+        setPasswordError("");
+      }
+    }
   };
 
   const handleNext = (e: React.FormEvent) => {
@@ -28,6 +41,10 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.password !== confirmPassword) {
+      setPasswordError("Passwords do not match. Please enter the same password twice.");
+      return;
+    }
     localStorage.setItem("user", JSON.stringify(formData));
     onNavigate("signin");
   };
@@ -138,6 +155,22 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
                   className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-all"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 ml-1">Confirm Password</label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-all"
+                  required
+                />
+                {passwordError && (
+                  <p className="text-xs text-rose-600 mt-1">{passwordError}</p>
+                )}
               </div>
 
               <Button
