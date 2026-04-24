@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUniStorage } from "./useUniStorage";
 import {
   Wallet,
@@ -25,6 +25,7 @@ import {
   validateTransactionPayload,
   validateWalletPayload,
 } from "../utils/validation";
+import { loadMoneyManagerState, saveMoneyManagerState } from "../utils/moneyManagerApi";
 
 // Helper function to get category type for expense classification
 // anything not explicitly listed as a 'need' is treated as a 'want' for reporting
@@ -97,6 +98,87 @@ export function useMoneyManager() {
       currency: "LKR",
     }
   );
+  const hasHydratedFromBackend = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hasLocalData =
+      wallets.length > 0 ||
+      transactions.length > 0 ||
+      budgets.length > 0 ||
+      recurringExpenses.length > 0 ||
+      categoryBudgets.length > 0 ||
+      settings.firstTimeSetupCompleted ||
+      settings.currency !== "LKR" ||
+      Boolean(settings.theme);
+
+    const hasRemoteData = (state: Awaited<ReturnType<typeof loadMoneyManagerState>>) =>
+      state.wallets.length > 0 ||
+      state.transactions.length > 0 ||
+      state.budgets.length > 0 ||
+      state.recurringExpenses.length > 0 ||
+      state.categoryBudgets.length > 0 ||
+      state.settings.firstTimeSetupCompleted ||
+      state.settings.currency !== "LKR" ||
+      Boolean(state.settings.theme);
+
+    async function hydrateFromBackend() {
+      try {
+        const remoteState = await loadMoneyManagerState();
+        if (cancelled) {
+          return;
+        }
+
+        if (hasRemoteData(remoteState)) {
+          setWallets(remoteState.wallets);
+          setTransactions(remoteState.transactions);
+          setBudgets(remoteState.budgets);
+          setRecurringExpenses(remoteState.recurringExpenses);
+          setCategoryBudgets(remoteState.categoryBudgets);
+          setSettings(remoteState.settings);
+        } else if (hasLocalData) {
+          void saveMoneyManagerState({
+            wallets,
+            transactions,
+            budgets,
+            recurringExpenses,
+            categoryBudgets,
+            settings,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load Money Manager data from backend:", error);
+      } finally {
+        if (!cancelled) {
+          hasHydratedFromBackend.current = true;
+        }
+      }
+    }
+
+    void hydrateFromBackend();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedFromBackend.current) {
+      return;
+    }
+
+    void saveMoneyManagerState({
+      wallets,
+      transactions,
+      budgets,
+      recurringExpenses,
+      categoryBudgets,
+      settings,
+    }).catch((error) => {
+      console.error("Failed to sync Money Manager data to backend:", error);
+    });
+  }, [wallets, transactions, budgets, recurringExpenses, categoryBudgets, settings]);
 
   const applyWalletBalance = useCallback(
     (walletId: string, newBalance: number) => {
