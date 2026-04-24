@@ -25,10 +25,13 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { Plus, Edit, Trash2, BookOpen } from "lucide-react";
+import { AlertCircle, Plus, Edit, Trash2, BookOpen } from "lucide-react";
+import { Checkbox } from "../ui/checkbox";
 import { useGpaCalculator } from "../../hooks/useGpaCalculator";
 import { SubjectForm } from "./SubjectForm";
-import { GRADES, YEARS, SEMESTERS } from "./constants";
+import { YEARS, SEMESTERS } from "./constants";
+import { getEffectiveGpaScale } from "./utils/gpaPrediction";
+import { getAllowedGrades } from "../../utils/validation";
 
 interface SemesterManagerProps {}
 
@@ -39,7 +42,9 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
     updateSemester,
     deleteSemester,
     updateSubject,
+    deleteSubject,
     getSemesterGpa,
+    settings,
   } = useGpaCalculator();
 
   const [showAddSemester, setShowAddSemester] = useState(false);
@@ -50,7 +55,10 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
     name: string;
     credits: string;
     grade: string;
+    isGpa: boolean;
   } | null>(null);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const allowedGrades = getAllowedGrades(getEffectiveGpaScale(settings));
 
   const handleAddSemester = () => {
     if (newSemester.year && newSemester.semester) {
@@ -81,7 +89,6 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
     }
   };
 
-  // showing all semesters unconditionally
   const displayedSemesters = semesters;
 
   return (
@@ -211,6 +218,7 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                       <TableHead>Subject</TableHead>
                       <TableHead>Credits</TableHead>
                       <TableHead>Grade</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -259,7 +267,7 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {GRADES.map((grade) => (
+                                  {allowedGrades.map((grade) => (
                                     <SelectItem key={grade} value={grade}>
                                       {grade}
                                     </SelectItem>
@@ -267,21 +275,39 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                                 </SelectContent>
                               </Select>
                             </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  checked={editingSubject.isGpa}
+                                  onCheckedChange={(checked) =>
+                                    setEditingSubject({
+                                      ...editingSubject,
+                                      isGpa: checked as boolean,
+                                    })
+                                  }
+                                />
+                                <Label>GPA</Label>
+                              </div>
+                            </TableCell>
                             <TableCell className="flex gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => {
                                   if (editingSubject) {
-                                    updateSubject(sem.id, subject.id, {
+                                    const result = updateSubject(sem.id, subject.id, {
                                       name: editingSubject.name,
-                                      credits: parseFloat(
-                                        editingSubject.credits,
-                                      ),
+                                      credits: editingSubject.credits,
                                       grade: editingSubject.grade,
+                                      isGpa: editingSubject.isGpa,
                                     });
+                                    if (!result.ok) {
+                                      setEditErrors(result.errors);
+                                      return;
+                                    }
                                   }
                                   setEditingSubjectId(null);
                                   setEditingSubject(null);
+                                  setEditErrors({});
                                 }}
                               >
                                 Save
@@ -292,10 +318,20 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                                 onClick={() => {
                                   setEditingSubjectId(null);
                                   setEditingSubject(null);
+                                  setEditErrors({});
                                 }}
                               >
                                 Cancel
                               </Button>
+                              {Object.values(editErrors).some(Boolean) && (
+                                <div className="text-xs text-red-600 flex items-center gap-1">
+                                  <AlertCircle className="h-3 w-3" />
+                                  {editErrors.name ||
+                                    editErrors.credits ||
+                                    editErrors.grade ||
+                                    editErrors.general}
+                                </div>
+                              )}
                             </TableCell>
                           </>
                         ) : (
@@ -304,20 +340,36 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                             <TableCell>{subject.credits}</TableCell>
                             <TableCell>{subject.grade}</TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingSubjectId(subject.id);
-                                  setEditingSubject({
-                                    name: subject.name,
-                                    credits: subject.credits.toString(),
-                                    grade: subject.grade,
-                                  });
-                                }}
-                              >
-                                Edit
-                              </Button>
+                              {subject.isGpa ? "GPA" : "Non-GPA"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingSubjectId(subject.id);
+                                    setEditingSubject({
+                                      name: subject.name,
+                                      credits: subject.credits.toString(),
+                                      grade: subject.grade,
+                                      isGpa: subject.isGpa,
+                                    });
+                                    setEditErrors({});
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    deleteSubject(sem.id, subject.id)
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </>
                         )}

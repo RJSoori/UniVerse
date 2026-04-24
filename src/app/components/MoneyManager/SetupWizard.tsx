@@ -10,9 +10,10 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import { ArrowRight, Check } from "lucide-react";
+import { AlertCircle, ArrowRight, Check } from "lucide-react";
 import { useMoneyManager } from "../../hooks/useMoneyManager";
 import { AllocationMode } from "./types";
+import { validateBudgetPayload } from "../../utils/validation";
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -42,6 +43,7 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
     wants: 25,
     savings: 10,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // populate when editing existing budget
   useEffect(() => {
@@ -54,6 +56,7 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
   }, [initialData]);
 
   const handleNext = () => {
+    setErrors({});
     if (step === 1 && monthlyIncome) {
       // when moving from income step, don't override budget if already set (editing case)
       if (!monthlyBudget) {
@@ -75,12 +78,16 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
       allocation = { needs: 50, wants: 30, savings: 20 };
     }
 
-    createOrUpdateBudget({
+    const result = createOrUpdateBudget({
       monthlyIncome: parseFloat(monthlyIncome),
       monthlyBudget: parseFloat(monthlyBudget),
       allocationMode,
       allocation,
     });
+    if (!result.ok) {
+      setErrors(result.errors);
+      return;
+    }
 
     completeFirstTimeSetup();
     onComplete();
@@ -138,9 +145,20 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
                   type="number"
                   placeholder="e.g., 50000"
                   value={monthlyIncome}
-                  onChange={(e) => setMonthlyIncome(e.target.value)}
+                  onChange={(e) => {
+                    setMonthlyIncome(e.target.value);
+                    if (errors.monthlyIncome) {
+                      setErrors((prev) => ({ ...prev, monthlyIncome: "" }));
+                    }
+                  }}
                   className="text-lg"
                 />
+                {errors.monthlyIncome && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.monthlyIncome}
+                  </p>
+                )}
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -186,9 +204,20 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
                   type="number"
                   placeholder="e.g., 40000"
                   value={monthlyBudget}
-                  onChange={(e) => setMonthlyBudget(e.target.value)}
+                  onChange={(e) => {
+                    setMonthlyBudget(e.target.value);
+                    if (errors.monthlyBudget) {
+                      setErrors((prev) => ({ ...prev, monthlyBudget: "" }));
+                    }
+                  }}
                   className="text-lg"
                 />
+                {errors.monthlyBudget && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.monthlyBudget}
+                  </p>
+                )}
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
@@ -433,6 +462,12 @@ export function SetupWizard({ onComplete, initialData }: SetupWizardProps) {
                         customAllocation.savings}
                       %
                     </div>
+                    {errors.allocation && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.allocation}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

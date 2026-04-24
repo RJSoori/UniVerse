@@ -2,23 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "../ui/dialog";
 import { useMoneyManager } from "../../hooks/useMoneyManager";
+import { formatCurrency } from "../../utils/currencyUtils";
 import { SetupWizard } from "./SetupWizard";
 import { WalletManager } from "./WalletManager";
 import { AddTransactionForm } from "./AddTransactionForm";
 import { TransactionList } from "./TransactionList";
 import { BudgetTracker } from "./BudgetTracker";
 import { InsightsEngine } from "./InsightsEngine";
-import { SearchTransactions } from "./SearchTransactions";
 import { ReportsDashboard } from "./ReportsDashboard";
+import { QuickAddTransaction } from "./QuickAddTransaction";
 import {
   Wallet,
   TrendingUp,
@@ -26,27 +19,29 @@ import {
   PieChart,
   BarChart3,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 
 export function MoneyManager() {
   const {
     settings,
+    wallets,
     getBalance,
     getTotalIncome,
     getTotalExpenses,
     getCurrentMonthBudget,
-    resetAll,
   } = useMoneyManager();
   const [activeTab, setActiveTab] = useState("overview");
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showWizard, setShowWizard] = useState(
     !settings.firstTimeSetupCompleted,
   );
 
   const currentBudget = getCurrentMonthBudget();
 
-  // show wizard for first-time or when editing
-  if (showWizard || !settings.firstTimeSetupCompleted) {
+  // Show wizard for first-time setup or when user explicitly edits budget.
+  // Keep this gate local to avoid re-opening due to stale settings snapshots.
+  if (showWizard) {
     return (
       <SetupWizard
         initialData={currentBudget || undefined}
@@ -58,6 +53,27 @@ export function MoneyManager() {
   const balance = getBalance();
   const totalIncome = getTotalIncome();
   const totalExpenses = getTotalExpenses();
+
+  const summaryCards = [
+    {
+      title: "Current Balance",
+      value: formatCurrency(balance),
+      valueClass: balance >= 0 ? "text-emerald-600" : "text-destructive",
+      icon: <Wallet className="size-4 text-muted-foreground" />,
+    },
+    {
+      title: "Total Income",
+      value: formatCurrency(totalIncome),
+      valueClass: "text-emerald-600",
+      icon: <TrendingUp className="size-4 text-emerald-500" />,
+    },
+    {
+      title: "Total Expenses",
+      value: formatCurrency(totalExpenses),
+      valueClass: "text-destructive",
+      icon: <TrendingDown className="size-4 text-destructive" />,
+    },
+  ];
 
   return (
     <div className="app-page">
@@ -78,65 +94,43 @@ export function MoneyManager() {
             Edit Budget
           </Button>
           <Button
-            onClick={() => setShowAddTransaction(!showAddTransaction)}
+            variant="secondary"
+            onClick={() => setShowQuickAdd(true)}
             className="gap-2"
           >
-            <TrendingDown className="h-4 w-4" /> Add Transaction
+            <Plus className="h-4 w-4" /> Quick Add
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Current Balance
-            </CardTitle>
-            <Wallet className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${balance >= 0 ? "text-emerald-600" : "text-destructive"}`}
-            >
-              LKR {balance.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-            <TrendingUp className="size-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
-              LKR {totalIncome.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Expenses
-            </CardTitle>
-            <TrendingDown className="size-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              LKR {totalExpenses.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
+        {summaryCards.map((card) => (
+          <Card key={card.title}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                {card.title}
+              </CardTitle>
+              {card.icon}
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${card.valueClass}`}>
+                {card.value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Add Transaction Form */}
-      {showAddTransaction && (
-        <div>
-          <AddTransactionForm onClose={() => setShowAddTransaction(false)} />
-        </div>
-      )}
+      {/* Quick Add Floating Action Button */}
+      <QuickAddTransaction open={showQuickAdd} onOpenChange={setShowQuickAdd} />
+      <button
+        className="fixed bottom-6 right-6 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30"
+        onClick={() => setShowQuickAdd(true)}
+        aria-label="Quick add transaction"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -191,7 +185,31 @@ export function MoneyManager() {
               <TransactionList />
             </div>
             <div>
-              <AddTransactionForm compact />
+              {wallets.length === 0 ? (
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="pt-6">
+                    <div className="text-center space-y-3">
+                      <p className="text-sm font-semibold text-amber-900">
+                        Create a wallet first
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        Go to the Wallets tab to create your first wallet before
+                        adding transactions.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("wallets")}
+                        className="mt-2"
+                      >
+                        Go to Wallets
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AddTransactionForm compact />
+              )}
             </div>
           </div>
         </TabsContent>
@@ -204,7 +222,7 @@ export function MoneyManager() {
         {/* Search Tab */}
         <TabsContent value="search" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SearchTransactions />
+            <TransactionList searchable />
             <InsightsEngine />
           </div>
         </TabsContent>

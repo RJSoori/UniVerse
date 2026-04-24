@@ -11,9 +11,35 @@ import { AlertCircle, TrendingDown, Zap } from "lucide-react";
 import { Progress } from "../ui/progress";
 
 export function BudgetTracker() {
-  const { getCurrentMonthBudget, getDailyAllowance } = useMoneyManager();
+  const {
+    getCurrentMonthBudget,
+    getDailyAllowance,
+    getFixedCommitmentsTotal,
+    getAvailableAfterFixed,
+    getRemainingFlexibleBudget,
+    getCategoryBudgetsForCurrentMonth,
+    getCategoryBudgetUsage,
+    getCategoryBudgetRemaining,
+    getFoodBudgetGuidance,
+  } = useMoneyManager();
+
+  // Helper function to determine progress bar styling
+  const getProgressBarClassName = (
+    budgetExceeded: boolean,
+    warning: boolean,
+  ) => {
+    if (budgetExceeded) return "bg-destructive/20";
+    if (warning) return "bg-amber-200";
+    return "bg-muted";
+  };
+
   const budget = getCurrentMonthBudget();
   const dailyAllowance = getDailyAllowance();
+  const fixedCommitmentsTotal = getFixedCommitmentsTotal();
+  const availableAfterFixed = getAvailableAfterFixed();
+  const remainingFlexibleBudget = getRemainingFlexibleBudget();
+  const categoryBudgets = getCategoryBudgetsForCurrentMonth();
+  const foodGuidance = getFoodBudgetGuidance();
 
   if (!budget) {
     return (
@@ -107,13 +133,7 @@ export function BudgetTracker() {
             <div className="space-y-2">
               <Progress
                 value={Math.min(budgetUsed, 100)}
-                className={`h-3 ${
-                  isBudgetExceeded
-                    ? "bg-destructive/20"
-                    : isWarning
-                      ? "bg-amber-200"
-                      : "bg-muted"
-                }`}
+                className={`h-3 ${getProgressBarClassName(isBudgetExceeded, isWarning)}`}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{budgetUsed.toFixed(0)}% used</span>
@@ -121,6 +141,34 @@ export function BudgetTracker() {
                   {Math.max(0, 100 - budgetUsed).toFixed(0)}% remaining
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Fixed Commitments Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Fixed Commitments
+              </p>
+              <p className="text-xl font-bold mt-1">
+                LKR {fixedCommitmentsTotal.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                After fixed costs
+              </p>
+              <p className="text-xl font-bold mt-1">
+                LKR {availableAfterFixed.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Flexible budget
+              </p>
+              <p className="text-xl font-bold mt-1">
+                LKR {remainingFlexibleBudget.toLocaleString()}
+              </p>
             </div>
           </div>
 
@@ -189,6 +237,61 @@ export function BudgetTracker() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Category Budgets */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Category Budgets</CardTitle>
+          <CardDescription>
+            Monthly limits for your spending categories
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {categoryBudgets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No category budgets set for this month.
+            </p>
+          ) : (
+            categoryBudgets.map((budget) => {
+              const used = getCategoryBudgetUsage(budget.category);
+              const remaining = getCategoryBudgetRemaining(budget.category);
+              const percent =
+                budget.limit > 0
+                  ? Math.min(100, (used / budget.limit) * 100)
+                  : 0;
+              return (
+                <div key={budget.id} className="space-y-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium">{budget.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Limit LKR {budget.limit.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p>{percent.toFixed(0)}% used</p>
+                      <p className="text-xs text-muted-foreground">
+                        Remaining LKR {remaining.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })
+          )}
+          {foodGuidance && (
+            <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-sm text-primary-700">
+              {foodGuidance}
+            </div>
+          )}
         </CardContent>
       </Card>
 

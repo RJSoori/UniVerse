@@ -1,9 +1,16 @@
+import {
+  roundGpa,
+  safeCompare,
+  validateRecommendationFeasibility,
+} from "../../../utils/validation";
+
 export interface TargetGpaResult {
   requiredSgpa: number;
   isFeasible: boolean;
   maxPossibleCgpa: number;
   message: string;
   insight: string;
+  difficulty: "IMPOSSIBLE" | "VERY HARD" | "CHALLENGING" | "ACHIEVABLE";
 }
 
 export function calculateRequiredSGPA(
@@ -17,7 +24,7 @@ export function calculateRequiredSGPA(
   const requiredTotalPoints = targetCgpa * targetTotalCredits;
   const requiredNextSemesterPoints = requiredTotalPoints - currentTotalPoints;
   const requiredSgpa = requiredNextSemesterPoints / nextCredits;
-  return requiredSgpa;
+  return roundGpa(requiredSgpa);
 }
 
 export function calculateMaxPossibleCGPA(
@@ -31,11 +38,11 @@ export function calculateMaxPossibleCGPA(
   const maxNextSemesterPoints = maxGpa * nextCredits;
   const newTotalPoints = currentTotalPoints + maxNextSemesterPoints;
   const maxPossibleCgpa = newTotalPoints / targetTotalCredits;
-  return maxPossibleCgpa;
+  return roundGpa(maxPossibleCgpa);
 }
 
 export function validateTargetFeasibility(requiredSgpa: number, maxGpa: number): boolean {
-  return requiredSgpa <= maxGpa;
+  return safeCompare(requiredSgpa, maxGpa) <= 0;
 }
 
 export function getTargetGpaResult(
@@ -45,25 +52,41 @@ export function getTargetGpaResult(
   targetCgpa: number,
   maxGpa: number
 ): TargetGpaResult {
-  const requiredSgpa = calculateRequiredSGPA(currentCgpa, completedCredits, nextCredits, targetCgpa);
-  const isFeasible = validateTargetFeasibility(requiredSgpa, maxGpa);
+  const calculatedRequiredSgpa = Math.max(
+    0,
+    calculateRequiredSGPA(currentCgpa, completedCredits, nextCredits, targetCgpa),
+  );
+  const feasibility = validateRecommendationFeasibility(calculatedRequiredSgpa, maxGpa);
+  const requiredSgpa =
+    feasibility.ok ? feasibility.value.requiredSgpa : calculatedRequiredSgpa;
+  const isFeasible = feasibility.ok && validateTargetFeasibility(requiredSgpa, maxGpa);
   const maxPossibleCgpa = calculateMaxPossibleCGPA(currentCgpa, completedCredits, nextCredits, maxGpa);
 
   let message = "";
   let insight = "";
+  let difficulty: TargetGpaResult["difficulty"] = "ACHIEVABLE";
 
-  if (isFeasible) {
-    message = `You need an SGPA of ${requiredSgpa.toFixed(2)} next semester to reach CGPA ${targetCgpa}.`;
-    if (requiredSgpa >= 3.7) {
-      insight = "Your target is realistic if you maintain mostly A grades.";
-    } else if (requiredSgpa >= 3.3) {
-      insight = "Your target is achievable with consistent good performance.";
-    } else {
-      insight = "Your target is within reach with steady effort.";
-    }
+  if (!isFeasible) {
+    difficulty = "IMPOSSIBLE";
+    message = "Target is not achievable with given credits.";
+    insight = `Maximum possible CGPA: ${maxPossibleCgpa.toFixed(2)}.`;
   } else {
-    message = "This target GPA cannot be reached in one semester.";
-    insight = `Even with perfect grades next semester, your CGPA would become approximately ${maxPossibleCgpa.toFixed(2)}.`;
+    if (requiredSgpa > maxGpa - 0.1) {
+      difficulty = "VERY HARD";
+    } else if (requiredSgpa > maxGpa - 0.3) {
+      difficulty = "CHALLENGING";
+    } else {
+      difficulty = "ACHIEVABLE";
+    }
+
+    message = `You need an SGPA of ${requiredSgpa.toFixed(2)} next semester to reach CGPA ${targetCgpa}.`;
+    if (difficulty === "VERY HARD") {
+      insight = "This will require near-perfect grades and strong effort.";
+    } else if (difficulty === "CHALLENGING") {
+      insight = "This is challenging but achievable with consistent good performance.";
+    } else {
+      insight = "This target is within reach with steady effort.";
+    }
   }
 
   return {
@@ -72,5 +95,6 @@ export function getTargetGpaResult(
     maxPossibleCgpa,
     message,
     insight,
+    difficulty,
   };
 }

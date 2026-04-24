@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -24,11 +24,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Calendar } from "lucide-react";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 type ReportPeriod = "weekly" | "monthly" | "custom";
 
 export function ReportsDashboard() {
-  const { generateReport } = useMoneyManager();
+  const { generateReport, generateMoneyManagerCsv } = useMoneyManager();
   const [period, setPeriod] = useState<ReportPeriod>("monthly");
   const [startDate, setStartDate] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -40,6 +41,24 @@ export function ReportsDashboard() {
   );
 
   const report = generateReport(period, startDate, endDate);
+
+  // Helper function to get balance color based on value
+  const getBalanceColorClassName = (balance: number) => {
+    return balance >= 0 ? "text-emerald-600" : "text-destructive";
+  };
+
+  const handleExportCsv = () => {
+    const csv = generateMoneyManagerCsv("Student Name", "Degree");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `money-manager-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const COLORS = [
     "#3b82f6",
@@ -81,7 +100,6 @@ export function ReportsDashboard() {
         date: trend.date.slice(5),
         income: trend.income,
         expense: trend.expense,
-        savings: trend.savings,
       })),
     [report.trends],
   );
@@ -103,18 +121,23 @@ export function ReportsDashboard() {
           <CardTitle className="text-base">Report Period</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
-            {(["weekly", "monthly"] as const).map((p) => (
-              <Button
-                key={p}
-                variant={period === p ? "default" : "outline"}
-                size="sm"
-                className="capitalize"
-                onClick={() => setPeriod(p)}
-              >
-                {p}
-              </Button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex flex-wrap gap-2">
+              {(["weekly", "monthly"] as const).map((p) => (
+                <Button
+                  key={p}
+                  variant={period === p ? "default" : "outline"}
+                  size="sm"
+                  className="capitalize"
+                  onClick={() => setPeriod(p)}
+                >
+                  {p}
+                </Button>
+              ))}
+            </div>
+            <Button size="sm" onClick={handleExportCsv}>
+              Export CSV
+            </Button>
           </div>
           {period !== "custom" && (
             <div className="space-y-3 text-sm">
@@ -138,7 +161,7 @@ export function ReportsDashboard() {
               Total Income
             </p>
             <p className="text-2xl font-bold mt-2 text-emerald-600">
-              LKR {report.totalIncome.toLocaleString()}
+              {formatCurrency(report.totalIncome)}
             </p>
           </CardContent>
         </Card>
@@ -148,7 +171,7 @@ export function ReportsDashboard() {
               Total Expenses
             </p>
             <p className="text-2xl font-bold mt-2 text-destructive">
-              LKR {report.totalExpense.toLocaleString()}
+              {formatCurrency(report.totalExpense)}
             </p>
           </CardContent>
         </Card>
@@ -158,9 +181,9 @@ export function ReportsDashboard() {
               Balance
             </p>
             <p
-              className={`text-2xl font-bold mt-2 ${report.balance >= 0 ? "text-emerald-600" : "text-destructive"}`}
+              className={`text-2xl font-bold mt-2 ${getBalanceColorClassName(report.balance)}`}
             >
-              LKR {report.balance.toLocaleString()}
+              {formatCurrency(report.balance)}
             </p>
           </CardContent>
         </Card>
@@ -229,9 +252,6 @@ export function ReportsDashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value, percent }: any) =>
-                      `${name}: LKR ${value.toLocaleString()} (${(percent * 100).toFixed(0)}%)`
-                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -242,6 +262,14 @@ export function ReportsDashboard() {
                   </Pie>
                   <Tooltip
                     formatter={(value) => `LKR ${value?.toLocaleString()}`}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={60}
+                    wrapperStyle={{ whiteSpace: "normal", overflow: "visible" }}
+                    formatter={(value, entry: any) =>
+                      `${value}: LKR ${entry.payload.value.toLocaleString()}`
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -270,7 +298,6 @@ export function ReportsDashboard() {
                   <Legend />
                   <Line type="monotone" dataKey="income" stroke="#10b981" />
                   <Line type="monotone" dataKey="expense" stroke="#ef4444" />
-                  <Line type="monotone" dataKey="savings" stroke="#3b82f6" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -294,9 +321,6 @@ export function ReportsDashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value, percent }: any) =>
-                      `${name}: LKR ${value.toLocaleString()} (${(percent * 100).toFixed(0)}%)`
-                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -310,6 +334,14 @@ export function ReportsDashboard() {
                   </Pie>
                   <Tooltip
                     formatter={(value) => `LKR ${value?.toLocaleString()}`}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={80}
+                    wrapperStyle={{ whiteSpace: "normal", overflow: "visible" }}
+                    formatter={(value, entry: any) =>
+                      `${value}: LKR ${entry.payload.value.toLocaleString()}`
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
