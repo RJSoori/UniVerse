@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUniStorage } from "./useUniStorage";
 import {
   Semester,
@@ -23,6 +23,7 @@ import {
   validateSubjectForSemester,
   validateWalletName,
 } from "../utils/validation";
+import * as gpaCalculatorApi from "../utils/gpaCalculatorApi";
 
 const defaultSettings: GpaSettings = {
   gradingMode: "standard",
@@ -40,6 +41,8 @@ export function useGpaCalculator() {
   const [settings, setSettings] = useUniStorage<GpaSettings>("gpa-settings", defaultSettings);
   const [projection, setProjection] = useState<GpaProjection>({ subjects: [], projectedGpa: 0 });
   const [simulationSubjects, setSimulationSubjects] = useUniStorage<PlannerSubject[]>("gpa-simulation", []);
+  const hasHydratedFromBackend = useRef(false);
+  const studentId = "default-student"; // TODO: Get from user context/auth
 
   const getExistingSubjectNames = useCallback(
     (semesterId: string, excludingSubjectId?: string) => {
@@ -95,6 +98,43 @@ export function useGpaCalculator() {
       return sortSemesters(currentSemesters);
     });
   }, [setSemestersRaw, sortSemesters]); // Run once on mount
+
+  // Backend hydration effect - runs once on mount
+  useEffect(() => {
+    if (hasHydratedFromBackend.current) return;
+    hasHydratedFromBackend.current = true;
+
+    const hydrateFromBackend = async () => {
+      try {
+        const backendSemesters = await gpaCalculatorApi.getSemestersByStudent(studentId);
+        if (backendSemesters && backendSemesters.length > 0) {
+          setSemestersRaw(sortSemesters(backendSemesters));
+        } else if (semesters.length > 0) {
+          // Push local data to backend if backend is empty but local has data
+          await gpaCalculatorApi.syncAllGPAData(semesters, settings, studentId);
+        }
+      } catch (error) {
+        console.error("Failed to hydrate GPA data from backend:", error);
+      }
+    };
+
+    hydrateFromBackend();
+  }, [studentId, setSemestersRaw, semesters, settings, sortSemesters]);
+
+  // Backend sync effect - syncs whenever semesters or settings change
+  useEffect(() => {
+    if (!hasHydratedFromBackend.current) return;
+
+    const syncTimer = setTimeout(async () => {
+      try {
+        await gpaCalculatorApi.syncAllGPAData(semesters, settings, studentId);
+      } catch (error) {
+        console.error("Failed to sync GPA data to backend:", error);
+      }
+    }, 500); // Debounce by 500ms
+
+    return () => clearTimeout(syncTimer);
+  }, [semesters, settings, studentId]);
 
   useEffect(() => {
     setSettings((currentSettings) => {
