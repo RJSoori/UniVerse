@@ -10,14 +10,34 @@ export default function SignIn({ onNavigate }: { onNavigate: (id: string) => voi
     if (error) setError(""); 
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- UPDATED HANDLER TO TALK TO BACKEND ---
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+    
+    try {
+      // 1. Send the login request to your Spring Boot Controller
+      const response = await fetch("http://localhost:8080/api/students/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-    if (formData.username === savedUser.username && formData.password === savedUser.password) {
-      onNavigate("dashboard");
-    } else {
-      setError("The username or password you entered is incorrect.");
+      // 2. Get the text response from the backend (e.g., "Login Successful!")
+      const result = await response.text();
+
+      if (result === "Login Successful!") {
+        // 3. If credentials match what's in Aiven MySQL
+        onNavigate("dashboard");
+      } else {
+        // 4. If backend returns "Invalid Password" or "User Not Found"
+        setError(result);
+      }
+    } catch (err) {
+      // 5. If the backend server isn't running
+      console.error("Login Error:", err);
+      setError("Cannot connect to the server. Please check your terminal.");
     }
   };
 
@@ -40,6 +60,7 @@ export default function SignIn({ onNavigate }: { onNavigate: (id: string) => voi
 
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-10">
           
+          {/* Error Message Display */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded-r-md animate-in fade-in slide-in-from-top-1">
               {error}
@@ -82,7 +103,6 @@ export default function SignIn({ onNavigate }: { onNavigate: (id: string) => voi
               />
             </div>
 
-            {/* NEW BLUE BUTTON STYLE */}
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-xl text-lg font-bold shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
