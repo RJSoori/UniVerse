@@ -2,13 +2,17 @@ import React, { useState } from "react";
 import { Button } from "../ui/button";
 
 export default function StudentRegistration({ onNavigate }: { onNavigate: (id: string) => void }) {
+  //constants
   const degrees = [
     "Engineering", "IT & Computing", "Medicine & Health Sciences",
     "Management & Business", "Architecture & Design", "Natural & Physical Sciences",
     "Social Sciences & Humanities", "Education & Teaching", "Agriculture & Veterinary",
   ];
 
+  // Controls which part of the form is visible (Step 1: Info, Step 2: Security)
   const [step, setStep] = useState(1);
+  
+  // Stores all user input data in one object
   const [formData, setFormData] = useState({
     name: "",
     degree: "",
@@ -16,43 +20,81 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
     username: "",
     password: "",
   });
+
+  //confirmation password
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  //error messages if passwords don't match
   const [passwordError, setPasswordError] = useState("");
 
+  
+  // Handles changes for all input fields and the dropdown
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
     if (name === "confirmPassword") {
       setConfirmPassword(value);
+      // Clear error message if user fixes the mismatch
       if (passwordError && value === formData.password) {
         setPasswordError("");
       }
     } else {
+      // Updates the specific field in formData based on the 'name' attribute
       setFormData({ ...formData, [name]: value });
+      
+      // Clear error message if user fixes the password field
       if (name === "password" && confirmPassword && value === confirmPassword) {
         setPasswordError("");
       }
     }
   };
 
+  // Moves the user from Step 1 to Step 2
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // The main function that talks to Backend
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevents the browser from refreshing the page
+    
+    //Ensure passwords match before even calling the API
     if (formData.password !== confirmPassword) {
       setPasswordError("Passwords do not match. Please enter the same password twice.");
       return;
     }
-    localStorage.setItem("user", JSON.stringify(formData));
-    onNavigate("signin");
+
+    try {
+      //Sends a POST request to your local Java server
+      const response = await fetch("http://localhost:8080/api/students/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        //If backend returns a 200 OK status
+        alert("Registration Successful!");
+        onNavigate("signin"); // Redirect user to the login screen
+      } else {
+        //If backend returns an error
+        const errorMsg = await response.text();
+        alert("Registration failed: " + errorMsg);
+      }
+    } catch (error) {
+      //If the Java server is not running
+      console.error("Connection error:", error);
+      alert("Backend server is not reachable. Check your terminal!");
+    }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 to-slate-200 px-4">
       
-      {/* Back Button */}
+      {/* Dynamic Navigation: Goes back to Welcome page or Step 1*/}
       <button 
         onClick={() => step === 2 ? setStep(1) : onNavigate("welcome")}
         className="absolute top-8 left-8 text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-2 text-sm font-medium"
@@ -61,7 +103,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
       </button>
 
       <div className="w-full max-w-md">
-        {/* Header & Progress */}
+        {/* Header Section */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Create Profile</h2>
           <div className="flex items-center justify-center gap-2 mt-4">
@@ -73,9 +115,9 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
           </p>
         </div>
 
-        {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-10">
           
+          {/* STEP 1: Name and Degree Selection */}
           {step === 1 && (
             <form onSubmit={handleNext} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
@@ -116,6 +158,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
             </form>
           )}
 
+          {/* STEP 2: Email, Username, and Password fields */}
           {step === 2 && (
             <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
@@ -168,6 +211,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
                   className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:outline-none transition-all"
                   required
                 />
+                {/* Visual feedback for password errors */}
                 {passwordError && (
                   <p className="text-xs text-rose-600 mt-1">{passwordError}</p>
                 )}
@@ -182,6 +226,7 @@ export default function StudentRegistration({ onNavigate }: { onNavigate: (id: s
             </form>
           )}
 
+          {/* Bottom Navigation: Switch back to Login */}
           <p className="text-center mt-8 text-sm text-slate-400">
             Already have an account?{" "}
             <span 
