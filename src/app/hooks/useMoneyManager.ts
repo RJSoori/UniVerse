@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useUniStorage } from "./useUniStorage";
 import {
   Wallet,
   Transaction,
@@ -24,6 +23,8 @@ import {
   validateRecurringExpensePayload,
   validateTransactionPayload,
   validateWalletPayload,
+  getStorageSanitizer,
+  sanitizeStorageValue,
 } from "../utils/validation";
 import { loadMoneyManagerState, saveMoneyManagerState } from "../utils/moneyManagerApi";
 
@@ -73,95 +74,183 @@ function formatLocalDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+const EMPTY_MONEY_MANAGER_STATE = {
+  wallets: [],
+  transactions: [],
+  budgets: [],
+  recurringExpenses: [],
+  categoryBudgets: [],
+  settings: {
+    firstTimeSetupCompleted: false,
+    currency: "LKR",
+  },
+} as const;
+
+const LEGACY_MONEY_MANAGER_STORAGE_KEYS = [
+  "money-wallets",
+  "money-transactions",
+  "money-budgets",
+  "money-recurring-expenses",
+  "money-category-budgets",
+  "money-settings",
+] as const;
+
+function isMoneyManagerStateEmpty(state: {
+  wallets: Wallet[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  recurringExpenses: RecurringExpense[];
+  categoryBudgets: CategoryBudget[];
+  settings: MoneyManagerSettings;
+}) {
+  return (
+    state.wallets.length === 0 &&
+    state.transactions.length === 0 &&
+    state.budgets.length === 0 &&
+    state.recurringExpenses.length === 0 &&
+    state.categoryBudgets.length === 0 &&
+    !state.settings.firstTimeSetupCompleted &&
+    state.settings.currency === "LKR" &&
+    !state.settings.theme
+  );
+}
+
+function readLegacyMoneyManagerState() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const readValue = <T,>(key: string, initialValue: T): T => {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw === null) {
+        return initialValue;
+      }
+
+      const parsed = JSON.parse(raw);
+      const sanitizer = getStorageSanitizer<T>(key);
+      return sanitizeStorageValue(key, parsed, initialValue, sanitizer).value;
+    } catch (error) {
+      console.error(`Error reading legacy Money Manager data for ${key}:`, error);
+      return initialValue;
+    }
+  };
+
+  return {
+    wallets: readValue<Wallet[]>("money-wallets", []),
+    transactions: readValue<Transaction[]>("money-transactions", []),
+    budgets: readValue<Budget[]>("money-budgets", []),
+    recurringExpenses: readValue<RecurringExpense[]>("money-recurring-expenses", []),
+    categoryBudgets: readValue<CategoryBudget[]>("money-category-budgets", []),
+    settings: readValue<MoneyManagerSettings>("money-settings", {
+      firstTimeSetupCompleted: false,
+      currency: "LKR",
+    }),
+  };
+}
+
+function clearLegacyMoneyManagerStorage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  for (const key of LEGACY_MONEY_MANAGER_STORAGE_KEYS) {
+    window.localStorage.removeItem(key);
+  }
+}
+
 // Note: escapeCsvValue now imported from csvUtils.ts for DRY principle
 // Keeping this function for backward compatibility but use csvUtils version
 
 export function useMoneyManager() {
-  const [wallets, setWallets] = useUniStorage<Wallet[]>("money-wallets", []);
-  const [transactions, setTransactions] = useUniStorage<Transaction[]>(
-    "money-transactions",
-    []
-  );
-  const [budgets, setBudgets] = useUniStorage<Budget[]>("money-budgets", []);
-  const [recurringExpenses, setRecurringExpenses] = useUniStorage<RecurringExpense[]>(
-    "money-recurring-expenses",
-    []
-  );
-  const [categoryBudgets, setCategoryBudgets] = useUniStorage<CategoryBudget[]>(
-    "money-category-budgets",
-    []
-  );
-  const [settings, setSettings] = useUniStorage<MoneyManagerSettings>(
-    "money-settings",
-    {
-      firstTimeSetupCompleted: false,
-      currency: "LKR",
-    }
-  );
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudget[]>([]);
+  const [settings, setSettings] = useState<MoneyManagerSettings>({
+    firstTimeSetupCompleted: false,
+    currency: "LKR",
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const hasHydratedFromBackend = useRef(false);
+  const loadTokenRef = useRef(0);
+  const shouldClearLegacyStorageRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const applyMoneyManagerState = useCallback(
+    (nextState: {
+      wallets: Wallet[];
+      transactions: Transaction[];
+      budgets: Budget[];
+      recurringExpenses: RecurringExpense[];
+      categoryBudgets: CategoryBudget[];
+      settings: MoneyManagerSettings;
+    }) => {
+      setWallets(nextState.wallets);
+      setTransactions(nextState.transactions);
+      setBudgets(nextState.budgets);
+      setRecurringExpenses(nextState.recurringExpenses);
+      setCategoryBudgets(nextState.categoryBudgets);
+      setSettings(nextState.settings);
+    },
+    [],
+  );
 
-    const hasLocalData =
-      wallets.length > 0 ||
-      transactions.length > 0 ||
-      budgets.length > 0 ||
-      recurringExpenses.length > 0 ||
-      categoryBudgets.length > 0 ||
-      settings.firstTimeSetupCompleted ||
-      settings.currency !== "LKR" ||
-      Boolean(settings.theme);
+  const hydrateFromBackend = useCallback(async () => {
+    const loadToken = ++loadTokenRef.current;
+    setIsLoading(true);
+    setError(null);
 
-    const hasRemoteData = (state: Awaited<ReturnType<typeof loadMoneyManagerState>>) =>
-      state.wallets.length > 0 ||
-      state.transactions.length > 0 ||
-      state.budgets.length > 0 ||
-      state.recurringExpenses.length > 0 ||
-      state.categoryBudgets.length > 0 ||
-      state.settings.firstTimeSetupCompleted ||
-      state.settings.currency !== "LKR" ||
-      Boolean(state.settings.theme);
+    try {
+      const remoteState = await loadMoneyManagerState();
+      if (loadToken !== loadTokenRef.current) {
+        return;
+      }
 
-    async function hydrateFromBackend() {
-      try {
-        const remoteState = await loadMoneyManagerState();
-        if (cancelled) {
-          return;
-        }
-
-        if (hasRemoteData(remoteState)) {
-          setWallets(remoteState.wallets);
-          setTransactions(remoteState.transactions);
-          setBudgets(remoteState.budgets);
-          setRecurringExpenses(remoteState.recurringExpenses);
-          setCategoryBudgets(remoteState.categoryBudgets);
-          setSettings(remoteState.settings);
-        } else if (hasLocalData) {
-          void saveMoneyManagerState({
-            wallets,
-            transactions,
-            budgets,
-            recurringExpenses,
-            categoryBudgets,
-            settings,
-          });
-        }
-      } catch (error) {
-        console.error("Failed to load Money Manager data from backend:", error);
-      } finally {
-        if (!cancelled) {
-          hasHydratedFromBackend.current = true;
+      if (!isMoneyManagerStateEmpty(remoteState)) {
+        applyMoneyManagerState(remoteState);
+        shouldClearLegacyStorageRef.current = false;
+        clearLegacyMoneyManagerStorage();
+      } else {
+        const legacyState = readLegacyMoneyManagerState();
+        if (legacyState && !isMoneyManagerStateEmpty(legacyState)) {
+          applyMoneyManagerState(legacyState);
+          shouldClearLegacyStorageRef.current = true;
+        } else {
+          applyMoneyManagerState(EMPTY_MONEY_MANAGER_STATE);
+          shouldClearLegacyStorageRef.current = false;
         }
       }
+
+      hasHydratedFromBackend.current = true;
+    } catch (loadError) {
+      console.error("Failed to load Money Manager data from backend:", loadError);
+      const legacyState = readLegacyMoneyManagerState();
+      if (legacyState && !isMoneyManagerStateEmpty(legacyState)) {
+        applyMoneyManagerState(legacyState);
+        shouldClearLegacyStorageRef.current = true;
+      }
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load Money Manager data from backend.",
+      );
+      hasHydratedFromBackend.current = false;
+    } finally {
+      if (loadToken === loadTokenRef.current) {
+        setIsLoading(false);
+      }
     }
+  }, [applyMoneyManagerState]);
 
+  const reload = useCallback(() => {
     void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useEffect(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   useEffect(() => {
     if (!hasHydratedFromBackend.current) {
@@ -175,8 +264,21 @@ export function useMoneyManager() {
       recurringExpenses,
       categoryBudgets,
       settings,
-    }).catch((error) => {
-      console.error("Failed to sync Money Manager data to backend:", error);
+    })
+      .then(() => {
+        setError(null);
+        if (shouldClearLegacyStorageRef.current) {
+          clearLegacyMoneyManagerStorage();
+          shouldClearLegacyStorageRef.current = false;
+        }
+      })
+      .catch((syncError) => {
+        console.error("Failed to sync Money Manager data to backend:", syncError);
+        setError(
+          syncError instanceof Error
+            ? syncError.message
+            : "Failed to sync Money Manager data to backend.",
+        );
     });
   }, [wallets, transactions, budgets, recurringExpenses, categoryBudgets, settings]);
 
@@ -1315,6 +1417,8 @@ export function useMoneyManager() {
     setTransactions([]);
     setWallets([]);
     setBudgets([]);
+    setRecurringExpenses([]);
+    setCategoryBudgets([]);
     setSettings({
       firstTimeSetupCompleted: false,
       currency: settings.currency,
@@ -1322,13 +1426,15 @@ export function useMoneyManager() {
     window.localStorage.removeItem("money-transactions");
     window.localStorage.removeItem("money-wallets");
     window.localStorage.removeItem("money-budgets");
+    window.localStorage.removeItem("money-recurring-expenses");
+    window.localStorage.removeItem("money-category-budgets");
     window.localStorage.removeItem("money-settings");
     dispatchStorageUpdate();
-  }, [setTransactions, setWallets, setBudgets, setSettings, settings.currency]);
+  }, [setTransactions, setWallets, setBudgets, setRecurringExpenses, setCategoryBudgets, setSettings, settings.currency]);
 
   // Helper to dispatch storage update event
   function dispatchStorageUpdate() {
-    window.dispatchEvent(new CustomEvent("local-storage-update"));
+    // No-op: Money Manager persistence is backend-driven now.
   }
 
   return {
@@ -1339,6 +1445,9 @@ export function useMoneyManager() {
     recurringExpenses,
     categoryBudgets,
     settings,
+    isLoading,
+    error,
+    reload,
 
     // Wallet operations
     createWallet,

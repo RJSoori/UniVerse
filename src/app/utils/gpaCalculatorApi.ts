@@ -8,6 +8,11 @@ import { Semester, Subject, GpaSettings } from "../components/gpa-calculator/typ
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 const GPA_API_BASE = `${BACKEND_URL}/api/gpa`;
 
+export interface GpaBackendState {
+  semesters: Semester[];
+  settings: GpaSettings;
+}
+
 /**
  * Convert backend GPASemester DTO to frontend Semester type
  */
@@ -96,15 +101,13 @@ function toBackendSettings(settings: GpaSettings, studentId: string): any {
  * API: Get all semesters for a student
  */
 export async function getSemestersByStudent(studentId: string): Promise<Semester[]> {
-  try {
-    const response = await fetch(`${GPA_API_BASE}/semesters/${studentId}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    return Array.isArray(data) ? data.map(fromBackendSemester) : [];
-  } catch (error) {
-    console.error("Error fetching semesters:", error);
-    return [];
+  const response = await fetch(`${GPA_API_BASE}/semesters/${studentId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch GPA semesters (HTTP ${response.status})`);
   }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data.map(fromBackendSemester) : [];
 }
 
 /**
@@ -274,16 +277,14 @@ export async function deleteSubject(subjectId: string): Promise<boolean> {
 /**
  * API: Get GPA settings for a student
  */
-export async function getSettings(studentId: string): Promise<GpaSettings | null> {
-  try {
-    const response = await fetch(`${GPA_API_BASE}/settings/${studentId}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    return fromBackendSettings(data);
-  } catch (error) {
-    console.error("Error fetching settings:", error);
-    return null;
+export async function getSettings(studentId: string): Promise<GpaSettings> {
+  const response = await fetch(`${GPA_API_BASE}/settings/${studentId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch GPA settings (HTTP ${response.status})`);
   }
+
+  const data = await response.json();
+  return fromBackendSettings(data);
 }
 
 /**
@@ -452,4 +453,19 @@ export async function syncAllGPAData(
     console.error("Error syncing GPA data:", error);
     return false;
   }
+}
+
+/**
+ * Load the full GPA state from the backend.
+ */
+export async function loadGpaState(studentId: string): Promise<GpaBackendState> {
+  const [semesters, settings] = await Promise.all([
+    getSemestersByStudent(studentId),
+    getSettings(studentId),
+  ]);
+
+  return {
+    semesters,
+    settings,
+  };
 }

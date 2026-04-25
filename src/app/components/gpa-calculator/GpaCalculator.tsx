@@ -21,9 +21,44 @@ export function GpaCalculator() {
     getInsightMessage,
     settings,
     updateSettings,
+    isLoading,
+    error,
+    reload,
   } = useGpaCalculator();
 
   const [activeTab, setActiveTab] = useState("overview");
+
+  if (isLoading) {
+    return (
+      <div className="app-page">
+        <Card>
+          <CardContent className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Loading GPA data</p>
+              <p className="text-xs text-muted-foreground">
+                Syncing with the backend...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const errorBanner = error ? (
+    <Card className="border-destructive/30 bg-destructive/5">
+      <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-destructive">GPA sync issue</p>
+          <p className="text-xs text-muted-foreground">{error}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={reload}>
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
+  ) : null;
 
   const cgpa = getCgpa();
   const degreeClass = getDegreeClass();
@@ -32,6 +67,7 @@ export function GpaCalculator() {
 
   return (
     <div className="app-page">
+      {errorBanner}
       <div className="space-y-1">
         <h2 className="app-page-title">GPA Calculator</h2>
         <p className="app-page-subtitle">

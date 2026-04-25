@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -30,12 +30,51 @@ export function MoneyManager() {
     getTotalIncome,
     getTotalExpenses,
     getCurrentMonthBudget,
+    isLoading,
+    error,
+    reload,
   } = useMoneyManager();
   const [activeTab, setActiveTab] = useState("overview");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [showWizard, setShowWizard] = useState(
-    !settings.firstTimeSetupCompleted,
-  );
+  const [showWizard, setShowWizard] = useState(false);
+
+  useEffect(() => {
+    setShowWizard(!settings.firstTimeSetupCompleted);
+  }, [settings.firstTimeSetupCompleted]);
+
+  if (isLoading) {
+    return (
+      <div className="app-page">
+        <Card>
+          <CardContent className="flex min-h-[40vh] flex-col items-center justify-center gap-4 py-12 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Loading Money Manager data</p>
+              <p className="text-xs text-muted-foreground">
+                Syncing with the backend...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const errorBanner = error ? (
+    <Card className="border-destructive/30 bg-destructive/5">
+      <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-destructive">
+            Money Manager sync issue
+          </p>
+          <p className="text-xs text-muted-foreground">{error}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={reload}>
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
+  ) : null;
 
   const currentBudget = getCurrentMonthBudget();
 
@@ -43,10 +82,13 @@ export function MoneyManager() {
   // Keep this gate local to avoid re-opening due to stale settings snapshots.
   if (showWizard) {
     return (
-      <SetupWizard
-        initialData={currentBudget || undefined}
-        onComplete={() => setShowWizard(false)}
-      />
+      <div className="app-page space-y-6">
+        {errorBanner}
+        <SetupWizard
+          initialData={currentBudget || undefined}
+          onComplete={() => setShowWizard(false)}
+        />
+      </div>
     );
   }
 
@@ -77,6 +119,7 @@ export function MoneyManager() {
 
   return (
     <div className="app-page">
+      {errorBanner}
       {/* Header */}
       <div className="app-page-header">
         <div className="space-y-1">
