@@ -23,6 +23,7 @@ import {
   validateSubjectForSemester,
   validateWalletName,
 } from "../utils/validation";
+import { getStorageSanitizer, sanitizeStorageValue } from "../utils/validation";
 import * as gpaCalculatorApi from "../utils/gpaCalculatorApi";
 
 const defaultSettings: GpaSettings = {
@@ -36,12 +37,62 @@ const defaultSettings: GpaSettings = {
   },
 };
 
+function isDefaultSettings(value: GpaSettings): boolean {
+  return (
+    value.gradingMode === defaultSettings.gradingMode &&
+    value.gpaScale === defaultSettings.gpaScale &&
+    value.degreeClasses.firstClass === defaultSettings.degreeClasses.firstClass &&
+    value.degreeClasses.secondUpper === defaultSettings.degreeClasses.secondUpper &&
+    value.degreeClasses.secondLower === defaultSettings.degreeClasses.secondLower &&
+    value.degreeClasses.general === defaultSettings.degreeClasses.general
+  );
+}
+
+function readLegacyGpaState() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const readValue = <T,>(key: string, initialValue: T): T => {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw === null) {
+        return initialValue;
+      }
+
+      const parsed = JSON.parse(raw);
+      const sanitizer = getStorageSanitizer<T>(key);
+      return sanitizeStorageValue(key, parsed, initialValue, sanitizer).value;
+    } catch (error) {
+      console.error(`Error reading legacy GPA data for ${key}:`, error);
+      return initialValue;
+    }
+  };
+
+  return {
+    semesters: readValue<Semester[]>("gpa-semesters", []),
+    settings: readValue<GpaSettings>("gpa-settings", defaultSettings),
+  };
+}
+
+function clearLegacyGpaStorage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem("gpa-semesters");
+  window.localStorage.removeItem("gpa-settings");
+}
+
 export function useGpaCalculator() {
-  const [semesters, setSemestersRaw] = useUniStorage<Semester[]>("gpa-semesters", []);
-  const [settings, setSettings] = useUniStorage<GpaSettings>("gpa-settings", defaultSettings);
+  const [semesters, setSemestersState] = useState<Semester[]>([]);
+  const [settings, setSettingsState] = useState<GpaSettings>(defaultSettings);
   const [projection, setProjection] = useState<GpaProjection>({ subjects: [], projectedGpa: 0 });
   const [simulationSubjects, setSimulationSubjects] = useUniStorage<PlannerSubject[]>("gpa-simulation", []);
   const hasHydratedFromBackend = useRef(false);
+  const loadTokenRef = useRef(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const studentId = "default-student"; // TODO: Get from user context/auth
 
   const getExistingSubjectNames = useCallback(
@@ -73,53 +124,118 @@ export function useGpaCalculator() {
   }, []);
 
   // Wrapped setter that sorts
-  const setSemesters = useCallback((value: Semester[] | ((prev: Semester[]) => Semester[])) => {
-    const newValue = value instanceof Function ? value(semesters) : value;
-    setSemestersRaw(sortSemesters(newValue));
-  }, [semesters, setSemestersRaw, sortSemesters]);
+  const setSemesters = useCallback(
+    (value: Semester[] | ((prev: Semester[]) => Semester[])) => {
+      setSemestersState((currentSemesters) => {
+        const newValue = value instanceof Function ? value(currentSemesters) : value;
+        return sortSemesters(newValue);
+      });
+    },
+    [sortSemesters],
+  );
 
   // Migration effect
   useEffect(() => {
-    setSemestersRaw(currentSemesters => {
+    setSemestersState((currentSemesters) => {
       let needsUpdate = false;
-      const migrated = currentSemesters.map(semester => ({
+      const migrated = currentSemesters.map((semester) => ({
         ...semester,
-        subjects: semester.subjects.map(subject => {
+        subjects: semester.subjects.map((subject) => {
           if (subject.isGpa === undefined) {
             needsUpdate = true;
             return { ...subject, isGpa: true };
           }
           return subject;
-        })
+        }),
       }));
       if (needsUpdate) {
         return sortSemesters(migrated);
       }
       return sortSemesters(currentSemesters);
     });
-  }, [setSemestersRaw, sortSemesters]); // Run once on mount
+  }, [sortSemesters]); // Run once on mount
+
+  const hydrateFromBackend = useCallback(async () => {
+    const loadToken = ++loadTokenRef.current;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const [backendState, legacyState] = await Promise.all([
+        gpaCalculatorApi.loadGpaState(studentId),
+        Promise.resolve(readLegacyGpaState()),
+      ]);
+
+      if (loadToken !== loadTokenRef.current) {
+        return;
+      }
+
+      const backendHasData =
+        backendState.semesters.length > 0 || !isDefaultSettings(backendState.settings);
+
+      if (backendHasData) {
+        setSemestersState(sortSemesters(backendState.semesters));
+        setSettingsState(backendState.settings);
+        clearLegacyGpaStorage();
+      } else if (
+        legacyState &&
+        (legacyState.semesters.length > 0 || !isDefaultSettings(legacyState.settings))
+      ) {
+        const migratedSemesters = sortSemesters(legacyState.semesters);
+        setSemestersState(migratedSemesters);
+        setSettingsState(legacyState.settings);
+
+        const migrated = await gpaCalculatorApi.syncAllGPAData(
+          migratedSemesters,
+          legacyState.settings,
+          studentId,
+        );
+        if (!migrated) {
+          throw new Error("Failed to migrate legacy GPA data to the backend.");
+        }
+
+        clearLegacyGpaStorage();
+      } else {
+        setSemestersState([]);
+        setSettingsState(backendState.settings ?? defaultSettings);
+      }
+
+      hasHydratedFromBackend.current = true;
+    } catch (hydrateError) {
+      console.error("Failed to hydrate GPA data from backend:", hydrateError);
+      const legacyState = readLegacyGpaState();
+      if (
+        legacyState &&
+        (legacyState.semesters.length > 0 || !isDefaultSettings(legacyState.settings))
+      ) {
+        setSemestersState(sortSemesters(legacyState.semesters));
+        setSettingsState(legacyState.settings);
+      } else {
+        setSemestersState([]);
+        setSettingsState(defaultSettings);
+      }
+
+      setError(
+        hydrateError instanceof Error
+          ? hydrateError.message
+          : "Failed to load GPA data from backend.",
+      );
+      hasHydratedFromBackend.current = true;
+    } finally {
+      if (loadToken === loadTokenRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [clearLegacyGpaStorage, isDefaultSettings, readLegacyGpaState, sortSemesters, studentId]);
+
+  const reload = useCallback(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   // Backend hydration effect - runs once on mount
   useEffect(() => {
-    if (hasHydratedFromBackend.current) return;
-    hasHydratedFromBackend.current = true;
-
-    const hydrateFromBackend = async () => {
-      try {
-        const backendSemesters = await gpaCalculatorApi.getSemestersByStudent(studentId);
-        if (backendSemesters && backendSemesters.length > 0) {
-          setSemestersRaw(sortSemesters(backendSemesters));
-        } else if (semesters.length > 0) {
-          // Push local data to backend if backend is empty but local has data
-          await gpaCalculatorApi.syncAllGPAData(semesters, settings, studentId);
-        }
-      } catch (error) {
-        console.error("Failed to hydrate GPA data from backend:", error);
-      }
-    };
-
-    hydrateFromBackend();
-  }, [studentId, setSemestersRaw, semesters, settings, sortSemesters]);
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   // Backend sync effect - syncs whenever semesters or settings change
   useEffect(() => {
@@ -127,9 +243,16 @@ export function useGpaCalculator() {
 
     const syncTimer = setTimeout(async () => {
       try {
-        await gpaCalculatorApi.syncAllGPAData(semesters, settings, studentId);
+        const synced = await gpaCalculatorApi.syncAllGPAData(semesters, settings, studentId);
+        if (!synced) {
+          throw new Error("Failed to sync GPA data to the backend.");
+        }
+        setError(null);
       } catch (error) {
         console.error("Failed to sync GPA data to backend:", error);
+        setError(
+          error instanceof Error ? error.message : "Failed to sync GPA data to the backend.",
+        );
       }
     }, 500); // Debounce by 500ms
 
@@ -137,14 +260,14 @@ export function useGpaCalculator() {
   }, [semesters, settings, studentId]);
 
   useEffect(() => {
-    setSettings((currentSettings) => {
+    setSettingsState((currentSettings) => {
       if (currentSettings.gpaScale === undefined) {
         const gpaScale = currentSettings.gradingMode === "extended" ? 4.2 : 4.0;
         return { ...currentSettings, gpaScale };
       }
       return currentSettings;
     });
-  }, [setSettings]);
+  }, []);
 
   const addSemester = useCallback((year: string, semester: string) => {
     const newSemester: Semester = {
@@ -287,7 +410,7 @@ export function useGpaCalculator() {
       const gradingMode =
         newSettings.gradingMode ?? (gpaScale === 4.2 ? "extended" : "standard");
 
-      setSettings({
+      setSettingsState({
         ...settings,
         ...newSettings,
         gpaScale,
@@ -314,7 +437,7 @@ export function useGpaCalculator() {
         })),
       );
     },
-    [setSemesters, setSettings, setSimulationSubjects, settings],
+    [setSemesters, setSettingsState, setSimulationSubjects, settings],
   );
 
   // Projection tool
@@ -446,6 +569,9 @@ export function useGpaCalculator() {
   return {
     semesters,
     settings,
+    isLoading,
+    error,
+    reload,
     projection,
     addSemester,
     updateSemester,
