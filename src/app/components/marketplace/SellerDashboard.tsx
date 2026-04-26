@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { SellerSettings } from "./SellerSettings";
 import {
   Plus, Trash2, ShoppingBag, Package, BarChart3,
   Clock, LogOut, Settings, Tag, ImagePlus, X,
@@ -55,9 +56,15 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
     JSON.parse(localStorage.getItem("universe-listings") || "[]")
   );
   const [showForm, setShowForm] = useState(false);
+  const [isSettings, setIsSettings] = useState(false);   // ✅ settings state
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ Render settings page when active — same pattern as friend's code
+  if (isSettings) {
+    return <SellerSettings onBack={() => setIsSettings(false)} />;
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -147,7 +154,13 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
             >
               <Plus className="mr-2 size-4" /> Create Listing
             </Button>
-            <Button variant="outline" size="sm" className="flex-1 md:flex-none">
+            {/* ✅ Settings button now opens SellerSettings */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 md:flex-none"
+              onClick={() => setIsSettings(true)}
+            >
               <Settings className="mr-2 size-4" /> Settings
             </Button>
             <Button
