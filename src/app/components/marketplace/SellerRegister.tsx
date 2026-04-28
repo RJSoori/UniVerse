@@ -94,6 +94,7 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
       setLoginError("Incorrect password. Please try again.");
       return;
     }
+    localStorage.setItem("universe-active-seller", loginEmail.toLowerCase());
     setIsAuthenticated(true);
     setIsRegistered(true);
     setStep(3);
@@ -126,6 +127,7 @@ export default function SellerRegister({ onNavigate }: { onNavigate: (id: string
     }
     accounts[regEmail.toLowerCase()] = { password: regPassword };
     saveAccounts(accounts);
+    localStorage.setItem("universe-active-seller", regEmail.toLowerCase());
     setLoginEmail(regEmail);
     setIsAuthenticated(true);
     setStep(1);
