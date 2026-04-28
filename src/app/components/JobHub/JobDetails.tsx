@@ -10,15 +10,17 @@ import {
     Mail,
     Sparkles,
     CheckCircle,
-    Send
+    Send,
+    Flag
 } from "lucide-react";
 
 interface JobDetailsProps {
     job: any;
     onBack: () => void;
+    onReport?: (job: any) => void;
 }
 
-export function JobDetails({ job, onBack }: JobDetailsProps) {
+export function JobDetails({ job, onBack, onReport }: JobDetailsProps) {
     const handleEmailCV = () => {
         const subject = encodeURIComponent(`Application for ${job.title} - UniVerse Portal`);
         const body = encodeURIComponent(`Hello ${job.company || 'Recruitment Team'},\n\nI am interested in the ${job.title} position posted on UniVerse. Please find my CV attached.\n\nBest regards.`);
@@ -105,6 +107,14 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
 
                             <Button variant="outline" className="w-full h-12 border-primary/20 text-primary font-bold">
                                 <Send className="mr-2 size-4" /> Submit via UniVerse
+                            </Button>
+
+                            <Button
+                                variant="ghost"
+                                className="w-full h-12 text-destructive border-destructive/20 hover:bg-destructive/10 font-bold"
+                                onClick={() => onReport?.(job)}
+                            >
+                                <Flag className="mr-2 size-4" /> Report Job
                             </Button>
 
                             <div className="pt-4 border-t flex flex-col gap-3">

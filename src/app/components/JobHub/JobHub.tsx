@@ -15,12 +15,22 @@ import {
   Clock,
   Wand2,
   CalendarDays,
-  Filter
+  Filter,
+  Flag,
+  X
 } from "lucide-react";
 
 interface JobHubProps {
   onNavigate?: (section: string) => void;
 }
+
+const REPORT_REASONS = [
+  "Inappropriate job description",
+  "Spam or scam",
+  "Misleading company info",
+  "Duplicate posting",
+  "Other",
+];
 
 export function JobHub({ onNavigate }: JobHubProps) {
   // Shared storage key with Recruiter Portal
@@ -28,10 +38,97 @@ export function JobHub({ onNavigate }: JobHubProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "full-time" | "part-time">("all");
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedJobForReport, setSelectedJobForReport] = useState<any | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const handleReport = () => {
+    if (!selectedJobForReport || !reportReason) return;
+    const reports = JSON.parse(localStorage.getItem("university-reports") || "[]");
+    reports.push({
+      jobId: selectedJobForReport.id,
+      reason: reportReason,
+      reportedAt: new Date().toISOString(),
+    });
+    localStorage.setItem("university-reports", JSON.stringify(reports));
+    setShowReportModal(false);
+    setSelectedJobForReport(null);
+    setReportReason("");
+    alert("Report submitted. Thank you for helping keep UniVerse safe!");
+  };
 
   // Toggle between List View and Detailed View
   if (selectedJob) {
-    return <JobDetails job={selectedJob} onBack={() => setSelectedJob(null)} />;
+    return (
+      <>
+        <JobDetails
+          job={selectedJob}
+          onBack={() => setSelectedJob(null)}
+          onReport={(job) => {
+            setSelectedJobForReport(job);
+            setShowReportModal(true);
+          }}
+        />
+
+        {showReportModal && selectedJobForReport && (
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={() => setShowReportModal(false)}
+          >
+            <div
+              className="bg-background rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-bold">Report Job Listing</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Why are you reporting "{selectedJobForReport.title}"?
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="p-1 rounded-full hover:bg-muted transition-colors"
+                >
+                  <X className="size-5 text-muted-foreground" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {REPORT_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    onClick={() => setReportReason(reason)}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      reportReason === reason
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  className="flex-1"
+                  onClick={handleReport}
+                  disabled={!reportReason}
+                >
+                  Submit Report
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowReportModal(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   const filteredJobs = jobs.filter((job) => {
@@ -169,8 +266,17 @@ export function JobHub({ onNavigate }: JobHubProps) {
                               className="h-12 px-10 rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 font-black uppercase text-xs tracking-widest"
                           >
                             Apply Now
-                          </Button>
-                        </div>
+                          </Button>                          <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-12 text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                setSelectedJobForReport(job);
+                                setShowReportModal(true);
+                              }}
+                          >
+                            <Flag className="mr-2 h-4 w-4" /> Report
+                          </Button>                        </div>
                       </div>
                     </CardContent>
                   </Card>

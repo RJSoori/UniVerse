@@ -24,6 +24,7 @@ interface Listing {
   location: string;
   images: string[];
   postedAt: string;
+  sellerEmail?: string;
 }
 
 interface SellerDashboardProps {
@@ -52,8 +53,13 @@ const emptyForm = {
 };
 
 export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
+  const activeSellerEmail = (localStorage.getItem("universe-active-seller") || "").toLowerCase();
+
+  const getAllListings = (): Listing[] =>
+    JSON.parse(localStorage.getItem("universe-listings") || "[]") as Listing[];
+
   const [listings, setListings] = useState<Listing[]>(() =>
-    JSON.parse(localStorage.getItem("universe-listings") || "[]")
+    getAllListings().filter((listing) => listing.sellerEmail?.toLowerCase() === activeSellerEmail)
   );
   const [showForm, setShowForm] = useState(false);
   const [isSettings, setIsSettings] = useState(false);   // ✅ settings state
@@ -108,11 +114,13 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
     const newListing: Listing = {
       id: String(Date.now()),
       ...form,
+      sellerEmail: activeSellerEmail,
       postedAt: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
     };
-    const updated = [newListing, ...listings];
-    setListings(updated);
-    localStorage.setItem("universe-listings", JSON.stringify(updated));
+    const allListings = getAllListings();
+    const updatedAll = [newListing, ...allListings];
+    setListings((prev) => [newListing, ...prev]);
+    localStorage.setItem("universe-listings", JSON.stringify(updatedAll));
     setForm(emptyForm);
     setShowForm(false);
     setFormError("");
@@ -122,7 +130,8 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
     if (confirm("Are you sure you want to delete this listing?")) {
       const updated = listings.filter((l) => l.id !== id);
       setListings(updated);
-      localStorage.setItem("universe-listings", JSON.stringify(updated));
+      const allListings = getAllListings().filter((listing) => listing.id !== id);
+      localStorage.setItem("universe-listings", JSON.stringify(allListings));
     }
   };
 
@@ -167,7 +176,10 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
               variant="ghost"
               size="sm"
               className="text-destructive hover:bg-destructive/5"
-              onClick={() => onNavigate("signup")}
+              onClick={() => {
+                localStorage.removeItem("universe-active-seller");
+                onNavigate("signup");
+              }}
             >
               <LogOut className="mr-2 size-4" /> Sign Out
             </Button>
@@ -387,7 +399,7 @@ export default function SellerDashboard({ onNavigate }: SellerDashboardProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-lg font-bold flex items-center gap-2">
-              <Clock className="size-5 text-primary" /> Recent Listings
+              <Clock className="size-5 text-primary" /> Your Listings
             </h3>
           </div>
 
