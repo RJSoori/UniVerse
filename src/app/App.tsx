@@ -23,7 +23,6 @@ import { Marketplace } from "./components/Marketplace";
 import { GpaCalculator as GPACalculator } from "./components/gpa-calculator/GpaCalculator";
 import { FocusTimer } from "./components/FocusTimer/FocusTimer.tsx";
 import SettingsPage from "./components/Settings/SettingsPage";
-import { AdminPortal } from "./components/Admin/AdminPortal";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -113,8 +112,6 @@ export default function App() {
         return <SettingsPage onNavigate={setActiveSection} />;
       case "skills-manager":
         return <SkillsManager onBack={() => setActiveSection("jobs")} />;
-      case "admin-portal":
-        return <AdminPortal />;
       default:
         return <Landing onNavigate={setActiveSection} />;
     }
