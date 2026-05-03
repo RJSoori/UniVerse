@@ -1,3 +1,13 @@
 node_modules
 .DS_Store
 dist/
+
+# Database dumps containing real PII / plaintext passwords. Never commit.
+universe_db.sql
+*.sql.dump
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
