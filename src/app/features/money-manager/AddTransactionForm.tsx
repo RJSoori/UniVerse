@@ -20,7 +20,6 @@ import {
 import {
   formatCurrencyLabel,
   formatCurrency,
-  getCurrency,
 } from "./utils/currency";
 import {
   validateTransactionAmount,

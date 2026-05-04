@@ -93,27 +93,6 @@ export interface MoneyManagerSettings {
   theme?: string;
 }
 
-// Report Types
-export interface CategorySpending {
-  category: string;
-  amount: number;
-  percentage: number;
-}
-
-export interface SpendingTrend {
-  date: string;
-  income: number;
-  expense: number;
-  savings: number;
-}
-
-export interface WalletBreakdown {
-  walletId: string;
-  walletName: string;
-  balance: number;
-  percentage: number;
-}
-
 export interface FinancialReport {
   period: "weekly" | "monthly" | "custom";
   startDate: string;
@@ -122,9 +101,23 @@ export interface FinancialReport {
   totalExpense: number;
   balance: number;
   savingsPercentage: number;
-  byCategory: CategorySpending[];
-  trends: SpendingTrend[];
-  walletBreakdown: WalletBreakdown[];
+  byCategory: Array<{
+    category: string;
+    amount: number;
+    percentage: number;
+  }>;
+  trends: Array<{
+    date: string;
+    income: number;
+    expense: number;
+    savings: number;
+  }>;
+  walletBreakdown: Array<{
+    walletId: string;
+    walletName: string;
+    balance: number;
+    percentage: number;
+  }>;
   needsVsWantsVsSavings: BudgetAllocation;
 }
 
