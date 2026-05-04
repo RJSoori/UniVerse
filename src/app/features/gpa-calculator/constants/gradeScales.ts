@@ -6,82 +6,6 @@
  * file provides a unified mapping system.
  */
 
-/**
- * Standard GPA scale grade mappings (4.0 system)
- * Most universities use this scale
- */
-export const STANDARD_GRADE_SCALE: Record<string, number> = {
-  "A+": 4.0,
-  "A": 4.0,
-  "A-": 3.7,
-  "B+": 3.3,
-  "B": 3.0,
-  "B-": 2.7,
-  "C+": 2.3,
-  "C": 2.0,
-  "C-": 1.7,
-  "D+": 1.0,
-  "D": 1.0,
-  "F": 0.0,
-  "E": 0.0
-};
-
-/**
- * Extended GPA scale grade mappings (4.2 system)
- * Used by some institutions for finer grade differentiation
- */
-export const EXTENDED_GRADE_SCALE: Record<string, number> = {
-  "A+": 4.2,
-  "A": 4.0,
-  "A-": 3.7,
-  "B+": 3.3,
-  "B": 3.0,
-  "B-": 2.7,
-  "C+": 2.3,
-  "C": 2.0,
-  "C-": 1.7,
-  "D+": 1.0,
-  "D": 1.0,
-  "F": 0.0,
-  "E": 0.0
-};
-
-/**
- * Get grade point for a given grade and GPA scale
- * @param grade - Letter grade (e.g., "A", "B+", "C")
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @returns Grade point value
- */
-export function getGradePoint(grade: string, gpaScale: number = 4.0): number {
-  const gradeMapping = gpaScale === 4.2 ? EXTENDED_GRADE_SCALE : STANDARD_GRADE_SCALE;
-  return gradeMapping[grade] || 0;
-}
-
-/**
- * Degree classification thresholds
- * These determine what class of degree a student receives based on final GPA
- */
-export const DEGREE_CLASSIFICATIONS = {
-  firstClass: 3.7,      // First Class Honours - exceptional performance
-  secondUpper: 3.3,     // Second Class Upper Division - strong performance
-  secondLower: 3.0,     // Second Class Lower Division - solid performance
-  general: 2.0,         // General Degree - acceptable performance
-  warning: 0.0          // Academic Warning - needs improvement
-};
-
-/**
- * Get degree classification based on GPA
- * @param gpa - Current GPA
- * @returns Degree class name
- */
-export function getDegreeClassification(gpa: number): string {
-  if (gpa >= DEGREE_CLASSIFICATIONS.firstClass) return "First Class";
-  if (gpa >= DEGREE_CLASSIFICATIONS.secondUpper) return "Second Upper";
-  if (gpa >= DEGREE_CLASSIFICATIONS.secondLower) return "Second Lower";
-  if (gpa >= DEGREE_CLASSIFICATIONS.general) return "General Degree";
-  return "Academic Warning";
-}
-
 // ============================================================================
 // Planner and Recommendation Constants
 // ============================================================================
@@ -186,6 +110,5 @@ export const SIMULATION_GPA_MAX_4_2 = 4.2;          // Maximum in 4.2 scale
  * Backtracking and Result Limiting
  * Prevents long computation times with many subjects
  */
-export const MAX_RECOMMENDATION_RESULTS = 30;         // Maximum top results to return
-export const BACKTRACK_GENERATION_LIMIT_MULTIPLIER = 5; // Generate top 30 * 5 = 150, then sort/trim to 30
-export const MAX_RECOMMENDATION_STATE_EXPANSIONS = 25000;
+export const MAX_RECOMMENDATION_RESULTS = 30;
+export const BACKTRACK_GENERATION_LIMIT_MULTIPLIER = 5;

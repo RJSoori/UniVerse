@@ -33,8 +33,6 @@ import { YEARS, SEMESTERS } from "./constants";
 import { getEffectiveGpaScale } from "./utils/gpaPrediction";
 import { getAllowedGrades } from "../../shared/validation";
 
-interface SemesterManagerProps {}
-
 export function SemesterManager(/* props removed, showAll unused */): JSX.Element {
   const {
     semesters,

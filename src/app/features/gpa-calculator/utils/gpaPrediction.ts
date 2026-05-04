@@ -16,7 +16,7 @@ export function getEffectiveGpaScale(settings: GpaSettings): number {
   return settings.gpaScale ?? (settings.gradingMode === "extended" ? 4.2 : 4.0);
 }
 
-export function getGradePointsMap(gpaScale: number): Record<string, number> {
+function getGradePointsMap(gpaScale: number): Record<string, number> {
   return {
     "A+": gpaScale === 4.2 ? 4.2 : 4.0,
     "A": 4.0,
@@ -65,11 +65,11 @@ export function calculateCgpa(semesters: Semester[], gpaScale: number): number {
   return totalCredits > 0 ? roundGpa(totalPoints / totalCredits) : 0;
 }
 
-export function simulateFutureGpa(minGpa: number = SIMULATION_GPA_MIN, maxGpa: number = SIMULATION_GPA_MAX_4_2): number {
+function simulateFutureGpa(minGpa: number = SIMULATION_GPA_MIN, maxGpa: number = SIMULATION_GPA_MAX_4_2): number {
   return Math.random() * (maxGpa - minGpa) + minGpa;
 }
 
-export function calculateFinalCgpa(
+function calculateFinalCgpa(
   currentCgpa: number,
   creditsCompleted: number,
   futureGpas: number[],
@@ -81,7 +81,7 @@ export function calculateFinalCgpa(
   return totalCredits > 0 ? roundGpa((existingPoints + futurePoints) / totalCredits) : 0;
 }
 
-export function classifyDegree(cgpa: number, thresholds: GpaSettings["degreeClasses"]): string {
+function classifyDegree(cgpa: number, thresholds: GpaSettings["degreeClasses"]): string {
   if (cgpa >= thresholds.firstClass) return "First Class";
   if (cgpa >= thresholds.secondUpper) return "Second Upper";
   if (cgpa >= thresholds.secondLower) return "Second Lower";

@@ -4,7 +4,7 @@ import {
   validateRecommendationFeasibility,
 } from "../../../shared/validation";
 
-export interface TargetGpaResult {
+interface TargetGpaResult {
   requiredSgpa: number;
   isFeasible: boolean;
   maxPossibleCgpa: number;
@@ -13,7 +13,7 @@ export interface TargetGpaResult {
   difficulty: "IMPOSSIBLE" | "VERY HARD" | "CHALLENGING" | "ACHIEVABLE";
 }
 
-export function calculateRequiredSGPA(
+function calculateRequiredSGPA(
   currentCgpa: number,
   completedCredits: number,
   nextCredits: number,
@@ -27,7 +27,7 @@ export function calculateRequiredSGPA(
   return roundGpa(requiredSgpa);
 }
 
-export function calculateMaxPossibleCGPA(
+function calculateMaxPossibleCGPA(
   currentCgpa: number,
   completedCredits: number,
   nextCredits: number,
@@ -41,7 +41,7 @@ export function calculateMaxPossibleCGPA(
   return roundGpa(maxPossibleCgpa);
 }
 
-export function validateTargetFeasibility(requiredSgpa: number, maxGpa: number): boolean {
+function validateTargetFeasibility(requiredSgpa: number, maxGpa: number): boolean {
   return safeCompare(requiredSgpa, maxGpa) <= 0;
 }
 

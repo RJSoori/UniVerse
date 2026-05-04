@@ -16,7 +16,7 @@ import {
   WEAK_CATEGORY_PARTIAL_BONUS_B,
 } from "../constants/gradeScales";
 import { getCategoryStrength, CategoryPerformance, CategoryProbabilityModel } from "./performance";
-import { getGradePoint, getGradePointsMap } from "./gpaPrediction";
+import { getGradePoint } from "./gpaPrediction";
 import { getGradesPreferringEasiest } from "./combinations";
 
 /**
@@ -32,43 +32,6 @@ function calculateProbabilityScore(grade: PlannerGrade, probabilityModel: Catego
   // Boost score for grades with higher historical probability
   // Also consider confidence in the model
   return probability * probabilityModel.confidence;
-}
-
-/**
- * Calculate expected feasibility for a combination using probability model
- * Uses product of individual grade probabilities as overall feasibility
- * @param combination - Array of subject-grade pairs
- * @param probabilityModels - Probability models per category
- * @returns Expected feasibility score (0-1, higher = more realistic combination)
- */
-export function calculateExpectedFeasibility(
-  combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  probabilityModels: Record<string, CategoryProbabilityModel>
-): number {
-  if (combination.length === 0) return 0;
-  
-  let totalProbability = 1.0;
-  let totalConfidence = 0;
-  
-  combination.forEach(({ subject, grade }) => {
-    const model = probabilityModels[subject.category];
-    if (model && model.totalGrades > 0) {
-      const gradeProbability = model.distribution[grade] || 0.01; // Small probability for unseen grades
-      const confidence = model.confidence;
-      
-      // Use geometric mean of probabilities, weighted by confidence
-      totalProbability *= Math.pow(gradeProbability, confidence);
-      totalConfidence += confidence;
-    } else {
-      // No historical data - use neutral probability
-      totalProbability *= 0.1; // Conservative estimate
-      totalConfidence += 0.5;
-    }
-  });
-  
-  // Normalize by number of subjects and average confidence
-  const avgConfidence = totalConfidence / combination.length;
-  return Math.pow(totalProbability, 1 / combination.length) * avgConfidence;
 }
 
 /**
@@ -236,146 +199,5 @@ export function scoreCombination(
   score -= excessAplusCount * 0.5;
 
   return score;
-}
-
-/**
- * Multi-dimensional evaluation of a combination
- * Calculates three independent metrics: probability score, effort, and risk
- * These are later combined for final ranking
- */
-export interface EvaluatedCombination {
-  combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>;
-  sgpa: number;
-  points: number;
-  probabilityScore: number; // Expected feasibility (0-1, higher = more likely)
-  totalPoints: number; // Raw point contribution
-  creditImpactScore: number; // Weighted by credit hours (higher = more efficient)
-  finalScore: number; // Combined score for ranking
-  riskLevel: "LOW" | "MEDIUM" | "HIGH"; // Derived from probability score
-  confidence: number; // Confidence percentage (0-100)
-}
-
-/**
- * Evaluate a single combination across multiple dimensions
- * 
- * Scoring dimensions:
- * 1. Probability Score: Product of individual grade probabilities → feasibility
- * 2. Total Points: Raw points contributed → how far towards target
- * 3. Credit Impact: Points per credit ratio → efficiency of grade distribution
- * 4. Risk Level: Inverse of probability → difficulty assessment
- * 5. Confidence: Percentage of subjects with good historical data
- * 
- * @param combination - Array of subject-grade assignments
- * @param probabilityModels - Probability distributions from historical data
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @param requiredSgpa - Target SGPA (for context)
- * @returns Evaluated combination with multiple metrics
- */
-export function evaluateCombination(
-  combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  probabilityModels: Record<string, CategoryProbabilityModel>,
-  gpaScale: number,
-  requiredSgpa: number = 0
-): EvaluatedCombination {
-  const totalCredits = combination.reduce((sum, { subject }) => sum + subject.credits, 0);
-  const totalPoints = combination.reduce(
-    (sum, { subject, grade }) => sum + getGradePoint(grade, gpaScale) * subject.credits,
-    0
-  );
-  const sgpa = totalPoints / totalCredits;
-
-  // Calculate probability score: product of individual probabilities
-  let probabilityScore = 1.0;
-  let confidenceCount = 0;
-
-  combination.forEach(({ subject, grade }) => {
-    const model = probabilityModels[subject.category];
-    if (model && model.totalGrades > 0) {
-      const gradeProbability = model.distribution[grade] || 0.01;
-      probabilityScore *= Math.pow(gradeProbability, 1 / combination.length);
-      confidenceCount++;
-    } else {
-      probabilityScore *= 0.1; // Conservative estimate for unknown categories
-    }
-  });
-
-  // Normalize probability score
-  probabilityScore = Math.min(1.0, probabilityScore);
-
-  // Calculate credit impact score: how efficiently credits are used
-  const avgPointsPerCredit = totalPoints / totalCredits;
-  const maxPossiblePointsPerCredit = gpaScale;
-  let creditImpactScore = (avgPointsPerCredit / maxPossiblePointsPerCredit) * 100;
-
-  // Penalize unnecessary A+ when equivalent to A
-  let aplusPenalty = 0;
-  combination.forEach(({ grade }) => {
-    if (grade === "A+" && getGradePoint("A+", gpaScale) === getGradePoint("A", gpaScale)) {
-      aplusPenalty += 0.5;
-    }
-  });
-  creditImpactScore = Math.max(0, creditImpactScore - aplusPenalty);
-
-  // Determine risk level based on probability score
-  let riskLevel: "LOW" | "MEDIUM" | "HIGH" = "HIGH";
-  if (probabilityScore > 0.5) {
-    riskLevel = "LOW";
-  } else if (probabilityScore > 0.2) {
-    riskLevel = "MEDIUM";
-  }
-
-  // Calculate confidence percentage
-  const confidence = (confidenceCount / combination.length) * 100;
-
-  // Final score: weighted combination of metrics
-  // Primary: Probability (70%), Secondary: Credit Impact (20%), Tertiary: Risk balance (10%)
-  const finalScore = probabilityScore * 0.7 + (creditImpactScore / 100) * 0.2 + (1 - (riskLevel === "HIGH" ? 1 : riskLevel === "MEDIUM" ? 0.5 : 0)) * 0.1;
-
-  return {
-    combination,
-    sgpa,
-    points: totalPoints,
-    probabilityScore,
-    totalPoints,
-    creditImpactScore,
-    finalScore,
-    riskLevel,
-    confidence,
-  };
-}
-
-/**
- * Rank evaluated combinations using multi-objective optimization
- * 
- * Primary sort: Probability score (highest = best)
- * Secondary sort: Total points (higher = gets us closer to target)
- * Tertiary sort: Credit impact (higher = more efficient)
- * 
- * This Pareto-style ranking ensures diverse, high-quality recommendations
- * 
- * @param evaluated - Array of evaluated combinations
- * @returns Sorted array with best combinations first
- */
-export function rankCombinations(evaluated: EvaluatedCombination[]): EvaluatedCombination[] {
-  return [...evaluated].sort((a, b) => {
-    // Primary: Probability score (higher is better)
-    if (Math.abs(a.probabilityScore - b.probabilityScore) > 0.01) {
-      return b.probabilityScore - a.probabilityScore;
-    }
-
-    // Secondary: Total points (higher is better)
-    if (a.totalPoints !== b.totalPoints) {
-      return b.totalPoints - a.totalPoints;
-    }
-
-    // Tertiary: Credit impact (higher is better)
-    if (Math.abs(a.creditImpactScore - b.creditImpactScore) > 0.1) {
-      return b.creditImpactScore - a.creditImpactScore;
-    }
-
-    // Quaternary: Risk level (lower is better)
-    const riskOrder = { LOW: 0, MEDIUM: 1, HIGH: 2 };
-    return riskOrder[a.riskLevel] - riskOrder[b.riskLevel];
-  });
 }
 

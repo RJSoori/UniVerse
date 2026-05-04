@@ -39,11 +39,6 @@ export interface GpaSettings {
   };
 }
 
-export interface GpaData {
-  semesters: Semester[];
-  settings: GpaSettings;
-}
-
 export interface PlannerSubject {
   id: string;
   name: string;
@@ -51,6 +46,7 @@ export interface PlannerSubject {
   grade: PlannerGrade;
   category: string;
   lockedGrade?: PlannerGrade;
+  gradeModified?: boolean;
 }
 
 export interface DegreeClassPrediction {
