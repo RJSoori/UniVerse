@@ -32,11 +32,11 @@ export function SubjectForm({ semesterId, onSubjectAdded }: SubjectFormProps) {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrors({});
 
-    const result = addSubject(semesterId, {
+    const result = await addSubject(semesterId, {
       name: subject.name,
       credits: subject.credits,
       grade: subject.grade,

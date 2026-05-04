@@ -60,9 +60,13 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const allowedGrades = getAllowedGrades(getEffectiveGpaScale(settings));
 
-  const handleAddSemester = () => {
+  const handleAddSemester = async () => {
     if (newSemester.year && newSemester.semester) {
-      addSemester(newSemester.year, newSemester.semester);
+      const created = await addSemester(newSemester.year, newSemester.semester);
+      if (!created) {
+        // Hook surfaces the error via the page-level banner; keep dialog open.
+        return;
+      }
       setNewSemester({ year: "", semester: "" });
       setShowAddSemester(false);
     }
@@ -77,12 +81,13 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
     }
   };
 
-  const handleUpdateSemester = () => {
+  const handleUpdateSemester = async () => {
     if (editingSemester && newSemester.year && newSemester.semester) {
-      updateSemester(editingSemester, {
+      const updated = await updateSemester(editingSemester, {
         year: newSemester.year,
         semester: newSemester.semester,
       });
+      if (!updated) return;
       setNewSemester({ year: "", semester: "" });
       setEditingSemester(null);
       setShowAddSemester(false);
@@ -199,7 +204,7 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => deleteSemester(sem.id)}
+                    onClick={() => void deleteSemester(sem.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -292,14 +297,18 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                             <TableCell className="flex gap-2">
                               <Button
                                 size="sm"
-                                onClick={() => {
+                                onClick={async () => {
                                   if (editingSubject) {
-                                    const result = updateSubject(sem.id, subject.id, {
-                                      name: editingSubject.name,
-                                      credits: editingSubject.credits,
-                                      grade: editingSubject.grade,
-                                      isGpa: editingSubject.isGpa,
-                                    });
+                                    const result = await updateSubject(
+                                      sem.id,
+                                      subject.id,
+                                      {
+                                        name: editingSubject.name,
+                                        credits: editingSubject.credits,
+                                        grade: editingSubject.grade,
+                                        isGpa: editingSubject.isGpa,
+                                      },
+                                    );
                                     if (!result.ok) {
                                       setEditErrors(result.errors);
                                       return;
@@ -364,7 +373,7 @@ export function SemesterManager(/* props removed, showAll unused */): JSX.Elemen
                                   variant="ghost"
                                   size="sm"
                                   onClick={() =>
-                                    deleteSubject(sem.id, subject.id)
+                                    void deleteSubject(sem.id, subject.id)
                                   }
                                 >
                                   <Trash2 className="h-4 w-4" />

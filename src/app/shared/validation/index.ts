@@ -162,19 +162,12 @@ export function isHalfStep(value: number): boolean {
   return Number.isFinite(value) && Math.abs(value * 2 - Math.round(value * 2)) <= VALIDATION_EPSILON;
 }
 
-export function getAllowedGrades(gpaScale: number): PlannerGrade[] {
-  if (safeCompare(gpaScale, 4.2) === 0) {
-    return [...LEGACY_ALLOWED_GRADES] as PlannerGrade[];
-  }
-
-  return LEGACY_ALLOWED_GRADES.filter((grade) => grade !== "A+") as PlannerGrade[];
+export function getAllowedGrades(_gpaScale: number): PlannerGrade[] {
+  return [...LEGACY_ALLOWED_GRADES] as PlannerGrade[];
 }
 
-export function normalizeGrade(grade: string, gpaScale: number): PlannerGrade | "" {
+export function normalizeGrade(grade: string, _gpaScale: number): PlannerGrade | "" {
   const normalized = grade.trim().toUpperCase();
-  if (normalized === "A+" && safeCompare(gpaScale, 4.0) === 0) {
-    return "A";
-  }
 
   if (LEGACY_ALLOWED_GRADES.includes(normalized as (typeof LEGACY_ALLOWED_GRADES)[number])) {
     return normalized as PlannerGrade;

@@ -84,12 +84,12 @@ export function GpaCalculator() {
               <span className="text-xs text-muted-foreground">4.0</span>
               <Switch
                 checked={settings.gpaScale === 4.2}
-                onCheckedChange={(checked) =>
-                  updateSettings({
+                onCheckedChange={(checked) => {
+                  void updateSettings({
                     gpaScale: checked ? 4.2 : 4.0,
                     gradingMode: checked ? "extended" : "standard",
-                  })
-                }
+                  });
+                }}
               />
               <span className="text-xs text-muted-foreground">4.2</span>
             </div>

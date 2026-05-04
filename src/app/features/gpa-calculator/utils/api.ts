@@ -409,55 +409,6 @@ export async function predictDegreeClassProbability(
 }
 
 /**
- * Sync all GPA data to backend
- * Pushes all semesters and subjects for a student to the backend
- */
-export async function syncAllGPAData(
-  semesters: Semester[],
-  settings: GpaSettings,
-  studentId: string
-): Promise<boolean> {
-  try {
-    // Sync settings first
-    await updateSettings(studentId, settings);
-
-    // Sync each semester and its subjects
-    for (const semester of semesters) {
-      const existing = await getSemesterDetails(semester.id);
-      if (!existing) {
-        // Create new semester
-        const created = await createSemester(semester.year, semester.semester, studentId);
-        if (!created) return false;
-
-        // Create subjects
-        for (const subject of semester.subjects) {
-          const created_subject = await createSubject(subject, created.id, studentId);
-          if (!created_subject) return false;
-        }
-      } else {
-        // Update existing semester and subjects
-        await updateSemester(semester, studentId);
-        
-        // Sync subjects
-        for (const subject of semester.subjects) {
-          if (subject.id) {
-            await updateSubject(subject, studentId);
-          } else {
-            const created_subject = await createSubject(subject, semester.id, studentId);
-            if (!created_subject) return false;
-          }
-        }
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error syncing GPA data:", error);
-    return false;
-  }
-}
-
-/**
  * Load the full GPA state from the backend.
  */
 export async function loadGpaState(studentId: string): Promise<GpaBackendState> {

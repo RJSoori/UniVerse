@@ -1,11 +1,19 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { Button } from "./shared/ui/button";
 import { cn } from "./shared/ui/utils";
 
 import RequireAuth from "./auth/RequireAuth";
 import { useAuth } from "./auth/AuthContext";
 import { ThemeToggle } from "./shared/components/ThemeToggle";
+import { GpaCalculatorProvider } from "./features/gpa-calculator/hooks/useGpaCalculator";
 import { MoneyManagerProvider } from "./features/money-manager/hooks/useMoneyManager";
 import {
   LayoutDashboard,
@@ -30,37 +38,75 @@ import {
 const Landing = lazy(() => import("./features/entry/Landing"));
 const SignUpChoice = lazy(() => import("./features/entry/SignUpChoice"));
 const SignIn = lazy(() => import("./features/entry/SignIn"));
-const StudentAuthChoice = lazy(() => import("./features/entry/StudentAuthChoice"));
-const StudentRegistration = lazy(() => import("./features/entry/StudentRegistration"));
-const PasswordResetUnavailable = lazy(() => import("./features/entry/PasswordResetUnavailable"));
-const JobRegistration = lazy(() =>
-  import("./features/job-hub/JobRegistration").then((module) => ({ default: module.JobRegistration })),
+const StudentAuthChoice = lazy(
+  () => import("./features/entry/StudentAuthChoice"),
 );
-const SellerRegister = lazy(() => import("./features/marketplace/SellerRegister"));
-const SellerDashboard = lazy(() => import("./features/marketplace/SellerDashboard"));
+const StudentRegistration = lazy(
+  () => import("./features/entry/StudentRegistration"),
+);
+const PasswordResetUnavailable = lazy(
+  () => import("./features/entry/PasswordResetUnavailable"),
+);
+const JobRegistration = lazy(() =>
+  import("./features/job-hub/JobRegistration").then((module) => ({
+    default: module.JobRegistration,
+  })),
+);
+const SellerRegister = lazy(
+  () => import("./features/marketplace/SellerRegister"),
+);
+const SellerDashboard = lazy(
+  () => import("./features/marketplace/SellerDashboard"),
+);
 const WidgetDashboard = lazy(() =>
-  import("./features/dashboard/WidgetDashboard").then((module) => ({ default: module.WidgetDashboard })),
+  import("./features/dashboard/WidgetDashboard").then((module) => ({
+    default: module.WidgetDashboard,
+  })),
 );
 const SkillsManager = lazy(() =>
-  import("./features/job-hub/SkillsManager").then((module) => ({ default: module.SkillsManager })),
+  import("./features/job-hub/SkillsManager").then((module) => ({
+    default: module.SkillsManager,
+  })),
 );
-const TodoList = lazy(() => import("./features/todo/TodoList").then((module) => ({ default: module.TodoList })));
-const Scheduler = lazy(() => import("./features/schedule/Scheduler").then((module) => ({ default: module.Scheduler })));
+const TodoList = lazy(() =>
+  import("./features/todo/TodoList").then((module) => ({
+    default: module.TodoList,
+  })),
+);
+const Scheduler = lazy(() =>
+  import("./features/schedule/Scheduler").then((module) => ({
+    default: module.Scheduler,
+  })),
+);
 const MoneyManager = lazy(() =>
-  import("./features/money-manager").then((module) => ({ default: module.MoneyManager })),
+  import("./features/money-manager").then((module) => ({
+    default: module.MoneyManager,
+  })),
 );
 const HabitTracker = lazy(() =>
-  import("./features/habits/HabitTracker").then((module) => ({ default: module.HabitTracker })),
+  import("./features/habits/HabitTracker").then((module) => ({
+    default: module.HabitTracker,
+  })),
 );
-const JobHub = lazy(() => import("./features/job-hub/JobHub").then((module) => ({ default: module.JobHub })));
+const JobHub = lazy(() =>
+  import("./features/job-hub/JobHub").then((module) => ({
+    default: module.JobHub,
+  })),
+);
 const Marketplace = lazy(() =>
-  import("./features/marketplace/Marketplace").then((module) => ({ default: module.Marketplace })),
+  import("./features/marketplace/Marketplace").then((module) => ({
+    default: module.Marketplace,
+  })),
 );
 const GPACalculator = lazy(() =>
-  import("./features/gpa-calculator/GpaCalculator").then((module) => ({ default: module.GpaCalculator })),
+  import("./features/gpa-calculator/GpaCalculator").then((module) => ({
+    default: module.GpaCalculator,
+  })),
 );
 const FocusTimer = lazy(() =>
-  import("./features/focus-timer/FocusTimer").then((module) => ({ default: module.FocusTimer })),
+  import("./features/focus-timer/FocusTimer").then((module) => ({
+    default: module.FocusTimer,
+  })),
 );
 const SettingsPage = lazy(() => import("./features/settings/SettingsPage"));
 
@@ -96,7 +142,9 @@ function AppLayout() {
   const navClass = (isActive: boolean) =>
     cn(
       "inline-flex h-9 w-full items-center rounded-xl text-sm font-medium transition-all duration-200",
-      desktopSidebarCollapsed ? "justify-center px-0" : "justify-start gap-3 px-3",
+      desktopSidebarCollapsed
+        ? "justify-center px-0"
+        : "justify-start gap-3 px-3",
       isActive
         ? "bg-primary/12 font-semibold text-primary ring-1 ring-primary/20 shadow-sm"
         : "text-foreground hover:bg-muted/80 hover:translate-x-0.5",
@@ -132,10 +180,19 @@ function AppLayout() {
                     onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
                     onMouseEnter={() => setLogoHovering(true)}
                     onMouseLeave={() => setLogoHovering(false)}
-                    aria-label={desktopSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    title={desktopSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-label={
+                      desktopSidebarCollapsed
+                        ? "Expand sidebar"
+                        : "Collapse sidebar"
+                    }
+                    title={
+                      desktopSidebarCollapsed
+                        ? "Expand sidebar"
+                        : "Collapse sidebar"
+                    }
                   >
-                    {logoHovering || (!desktopSidebarCollapsed && featureHovering) ? (
+                    {logoHovering ||
+                    (!desktopSidebarCollapsed && featureHovering) ? (
                       desktopSidebarCollapsed ? (
                         <ChevronRight className="size-6 text-primary-foreground" />
                       ) : (
@@ -146,8 +203,12 @@ function AppLayout() {
                     )}
                   </button>
                   <div className={cn(desktopSidebarCollapsed && "lg:hidden")}>
-                    <h1 className="text-xl font-bold tracking-tight text-foreground">UniVerse</h1>
-                    <p className="text-xs text-muted-foreground font-medium">Undergraduate Life Management System</p>
+                    <h1 className="text-xl font-bold tracking-tight text-foreground">
+                      UniVerse
+                    </h1>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Undergraduate Life Management System
+                    </p>
                   </div>
                 </div>
                 <Button
@@ -188,8 +249,17 @@ function AppLayout() {
                   >
                     {({ isActive }) => (
                       <>
-                        <Icon className={cn("size-5", isActive ? "text-primary" : "text-muted-foreground")} />
-                        <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>{item.name}</span>
+                        <Icon
+                          className={cn(
+                            "size-5",
+                            isActive ? "text-primary" : "text-muted-foreground",
+                          )}
+                        />
+                        <span
+                          className={cn(desktopSidebarCollapsed && "lg:hidden")}
+                        >
+                          {item.name}
+                        </span>
                       </>
                     )}
                   </NavLink>
@@ -210,31 +280,43 @@ function AppLayout() {
               <NavLink
                 to="/recruiter/register"
                 title="Recruiter Portal"
-                className={() => navClass(location.pathname === "/recruiter/register")}
+                className={() =>
+                  navClass(location.pathname === "/recruiter/register")
+                }
                 onClick={() => setSidebarOpen(false)}
               >
                 <UserRoundCheck
                   className={cn(
                     "size-5",
-                    location.pathname === "/recruiter/register" ? "text-primary" : "text-muted-foreground",
+                    location.pathname === "/recruiter/register"
+                      ? "text-primary"
+                      : "text-muted-foreground",
                   )}
                 />
-                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Recruiter Portal</span>
+                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>
+                  Recruiter Portal
+                </span>
               </NavLink>
 
               <NavLink
                 to="/seller/register"
                 title="Seller Portal"
-                className={() => navClass(location.pathname.startsWith("/seller"))}
+                className={() =>
+                  navClass(location.pathname.startsWith("/seller"))
+                }
                 onClick={() => setSidebarOpen(false)}
               >
                 <ShoppingBag
                   className={cn(
                     "size-5",
-                    location.pathname.startsWith("/seller") ? "text-primary" : "text-muted-foreground",
+                    location.pathname.startsWith("/seller")
+                      ? "text-primary"
+                      : "text-muted-foreground",
                   )}
                 />
-                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Seller Portal</span>
+                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>
+                  Seller Portal
+                </span>
               </NavLink>
             </nav>
 
@@ -247,8 +329,17 @@ function AppLayout() {
               >
                 {({ isActive }) => (
                   <>
-                    <Settings className={cn("size-5", isActive ? "text-primary" : "text-muted-foreground")} />
-                    <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Settings</span>
+                    <Settings
+                      className={cn(
+                        "size-5",
+                        isActive ? "text-primary" : "text-muted-foreground",
+                      )}
+                    />
+                    <span
+                      className={cn(desktopSidebarCollapsed && "lg:hidden")}
+                    >
+                      Settings
+                    </span>
                   </>
                 )}
               </NavLink>
@@ -262,12 +353,16 @@ function AppLayout() {
                 }}
               >
                 <LogOut className="size-5 text-muted-foreground" />
-                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>Logout</span>
+                <span className={cn(desktopSidebarCollapsed && "lg:hidden")}>
+                  Logout
+                </span>
               </button>
               <div
                 className={cn(
                   "flex items-center pt-1",
-                  desktopSidebarCollapsed ? "justify-center" : "justify-between px-3",
+                  desktopSidebarCollapsed
+                    ? "justify-center"
+                    : "justify-between px-3",
                 )}
               >
                 <span
@@ -283,7 +378,12 @@ function AppLayout() {
             </div>
           </aside>
 
-          {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
 
           <main
             className={cn(
@@ -292,7 +392,9 @@ function AppLayout() {
             )}
           >
             <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border/70 bg-background/80 p-3 backdrop-blur-[1px] duration-500 md:p-4">
-              <Outlet />
+              <GpaCalculatorProvider>
+                <Outlet />
+              </GpaCalculatorProvider>
             </div>
           </main>
         </div>
@@ -339,20 +441,85 @@ export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route path="/" element={<EntryLayout><Landing /></EntryLayout>} />
-        <Route path="/signin" element={<EntryLayout><SignIn /></EntryLayout>} />
-        <Route path="/signup" element={<EntryLayout><SignUpChoice /></EntryLayout>} />
-        <Route path="/signup/student" element={<EntryLayout><StudentAuthChoice /></EntryLayout>} />
-        <Route path="/signup/student/register" element={<EntryLayout><StudentRegistration /></EntryLayout>} />
-        <Route path="/forgot-password" element={<EntryLayout><PasswordResetUnavailable /></EntryLayout>} />
-        <Route path="/reset-password" element={<EntryLayout><PasswordResetUnavailable /></EntryLayout>} />
-        <Route path="/recruiter/register" element={<EntryLayout><JobRegistration /></EntryLayout>} />
-        <Route path="/seller/register" element={<EntryLayout><SellerRegister /></EntryLayout>} />
+        <Route
+          path="/"
+          element={
+            <EntryLayout>
+              <Landing />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/signin"
+          element={
+            <EntryLayout>
+              <SignIn />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <EntryLayout>
+              <SignUpChoice />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/signup/student"
+          element={
+            <EntryLayout>
+              <StudentAuthChoice />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/signup/student/register"
+          element={
+            <EntryLayout>
+              <StudentRegistration />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <EntryLayout>
+              <PasswordResetUnavailable />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <EntryLayout>
+              <PasswordResetUnavailable />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/recruiter/register"
+          element={
+            <EntryLayout>
+              <JobRegistration />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/seller/register"
+          element={
+            <EntryLayout>
+              <SellerRegister />
+            </EntryLayout>
+          }
+        />
         <Route
           path="/seller/dashboard"
           element={
             <RequireAuth>
-              <EntryLayout><SellerDashboard /></EntryLayout>
+              <EntryLayout>
+                <SellerDashboard />
+              </EntryLayout>
             </RequireAuth>
           }
         />

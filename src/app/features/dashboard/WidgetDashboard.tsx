@@ -16,6 +16,7 @@ import { GpaWidget } from "./GpaWidget";
 import { Button } from "../../shared/ui/button";
 import { Badge } from "../../shared/ui/badge";
 import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { useGpaCalculator } from "../gpa-calculator/hooks/useGpaCalculator";
 import {
   CheckSquare,
   Calendar,
@@ -54,69 +55,24 @@ interface HabitItem {
   id?: string;
 }
 
-interface GpaSubject {
-  grade?: string;
-  credits?: number;
-}
-
-interface GpaSemester {
-  subjects?: GpaSubject[];
-}
-
-interface GpaSettings {
-  gradingMode?: "standard" | "extended";
-}
-
-const standardGradePoints: Record<string, number> = {
-  "A+": 4.0,
-  A: 4.0,
-  "A-": 3.7,
-  "B+": 3.3,
-  B: 3.0,
-  "B-": 2.7,
-  "C+": 2.3,
-  C: 2.0,
-  "C-": 1.7,
-  "D+": 1.0,
-  D: 1.0,
-  F: 0.0,
-  E: 0.0,
-};
-
 export function WidgetDashboard() {
   const navigate = useNavigate();
-  const goSection = (section: string) => navigate(sectionToPath[section] ?? "/dashboard");
+  const goSection = (section: string) =>
+    navigate(sectionToPath[section] ?? "/dashboard");
+  const { getCgpa, semesters: gpaSemesters } = useGpaCalculator();
 
   const [todos] = useUniStorage<TodoItem[]>("todos", []);
   const [events] = useUniStorage<ScheduleEvent[]>("schedule-events", []);
   const [habits] = useUniStorage<HabitItem[]>("habits", []);
-  const [gpaSemesters] = useUniStorage<GpaSemester[]>("gpa-semesters", []);
-  const [gpaSettings] = useUniStorage<GpaSettings>("gpa-settings", {});
+  const currentGPA = getCgpa().toFixed(2);
 
   const stats = useMemo(() => {
-    const gradingMode = gpaSettings?.gradingMode ?? "standard";
-    const gradePoints = {
-      ...standardGradePoints,
-      "A+": gradingMode === "extended" ? 4.2 : 4.0,
-    };
-
-    let totalPoints = 0;
-    let totalCredits = 0;
-    gpaSemesters.forEach((sem) => {
-      sem.subjects?.forEach((subject) => {
-        const credits = subject.credits ?? 0;
-        totalPoints += (gradePoints[subject.grade ?? ""] ?? 0) * credits;
-        totalCredits += credits;
-      });
-    });
-
     return {
       todosActive: todos.filter((t) => !t.completed).length,
       upcomingEvents: events.length,
       habitsActive: habits.length,
-      currentGPA: totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : "0.00",
     };
-  }, [todos, events, habits, gpaSemesters, gpaSettings]);
+  }, [todos, events, habits]);
 
   const todayEvents = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
@@ -137,7 +93,7 @@ export function WidgetDashboard() {
         <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
           <GraduationCap className="size-4 text-primary" />
           <span className="text-sm font-bold text-primary">
-            GPA: {stats.currentGPA}
+            GPA: {currentGPA}
           </span>
         </div>
       </div>
@@ -245,7 +201,7 @@ export function WidgetDashboard() {
             <GraduationCap className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.currentGPA}</div>
+            <div className="text-2xl font-bold">{currentGPA}</div>
             {gpaSemesters.length === 0 && (
               <Button
                 variant="link"
@@ -300,14 +256,19 @@ export function WidgetDashboard() {
                   ) : (
                     todayEvents.map((event) => (
                       <div
-                        key={event.id ?? `${event.date}-${event.startTime}-${event.title}`}
+                        key={
+                          event.id ??
+                          `${event.date}-${event.startTime}-${event.title}`
+                        }
                         className="flex items-center gap-3 p-2 rounded-lg border bg-primary/5 hover:bg-primary/10 transition-colors"
                       >
                         <div className="text-[10px] font-bold text-primary w-14 text-center border-r border-primary/20">
                           {event.startTime}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold truncate">{event.title}</p>
+                          <p className="text-xs font-bold truncate">
+                            {event.title}
+                          </p>
                           <p className="text-[9px] text-muted-foreground uppercase">
                             {event.type}
                           </p>
@@ -401,7 +362,9 @@ export function WidgetDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Users className="size-4 text-primary" /> Project Team
-                <Badge variant="outline" className="text-[9px] ml-2">Demo</Badge>
+                <Badge variant="outline" className="text-[9px] ml-2">
+                  Demo
+                </Badge>
               </CardTitle>
               <CardDescription className="text-[10px]">
                 Collaborative tracking (sample data)

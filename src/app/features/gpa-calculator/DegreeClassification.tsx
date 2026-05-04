@@ -16,9 +16,11 @@ export function DegreeClassification() {
   const cgpa = getCgpa();
   const currentClass = getDegreeClass();
 
-  const handleSave = () => {
-    updateSettings({ degreeClasses: tempThresholds });
-    setIsEditing(false);
+  const handleSave = async () => {
+    const ok = await updateSettings({ degreeClasses: tempThresholds });
+    if (ok) {
+      setIsEditing(false);
+    }
   };
 
   const handleCancel = () => {
