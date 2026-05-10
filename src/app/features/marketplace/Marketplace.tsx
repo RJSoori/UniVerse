@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUniStorage } from "../../shared/hooks/useUniStorage";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
 import { Card, CardContent, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
@@ -9,26 +8,11 @@ import { Badge } from "../../shared/ui/badge";
 import { SellerProfile } from "./SellerProfile";
 import {
   ShoppingBag, Plus, Search, Filter,
-  MapPin, Phone, Package, X, Tag, Clock,
+  Phone, Package, X, Tag, Clock,
   Sparkles, ExternalLink, Flag, User,
 } from "lucide-react";
 import { toast } from "sonner";
-
-interface Listing {
-  id: string;
-  title: string;
-  description: string;
-  type: "sell" | "rent";
-  amount: string;
-  rentPeriod?: string;
-  condition: string;
-  category: string;
-  contactNumber: string;
-  location: string;
-  images: string[];
-  postedAt: string;
-  sellerEmail?: string;
-}
+import { getAllItems, type MarketplaceItemResponse } from "./marketplaceApi";
 
 const CATEGORIES = [
   "All", "Textbooks & Notes", "Electronics", "Clothing & Accessories",
@@ -41,41 +25,40 @@ const REPORT_REASONS = [
   "Incorrect information", "Other",
 ];
 
-function getSellerInfo(email: string) {
-  const accounts = readJsonFromLocalStorage<Record<string, any>>("universe-seller-accounts", {});
-  return accounts[email.toLowerCase()] || null;
-}
-
 export function Marketplace() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedType, setSelectedType] = useState<"all" | "sell" | "rent">("all");
-  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [selectedType, setSelectedType] = useState<"all" | "SELL" | "RENT">("all");
+  const [selectedListing, setSelectedListing] = useState<MarketplaceItemResponse | null>(null);
   const [filterActive, setFilterActive] = useState(false);
   const [showSellerPrompt, setShowSellerPrompt] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedListingForReport, setSelectedListingForReport] = useState<Listing | null>(null);
+  const [selectedListingForReport, setSelectedListingForReport] = useState<MarketplaceItemResponse | null>(null);
   const [reportReason, setReportReason] = useState("");
-  // Per-user marketplace report history (the user's own reports — scoped).
-  // Note: universe-listings, universe-seller-accounts, universe-active-seller
-  // remain unscoped — they belong to the marketplace-shared / seller-persona
-  // model, which is a separate identity layer from the student JWT.
   const [reports, setReports] = useUniStorage<any[]>("universe-reports", []);
+  const [viewingSellerId, setViewingSellerId] = useState<number | null>(null);
 
-  // ✅ Seller profile state
-  const [viewingSellerEmail, setViewingSellerEmail] = useState<string | null>(null);
+  // ✅ Backend state
+  const [items, setItems] = useState<MarketplaceItemResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const rawListings = readJsonFromLocalStorage<Listing[]>("universe-listings", []);
-  const trendingListings = [...rawListings].slice(0, 3);
+  // ✅ Fetch items from backend on load
+  useEffect(() => {
+    getAllItems()
+      .then(setItems)
+      .catch(() => toast.error("Failed to load listings"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const filtered = rawListings.filter((l) => {
+  const trendingListings = items.slice(0, 3);
+
+  const filtered = items.filter((l) => {
     const matchesSearch =
-      l.title.toLowerCase().includes(search.toLowerCase()) ||
+      l.itemName.toLowerCase().includes(search.toLowerCase()) ||
       l.description.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || l.category === selectedCategory;
     const matchesType = selectedType === "all" || l.type === selectedType;
-    return matchesSearch && matchesCategory && matchesType;
+    return matchesSearch && matchesType;
   });
 
   const handleListAnItem = () => {
@@ -104,13 +87,14 @@ export function Marketplace() {
   };
 
   // ✅ Show seller profile page
-  if (viewingSellerEmail) {
+  if (viewingSellerId) {
     return (
       <SellerProfile
-        sellerEmail={viewingSellerEmail}
-        onBack={() => setViewingSellerEmail(null)}
-        onViewListing={(listing: Listing) => {
-          setViewingSellerEmail(null);
+        sellerEmail=""
+        sellerId={viewingSellerId}
+        onBack={() => setViewingSellerId(null)}
+        onViewListing={(listing: MarketplaceItemResponse) => {
+          setViewingSellerId(null);
           setSelectedListing(listing);
         }}
       />
@@ -159,7 +143,7 @@ export function Marketplace() {
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Listing Type</p>
             <div className="flex gap-2 flex-wrap">
-              {(["all", "sell", "rent"] as const).map((t) => (
+              {(["all", "SELL", "RENT"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setSelectedType(t)}
@@ -169,7 +153,7 @@ export function Marketplace() {
                       : "border-border hover:border-primary text-muted-foreground"
                   }`}
                 >
-                  {t === "all" ? "All" : t === "sell" ? "For Sale" : "For Rent"}
+                  {t === "all" ? "All" : t === "SELL" ? "For Sale" : "For Rent"}
                 </button>
               ))}
             </div>
@@ -217,19 +201,19 @@ export function Marketplace() {
                   onClick={() => setSelectedListing(item)}
                 >
                   <span className="text-[10px] font-bold text-primary w-4">#{index + 1}</span>
-                  {item.images.length > 0 ? (
-                    <img src={item.images[0]} alt={item.title} className="size-8 rounded-md object-cover border border-border flex-shrink-0" />
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.itemName} className="size-8 rounded-md object-cover border border-border flex-shrink-0" />
                   ) : (
                     <div className="size-8 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
                       <Package className="size-4 text-muted-foreground/40" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{item.title}</p>
-                    <p className="text-[10px] text-muted-foreground">{item.category}</p>
+                    <p className="text-xs font-semibold truncate">{item.itemName}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.seller?.storeName}</p>
                   </div>
                   <span className="text-xs font-bold text-primary whitespace-nowrap">
-                    LKR {Number(item.amount).toLocaleString()}
+                    LKR {item.price.toLocaleString()}
                   </span>
                 </div>
               ))}
@@ -240,7 +224,12 @@ export function Marketplace() {
 
       {/* ── Listings ── */}
       <div className="grid grid-cols-1 gap-4">
-        {rawListings.length === 0 ? (
+        {loading ? (
+          <div className="py-20 text-center text-muted-foreground">
+            <Package className="size-12 mx-auto mb-3 opacity-20 animate-pulse" />
+            <p className="font-semibold">Loading listings...</p>
+          </div>
+        ) : items.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground border-2 border-dashed rounded-xl">
             <ShoppingBag className="size-12 mx-auto mb-3 opacity-20" />
             <p className="font-semibold">No listings yet</p>
@@ -261,8 +250,8 @@ export function Marketplace() {
             >
               <CardContent className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
-                  {item.images.length > 0 ? (
-                    <img src={item.images[0]} alt={item.title} className="size-14 rounded-xl object-cover border border-border flex-shrink-0 group-hover:scale-105 transition-transform" />
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.itemName} className="size-14 rounded-xl object-cover border border-border flex-shrink-0 group-hover:scale-105 transition-transform" />
                   ) : (
                     <div className="size-14 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
                       <Package className="size-7 text-primary" />
@@ -270,41 +259,36 @@ export function Marketplace() {
                   )}
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-lg">{item.title}</h4>
-                      <Badge className={`text-[10px] border-none ${item.type === "sell" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
-                        {item.type === "sell" ? "For Sale" : "For Rent"}
+                      <h4 className="font-bold text-lg">{item.itemName}</h4>
+                      <Badge className={`text-[10px] border-none ${item.type === "SELL" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                        {item.type === "SELL" ? "For Sale" : "For Rent"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-muted-foreground text-sm font-medium">{item.category}</p>
                       <Badge variant="outline" className="text-[9px] border-border">{item.condition}</Badge>
+                      <Badge variant="outline" className="text-[9px] border-border">{item.status}</Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <MapPin className="size-3" /> {item.location}
-                    </div>
-                    {/* ✅ Seller name — clickable to open profile */}
-                    {item.sellerEmail && (
+                    {item.seller && (
                       <button
                         className="flex items-center gap-1 text-xs text-primary hover:underline mt-1 font-medium"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setViewingSellerEmail(item.sellerEmail!);
+                          setViewingSellerId(item.seller.id);
                         }}
                       >
                         <User className="size-3" />
-                        {getSellerInfo(item.sellerEmail)?.businessName || "Unknown Seller"}
+                        {item.seller.storeName}
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-lg font-bold text-primary">LKR {Number(item.amount).toLocaleString()}</p>
-                    {item.type === "rent" && <p className="text-[10px] text-muted-foreground">/ {item.rentPeriod}</p>}
+                    <p className="text-lg font-bold text-primary">LKR {item.price.toLocaleString()}</p>
                   </div>
                   <Button size="sm" className="h-9" onClick={(e) => { e.stopPropagation(); setSelectedListing(item); }}>
                     <ExternalLink className="mr-2 h-3 w-3" />
-                    {item.type === "sell" ? "Buy" : "Hire"}
+                    {item.type === "SELL" ? "Buy" : "Hire"}
                   </Button>
                   <Button
                     variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-destructive"
@@ -323,11 +307,9 @@ export function Marketplace() {
       {selectedListing && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedListing(null)}>
           <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {selectedListing.images.length > 0 ? (
+            {selectedListing.imageUrl ? (
               <div className="flex gap-2 p-4 overflow-x-auto">
-                {selectedListing.images.map((src) => (
-                  <img key={src} src={src} alt="" className="h-40 w-40 object-cover rounded-xl flex-shrink-0 border border-border" />
-                ))}
+                <img src={selectedListing.imageUrl} alt="" className="h-40 w-40 object-cover rounded-xl flex-shrink-0 border border-border" />
               </div>
             ) : (
               <div className="h-40 bg-muted flex items-center justify-center rounded-t-2xl">
@@ -336,45 +318,46 @@ export function Marketplace() {
             )}
             <div className="p-6 space-y-4">
               <div className="flex justify-between items-start gap-3">
-                <h3 className="text-xl font-bold">{selectedListing.title}</h3>
+                <h3 className="text-xl font-bold">{selectedListing.itemName}</h3>
                 <button onClick={() => setSelectedListing(null)} className="p-1 rounded-full hover:bg-muted transition-colors">
                   <X className="size-5 text-muted-foreground" />
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge className={`text-[10px] border-none ${selectedListing.type === "sell" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
-                  {selectedListing.type === "sell" ? "For Sale" : "For Rent"}
+                <Badge className={`text-[10px] border-none ${selectedListing.type === "SELL" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}>
+                  {selectedListing.type === "SELL" ? "For Sale" : "For Rent"}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">{selectedListing.condition}</Badge>
-                <Badge variant="outline" className="text-[10px]">{selectedListing.category}</Badge>
+                <Badge variant="outline" className="text-[10px]">{selectedListing.status}</Badge>
               </div>
-              {/* ✅ Seller name in modal — also clickable */}
-              {selectedListing.sellerEmail && (
+              {selectedListing.seller && (
                 <button
                   className="flex items-center gap-2 text-sm text-primary hover:underline font-medium"
                   onClick={() => {
                     setSelectedListing(null);
-                    setViewingSellerEmail(selectedListing.sellerEmail!);
+                    setViewingSellerId(selectedListing.seller.id);
                   }}
                 >
                   <User className="size-4" />
-                  {getSellerInfo(selectedListing.sellerEmail)?.businessName || "Unknown Seller"}
+                  {selectedListing.seller.storeName}
                 </button>
               )}
               <p className="text-2xl font-bold text-primary">
-                LKR {Number(selectedListing.amount).toLocaleString()}
-                {selectedListing.type === "rent" && <span className="text-sm font-normal text-muted-foreground"> / {selectedListing.rentPeriod}</span>}
+                LKR {selectedListing.price.toLocaleString()}
               </p>
               <p className="text-sm text-muted-foreground">{selectedListing.description}</p>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-4" /><span>{selectedListing.location}</span></div>
-                <div className="flex items-center gap-2 text-muted-foreground"><Clock className="size-4" /><span>Posted {selectedListing.postedAt}</span></div>
-                <div className="flex items-center gap-2 text-muted-foreground"><Phone className="size-4" /><span>{selectedListing.contactNumber}</span></div>
+                {selectedListing.seller?.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="size-4" />
+                    <span>{selectedListing.seller.phone}</span>
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
-                <Button className="flex-1" onClick={() => toast.info(`Contact the seller at: ${selectedListing.contactNumber}`)}>
+                <Button className="flex-1" onClick={() => toast.info(`Contact the seller: ${selectedListing.seller?.storeName}`)}>
                   <Tag className="mr-2 size-4" />
-                  {selectedListing.type === "sell" ? "Buy Now" : "Hire Now"}
+                  {selectedListing.type === "SELL" ? "Buy Now" : "Hire Now"}
                 </Button>
                 <Button variant="outline" className="text-muted-foreground hover:text-destructive" onClick={() => { setSelectedListingForReport(selectedListing); setShowReportModal(true); }}>
                   <Flag className="mr-2 size-4" /> Report
@@ -414,7 +397,7 @@ export function Marketplace() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold">Report Listing</h3>
-                <p className="text-sm text-muted-foreground mt-1">Why are you reporting "{selectedListingForReport.title}"?</p>
+                <p className="text-sm text-muted-foreground mt-1">Why are you reporting "{selectedListingForReport.itemName}"?</p>
               </div>
               <button onClick={() => setShowReportModal(false)} className="p-1 rounded-full hover:bg-muted transition-colors">
                 <X className="size-5 text-muted-foreground" />

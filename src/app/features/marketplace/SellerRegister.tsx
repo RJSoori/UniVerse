@@ -12,46 +12,31 @@ import {
   ArrowLeft, Eye, EyeOff, Store, User, Upload,
   MapPin, FileText, Tag, ShieldCheck, Phone,
 } from "lucide-react";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
-
-// ── Account storage ───────────────────────────────────────────────────────────
-interface SellerAccount {
-  password: string;
-  sellerType?: string;
-  businessName?: string;
-  idNumber?: string;
-  contactNumber?: string;
-  location?: string;
-  categoryFocus?: string;
-  storeDescription?: string;
-}
-
-function getAccounts(): Record<string, SellerAccount> {
-  return readJsonFromLocalStorage<Record<string, SellerAccount>>("universe-seller-accounts", {});
-}
-
-function saveAccounts(accounts: Record<string, SellerAccount>) {
-  localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
-}
-// ─────────────────────────────────────────────────────────────────────────────
+import {
+  registerSellerAuth,
+  loginSellerAuth,
+  setSellerToken,
+  setSellerData,
+} from "./marketplaceApi";
 
 export default function SellerRegister() {
   const navigate = useNavigate();
-  // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
   const [sellerType, setSellerType] = useState<"shop" | "individual" | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [showRecovery, setShowRecovery] = useState(false);   // ✅ recovery state
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Login state
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
   // Register state
   const [regEmail, setRegEmail] = useState("");
+  const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -64,6 +49,7 @@ export default function SellerRegister() {
   const [verifCategory, setVerifCategory] = useState("");
   const [verifDescription, setVerifDescription] = useState("");
   const [verifyError, setVerifyError] = useState("");
+
   const shouldRedirectToDashboard = isAuthenticated && isRegistered && step === 3;
 
   useEffect(() => {
@@ -72,52 +58,54 @@ export default function SellerRegister() {
     }
   }, [navigate, shouldRedirectToDashboard]);
 
-  // ✅ Show recovery screen
   if (showRecovery) {
     return <SellerAccessRecovery onBack={() => setShowRecovery(false)} />;
   }
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setLoginError("");
-    if (!loginEmail || !loginPassword) {
+    if (!loginUsername || !loginPassword) {
       setLoginError("Please fill in all fields.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
-      setLoginError("Please enter a valid email address.");
       return;
     }
     if (loginPassword.length < 8) {
       setLoginError("Password must be at least 8 characters.");
       return;
     }
-    const accounts = getAccounts();
-    const account = accounts[loginEmail.toLowerCase()];
-    if (!account) {
-      setLoginError("No seller account found with this email. Please register first.");
-      return;
+    setIsSubmitting(true);
+    try {
+      const auth = await loginSellerAuth({
+          username: loginUsername,
+          password: loginPassword,
+     });
+      setSellerToken(auth.token);
+      setSellerData(auth.seller);
+      localStorage.setItem("universe-active-seller", auth.seller.email.toLowerCase());
+      setIsAuthenticated(true);
+      setIsRegistered(true);
+      setStep(3);
+      if (!sellerType) setSellerType("shop");
+    } catch (error) {
+      setLoginError("Invalid username or password. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    if (account.password !== loginPassword) {
-      setLoginError("Incorrect password. Please try again.");
-      return;
-    }
-    localStorage.setItem("universe-active-seller", loginEmail.toLowerCase());
-    setIsAuthenticated(true);
-    setIsRegistered(true);
-    setStep(3);
-    if (!sellerType) setSellerType("shop");
   };
 
   // ── Register ───────────────────────────────────────────────────────────────
   const handleRegister = () => {
     setRegisterError("");
-    if (!regEmail || !regPassword || !regConfirm) {
+    if (!regEmail || !regUsername || !regPassword || !regConfirm) {
       setRegisterError("Please fill in all fields.");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
       setRegisterError("Please enter a valid email address.");
+      return;
+    }
+    if (regUsername.length < 3) {
+      setRegisterError("Username must be at least 3 characters.");
       return;
     }
     if (regPassword.length < 8) {
@@ -128,21 +116,12 @@ export default function SellerRegister() {
       setRegisterError("Passwords do not match.");
       return;
     }
-    const accounts = getAccounts();
-    if (accounts[regEmail.toLowerCase()]) {
-      setRegisterError("An account with this email already exists. Please log in.");
-      return;
-    }
-    accounts[regEmail.toLowerCase()] = { password: regPassword };
-    saveAccounts(accounts);
-    localStorage.setItem("universe-active-seller", regEmail.toLowerCase());
-    setLoginEmail(regEmail);
     setIsAuthenticated(true);
     setStep(1);
   };
 
   // ── Verification ───────────────────────────────────────────────────────────
-  const handleVerificationSubmit = () => {
+  const handleVerificationSubmit = async () => {
     setVerifyError("");
     if (!verifBusinessName || !verifIdNumber || !verifContact || !verifLocation) {
       setVerifyError("Please fill in all required fields.");
@@ -152,26 +131,32 @@ export default function SellerRegister() {
       setVerifyError("Please enter a valid contact number.");
       return;
     }
-    const accounts = getAccounts();
-    const email = regEmail || loginEmail;
-    if (accounts[email.toLowerCase()]) {
-      accounts[email.toLowerCase()] = {
-        ...accounts[email.toLowerCase()],
-        sellerType: sellerType ?? undefined,
-        businessName: verifBusinessName,
-        idNumber: verifIdNumber,
-        contactNumber: verifContact,
-        location: verifLocation,
-        categoryFocus: verifCategory,
-        storeDescription: verifDescription,
-      };
-      saveAccounts(accounts);
+
+    setIsSubmitting(true);
+    try {
+      const auth = await registerSellerAuth({
+        storeName: verifBusinessName,
+        email: regEmail,
+        username: regUsername,
+        password: regPassword,
+        phone: verifContact,
+        description: verifDescription,
+      });
+
+      // ✅ Store seller token and data
+      setSellerToken(auth.token);
+      setSellerData(auth.seller);
+      localStorage.setItem("universe-active-seller", auth.seller.email.toLowerCase());
+
+      setIsRegistered(true);
+      setStep(3);
+    } catch (error) {
+      setVerifyError("Failed to create seller account. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsRegistered(true);
-    setStep(3);
   };
 
-  // ── Step 3: navigate to dashboard ─────────────────────────────────────────
   if (shouldRedirectToDashboard) {
     return null;
   }
@@ -209,12 +194,12 @@ export default function SellerRegister() {
               {/* ── Login Tab ── */}
               <TabsContent value="login" className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Email Address</Label>
+                  <Label>Username</Label>
                   <Input
-                    type="email"
-                    placeholder="jane@example.com"
-                    value={loginEmail}
-                    onChange={(e) => { setLoginEmail(e.target.value); setLoginError(""); }}
+                    type="text"
+                    placeholder="Your username"
+                    value={loginUsername}
+                    onChange={(e) => { setLoginUsername(e.target.value); setLoginError(""); }}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                   />
                 </div>
@@ -238,8 +223,9 @@ export default function SellerRegister() {
                   </div>
                 </div>
                 {loginError && <p className="text-xs text-destructive">{loginError}</p>}
-                <Button className="w-full" onClick={handleLogin}>Sign In</Button>
-                {/* ✅ Forgot Password link */}
+                <Button className="w-full" onClick={handleLogin} disabled={isSubmitting}>
+                  {isSubmitting ? "Signing in..." : "Sign In"}
+                </Button>
                 <Button
                   variant="link"
                   className="w-full text-xs text-muted-foreground hover:text-primary"
@@ -261,6 +247,15 @@ export default function SellerRegister() {
                     placeholder="jane@example.com"
                     value={regEmail}
                     onChange={(e) => { setRegEmail(e.target.value); setRegisterError(""); }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Username</Label>
+                  <Input
+                    type="text"
+                    placeholder="Choose a username"
+                    value={regUsername}
+                    onChange={(e) => { setRegUsername(e.target.value); setRegisterError(""); }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -492,8 +487,9 @@ export default function SellerRegister() {
                 <Button
                   className="flex-[2] h-12 font-black uppercase text-sm tracking-widest order-1 sm:order-2 shadow-xl shadow-primary/20"
                   onClick={handleVerificationSubmit}
+                  disabled={isSubmitting}
                 >
-                  Submit & Go to Dashboard
+                  {isSubmitting ? "Creating Account..." : "Submit & Go to Dashboard"}
                 </Button>
               </div>
             </CardContent>
