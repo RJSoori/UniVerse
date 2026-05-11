@@ -403,7 +403,6 @@ export function WidgetDashboard() {
         <div className="space-y-6">
           <MoneyWidget onNavigate={goSection} compact />
           <GpaWidget onNavigate={goSection} compact />
-          <FocusTimer compact />
         </div>
       </div>
     </div>
