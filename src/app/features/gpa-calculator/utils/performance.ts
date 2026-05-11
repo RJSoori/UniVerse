@@ -18,7 +18,7 @@ export interface CategoryPerformance {
   credits: number;
 }
 
-export interface GradeProbabilityDistribution {
+interface GradeProbabilityDistribution {
   "A+": number;
   "A": number;
   "A-": number;
@@ -48,7 +48,7 @@ export interface CategoryProbabilityModel {
  * @param name - Subject name
  * @returns Array of lowercase keywords
  */
-export function extractKeywords(name: string): string[] {
+function extractKeywords(name: string): string[] {
   return name
     .toLowerCase()
     .split(/[^a-z0-9]+/)

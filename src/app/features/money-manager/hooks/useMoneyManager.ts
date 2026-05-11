@@ -23,7 +23,7 @@ import {
   CategoryBudget,
 } from "../types";
 import { getCurrentISTDate, getCurrentISTTime } from "../utils/dates";
-import { escapeCsvValue, formatCsv } from "../utils/csv";
+import { escapeCsvValue } from "../utils/csv";
 import {
   roundMoney,
   type ValidationResult,
@@ -373,10 +373,8 @@ function useMoneyManagerState() {
           time: getCurrentISTTime(),
         };
         setTransactions([tx, ...transactions]);
-        dispatchStorageUpdate();
       }
 
-      dispatchStorageUpdate();
       return { ok: true, value: newWallet };
     },
     [wallets, transactions, setWallets, setTransactions]
@@ -390,7 +388,6 @@ function useMoneyManagerState() {
         w.id === walletId ? { ...w, ...updates } : w
       );
       setWallets(updatedWallets);
-      dispatchStorageUpdate();
     },
     [wallets, setWallets]
   );
@@ -440,7 +437,6 @@ function useMoneyManagerState() {
         };
         setTransactions([tx, ...transactions]);
       }
-      dispatchStorageUpdate();
       return {
         ok: true,
         value: updatedWallets.find((item) => item.id === walletId)!,
@@ -463,7 +459,6 @@ function useMoneyManagerState() {
         };
       }
       setWallets(wallets.filter((w) => w.id !== walletId));
-      dispatchStorageUpdate();
       return { ok: true, value: { id: walletId } };
     },
     [recurringExpenses, setWallets, transactions, wallets]
@@ -611,7 +606,6 @@ function useMoneyManagerState() {
           ),
         );
         setRecurringExpenses(updatedExpenses);
-        dispatchStorageUpdate();
       }
     },
     [recurringExpenses, transactions, wallets, setTransactions, setWallets, setRecurringExpenses, getMonthKey, isExpenseActiveForMonth]
@@ -762,7 +756,6 @@ function useMoneyManagerState() {
   const deleteRecurringExpense = useCallback(
     (id: string) => {
       setRecurringExpenses(recurringExpenses.filter((expense) => expense.id !== id));
-      dispatchStorageUpdate();
     },
     [recurringExpenses, setRecurringExpenses]
   );
@@ -810,7 +803,6 @@ function useMoneyManagerState() {
   const deleteCategoryBudget = useCallback(
     (id: string) => {
       setCategoryBudgets(categoryBudgets.filter((budget) => budget.id !== id));
-      dispatchStorageUpdate();
     },
     [categoryBudgets, setCategoryBudgets]
   );
@@ -857,7 +849,6 @@ function useMoneyManagerState() {
         );
       }
 
-      dispatchStorageUpdate();
       return { ok: true, value: newTx, warnings: validation.warnings };
     },
     [
@@ -952,7 +943,6 @@ function useMoneyManagerState() {
         );
       }
 
-      dispatchStorageUpdate();
       return { ok: true, value: normalizedTx, warnings: validation.warnings };
     },
     [
@@ -991,7 +981,6 @@ function useMoneyManagerState() {
         );
       }
 
-      dispatchStorageUpdate();
     },
     [transactions, wallets, setTransactions, updateWalletBalance, setBudgets]
   );
@@ -1026,7 +1015,6 @@ function useMoneyManagerState() {
         : [...budgets, newBudget];
 
       setBudgets(updatedBudgets);
-      dispatchStorageUpdate();
       return { ok: true, value: newBudget };
     },
     [budgets, setBudgets, transactions]
@@ -1418,7 +1406,6 @@ function useMoneyManagerState() {
       ...settings,
       firstTimeSetupCompleted: true,
     });
-    dispatchStorageUpdate();
   }, [settings, setSettings]);
 
   // Reset all data in money manager
@@ -1438,13 +1425,7 @@ function useMoneyManagerState() {
     window.localStorage.removeItem("money-recurring-expenses");
     window.localStorage.removeItem("money-category-budgets");
     window.localStorage.removeItem("money-settings");
-    dispatchStorageUpdate();
   }, [setTransactions, setWallets, setBudgets, setRecurringExpenses, setCategoryBudgets, setSettings, settings.currency]);
-
-  // Helper to dispatch storage update event
-  function dispatchStorageUpdate() {
-    // No-op: Money Manager persistence is backend-driven now.
-  }
 
   return {
     // State

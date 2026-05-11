@@ -147,6 +147,7 @@ export function AcademicGoalPlanner() {
         credits: validation.value.credits,
         grade: allowedGrades[0],
         category: assignCategory(subjectName),
+        gradeModified: false,
       },
     ]);
     setSubjectName("");
@@ -160,7 +161,7 @@ export function AcademicGoalPlanner() {
   const handleUpdateSubjectGrade = (id: string, grade: string) => {
     setSubjects(
       subjects.map((subject) =>
-        subject.id === id ? { ...subject, grade } : subject,
+        subject.id === id ? { ...subject, grade, gradeModified: true } : subject,
       ),
     );
   };
@@ -615,9 +616,6 @@ export function AcademicGoalPlanner() {
                   ))}
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                  {plan.explanation}
-                </p>
               </div>
             ))}
 

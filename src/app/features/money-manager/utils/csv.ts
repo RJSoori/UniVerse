@@ -19,21 +19,3 @@ export function escapeCsvValue(val: any): string {
   }
   return str;
 }
-
-/**
- * Format CSV row array as comma-separated string
- * @param row - Array of values to format
- * @returns Escaped and join CSV row
- */
-export function formatCsvRow(row: any[]): string {
-  return row.map(escapeCsvValue).join(",");
-}
-
-/**
- * Format multiple CSV rows as complete CSV string
- * @param rows - Array of row arrays
- * @returns Complete CSV content for file export
- */
-export function formatCsv(rows: string[][]): string {
-  return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
-}

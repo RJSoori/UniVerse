@@ -29,7 +29,6 @@ import {
   roundGpa,
   type ValidationResult,
   validateSubjectForSemester,
-  validateWalletName,
 } from "../../../shared/validation";
 import {
   getStorageSanitizer,

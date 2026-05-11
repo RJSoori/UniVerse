@@ -27,6 +27,7 @@ export interface TodoItem {
   description: string;
   dueDate: string;
   dueTime: string;
+  reservedMinutes: string;
   priority: "low" | "medium" | "high";
   completed: boolean;
   reminderEnabled: boolean;
@@ -46,6 +47,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     description: "",
     dueDate: "",
     dueTime: "",
+    reservedMinutes: "",
     priority: "medium",
     reminderEnabled: true,
   });
@@ -66,6 +68,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
       description: "",
       dueDate: "",
       dueTime: "",
+      reservedMinutes: "",
       priority: "medium",
       reminderEnabled: true,
     });
@@ -170,7 +173,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                   onKeyDown={(e) => e.key === "Enter" && addTodo()}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div className="space-y-2">
                   <Label>Due Date</Label>
                   <Input type="date" value={newTodo.dueDate} onChange={(e) => setNewTodo({ ...newTodo, dueDate: e.target.value })} />
@@ -178,6 +181,17 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                 <div className="space-y-2">
                   <Label>Due Time</Label>
                   <Input type="time" value={newTodo.dueTime} onChange={(e) => setNewTodo({ ...newTodo, dueTime: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Duration (minutes)</Label>
+                  <Input
+                    type="number"
+                    min="5"
+                    step="5"
+                    placeholder="e.g. 30"
+                    value={newTodo.reservedMinutes}
+                    onChange={(e) => setNewTodo({ ...newTodo, reservedMinutes: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Priority</Label>
@@ -214,8 +228,8 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                           <h4 className={`font-medium ${todo.completed ? "line-through text-muted-foreground" : ""}`}>{todo.title}</h4>
                           <Badge variant={getPriorityColor(todo.priority)} className="text-[10px] h-4 uppercase">{todo.priority}</Badge>
                         </div>
-                        {(todo.dueDate || todo.dueTime) && (
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                        {(todo.dueDate || todo.dueTime || todo.reservedMinutes) && (
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                               {todo.dueDate && (
                                   <div className="flex items-center gap-1">
                                     <CalendarIcon className="size-3" />
@@ -226,6 +240,12 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                                   <div className="flex items-center gap-1">
                                     <Clock className="size-3" />
                                     {todo.dueTime}
+                                  </div>
+                              )}
+                              {todo.reservedMinutes && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="size-3" />
+                                    {todo.reservedMinutes} min reserved
                                   </div>
                               )}
                             </div>

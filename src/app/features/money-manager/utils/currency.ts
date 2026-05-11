@@ -16,19 +16,6 @@ export function formatCurrency(amount: number, currency: string = MONEY_CONFIG.C
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-/**
- * Get currency symbol
- * @returns Currency symbol (default: LKR)
- */
-export function getCurrency(): string {
-  return MONEY_CONFIG.CURRENCY;
-}
-
-/**
- * Format currency for labels/input fields
- * @param currency - Currency code (default: LKR)
- * @returns Formatted label (e.g., "Amount (LKR)")
- */
 export function formatCurrencyLabel(currency: string = MONEY_CONFIG.CURRENCY): string {
   return `Amount (${currency})`;
 }

@@ -1,32 +1,19 @@
 import { PlannerSubject } from "../types";
 import { getGradePoint } from "./gpaPrediction";
 import {
-  PLANNER_GRADES,
   PlannerGrade,
-  STRONG_CATEGORY_THRESHOLD,
-  MODERATE_CATEGORY_THRESHOLD,
   DIFFICULTY_VERY_HARD_MARGIN,
   DIFFICULTY_CHALLENGING_MARGIN,
+  MAX_RECOMMENDATION_RESULTS,
 } from "../constants/gradeScales";
 import {
-  analyzePastPerformance,
-  assignCategory,
-  extractKeywords,
-  getCategoryStrength,
   CategoryPerformance,
   buildProbabilityModels,
   CategoryProbabilityModel,
 } from "./performance";
-import { scoreCombination, evaluateCombination, rankCombinations, EvaluatedCombination } from "./scoring";
-import { generateCombinations, calculateSgpaForSubjects, getGradesPreferringEasiest } from "./combinations";
-import { bestFirstSearch } from "./bestFirstSearch";
+import { scoreCombination } from "./scoring";
+import { generateCombinations, getGradesPreferringEasiest } from "./combinations";
 import { normalizeGrade, roundGpa } from "../../../shared/validation";
-
-// Re-export for backward compatibility
-export { PLANNER_GRADES };
-export type { PlannerGrade };
-export { analyzePastPerformance, assignCategory, extractKeywords, getCategoryStrength };
-export type { CategoryPerformance };
 
 export interface CombinationResult {
   combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>;
@@ -65,10 +52,13 @@ function normalizePlanCombination(
   combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
   gpaScale: number,
 ) {
-  return combination.map(({ subject, grade }) => ({
-    subject,
-    grade: (normalizeGrade(grade, gpaScale) || grade) as PlannerGrade,
-  }));
+  return combination.map(({ subject, grade }) => {
+    let normalized = (normalizeGrade(grade, gpaScale) || grade) as PlannerGrade;
+    if (normalized === "A+" && gpaScale === 4.0) {
+      normalized = "A";
+    }
+    return { subject, grade: normalized };
+  });
 }
 
 function countTopHeavyGrades(
@@ -86,22 +76,22 @@ function countTopHeavyGrades(
   }, 0);
 }
 
-function removeDominatedPlans(plans: CombinationResult[]): CombinationResult[] {
-  return plans.filter((plan, index) => {
-    return !plans.some((candidate, candidateIndex) => {
-      if (index === candidateIndex) return false;
-      const sameOrBetterSgpa = candidate.sgpa >= plan.sgpa;
-      const easierDifficulty =
-        ["ACHIEVABLE", "CHALLENGING", "VERY HARD", "IMPOSSIBLE"].indexOf(
-          candidate.difficulty,
-        ) <=
-        ["ACHIEVABLE", "CHALLENGING", "VERY HARD", "IMPOSSIBLE"].indexOf(
-          plan.difficulty,
-        );
-      const sameOrBetterScore = candidate.score >= plan.score;
-      return sameOrBetterSgpa && easierDifficulty && sameOrBetterScore;
-    });
+function pickDiversePlans(plans: CombinationResult[]): CombinationResult[] {
+  const sorted = [...plans].sort((a, b) => {
+    if (a.sgpa !== b.sgpa) return a.sgpa - b.sgpa;
+    return b.score - a.score;
   });
+
+  const selected: CombinationResult[] = [];
+  for (const plan of sorted) {
+    if (selected.length >= 3) break;
+    const isDifferent = selected.every(
+      (s) => combinationSimilarity(s.combination, plan.combination) < 0.7,
+    );
+    if (isDifferent) selected.push(plan);
+  }
+
+  return selected;
 }
 
 function canGradeBeDowngradedHelper(
@@ -225,169 +215,14 @@ function combinationSimilarity(
   return matches / a.length;
 }
 
-function classifyRecommendationStrategy(
-  combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  performance: Record<string, CategoryPerformance>,
-  gpaScale: number
-): string {
-  if (combination.length === 0) return "Minimum viable plan";
-
-  // Sort subjects by credits descending
-  const sortedByCredits = [...combination].sort((a, b) => b.subject.credits - a.subject.credits);
-  const highCreditSubjects = sortedByCredits.slice(0, Math.ceil(combination.length / 2));
-
-  // Check if high-credit subjects have high grades
-  const highGrades = ["A+", "A", "A-"];
-  const highCreditHighGrades = highCreditSubjects.filter(entry => highGrades.includes(entry.grade)).length;
-  if (highCreditHighGrades === highCreditSubjects.length) {
-    return "Prioritise high-value subjects";
-  }
-
-  // Check if grades are within one tier (all A/B or all B/C etc.)
-  const gradeTiers = combination.map(entry => {
-    const points = getGradePoint(entry.grade, gpaScale);
-    if (points >= 3.7) return "A";
-    if (points >= 3.0) return "B";
-    if (points >= 2.0) return "C";
-    return "D";
-  });
-  const uniqueTiers = new Set(gradeTiers);
-  if (uniqueTiers.size === 1) {
-    return "Balanced effort";
-  }
-
-  // Check if strong categories carry most points
-  const strongCategories = Object.keys(performance).filter(cat => performance[cat].average >= 3.3);
-  const strongPoints = combination
-    .filter(entry => strongCategories.includes(entry.subject.category))
-    .reduce((sum, entry) => sum + getGradePoint(entry.grade, gpaScale) * entry.subject.credits, 0);
-  const totalPoints = combination.reduce((sum, entry) => sum + getGradePoint(entry.grade, gpaScale) * entry.subject.credits, 0);
-  if (strongPoints / totalPoints > 0.6) {
-    return "Play to your strengths";
-  }
-
-  return "Minimum viable plan";
-}
-
 export function buildStrategyExplanation(
   _combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  strategy: "Safe" | "Balanced" | "Aggressive",
-  pressure: "Low" | "Moderate" | "High",
-  focusAreas: string[],
-  flexibleSubjects: string[]
+  _strategy: "Safe" | "Balanced" | "Aggressive",
+  _pressure: "Low" | "Moderate" | "High",
+  _focusAreas: string[],
+  _flexibleSubjects: string[]
 ): string {
-  const focusText = focusAreas.length > 0 ? ` in ${focusAreas.join(" and ")}` : "";
-  const flexibleText = flexibleSubjects.length > 0 ? ` You have flexibility in ${flexibleSubjects.slice(0, 2).join(" and ")}.` : "";
-  let strategicReasoning = "";
-  if (strategy === "Safe") {
-    strategicReasoning = "This aligns with your historical performance—lower risk of surprises.";
-  } else if (strategy === "Balanced") {
-    strategicReasoning = "Balances reliability with growth—requires focused effort in key areas.";
-  } else {
-    strategicReasoning = "Demands significant improvement, but achievable with dedicated effort.";
-  }
-  return `**${strategy} Strategy** | This plan focuses on securing strong grades${focusText} while maintaining solid performance elsewhere. Pressure: ${pressure}. ${strategicReasoning}${flexibleText}`;
-}
-
-export function generateExplanation(
-  combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  performance: Record<string, CategoryPerformance>,
-  gpaScale: number,
-  probabilityModels?: Record<string, CategoryProbabilityModel>
-): string {
-  if (combination.length === 0) {
-    return "No subjects to plan.";
-  }
-
-  const gradeExplanations: string[] = [];
-  let hasHighRiskGrades = false;
-  const gradesPreferredOrder = getGradesPreferringEasiest(gpaScale);
-
-  // Analyze each subject-grade pairing
-  for (const { subject, grade } of combination) {
-    const gradePoint = getGradePoint(grade, gpaScale);
-    const categoryPerf = performance[subject.category];
-    const historicalAvg = categoryPerf?.average ?? 0;
-    const probabilityModel = probabilityModels?.[subject.category];
-    
-    // Check if this grade can be downgraded
-    let gradeExplanation = `${grade} in ${subject.name}`;
-    
-    // Find easier grades with same point value (grade equivalence)
-    const easierEquivalent = gradesPreferredOrder.findIndex(g => g === grade) > 0
-      ? gradesPreferredOrder.find((g, idx) => 
-          idx < gradesPreferredOrder.indexOf(grade) && 
-          getGradePoint(g, gpaScale) === gradePoint
-        )
-      : null;
-    
-    if (easierEquivalent) {
-      gradeExplanation += ` (${easierEquivalent} is sufficient—both earn ${gradePoint.toFixed(1)} points)`;
-    }
-
-    // Assess feasibility using probability model (NEW) or historical average (fallback)
-    if (probabilityModel && probabilityModel.totalGrades > 0) {
-      const gradeProbability = probabilityModel.distribution[grade] || 0;
-      const confidence = probabilityModel.confidence;
-      
-      if (gradeProbability > 0.3 && confidence > 0.7) {
-        gradeExplanation += `. High confidence—${(gradeProbability * 100).toFixed(0)}% historical probability in ${subject.category}`;
-      } else if (gradeProbability > 0.1) {
-        gradeExplanation += `. Moderate confidence—${(gradeProbability * 100).toFixed(0)}% historical probability`;
-      } else if (gradeProbability > 0) {
-        gradeExplanation += `. Low confidence—rare grade (${(gradeProbability * 100).toFixed(1)}% historical probability)`;
-        hasHighRiskGrades = true;
-      } else {
-        gradeExplanation += `. This grade is less common historically in ${subject.category} and should be treated cautiously.`;
-        hasHighRiskGrades = true;
-      }
-    } else {
-      // Fallback to historical average assessment
-      if (historicalAvg > 0) {
-        const performanceGap = gradePoint - historicalAvg;
-        if (performanceGap > 0.3) {
-          gradeExplanation += `. Challenging—requires improvement from your historical ${historicalAvg.toFixed(1)} to ${gradePoint.toFixed(1)}`;
-          hasHighRiskGrades = true;
-        } else if (performanceGap > 0) {
-          gradeExplanation += `. Moderate difficulty—slightly above your historical average of ${historicalAvg.toFixed(1)}`;
-        } else {
-          gradeExplanation += `. High confidence—aligns with your historical average of ${historicalAvg.toFixed(1)}`;
-        }
-      } else {
-        gradeExplanation += `. Historical records are sparse for ${subject.category}; consider this grade with caution.`;
-      }
-    }
-
-    gradeExplanations.push(gradeExplanation);
-  }
-
-  // Build overall assessment
-  const totalPoints = combination.reduce(
-    (sum, { subject, grade }) => sum + getGradePoint(grade, gpaScale) * subject.credits,
-    0
-  );
-  const totalCredits = combination.reduce((sum, { subject }) => sum + subject.credits, 0);
-  const achievedSgpa = totalPoints / totalCredits;
-
-  let overallAssessment = "This plan ";
-  
-  // Check if plan heavily uses A+ or A
-  const aOrAboveCount = combination.filter(({ grade }) => grade === "A" || grade === "A+").length;
-  if (aOrAboveCount === combination.length) {
-    overallAssessment += "achieves maximum SGPA with straight As or A+s. ";
-  } else if (aOrAboveCount >= combination.length - 1) {
-    overallAssessment += "achieves very high SGPA with mostly A/A+ grades. ";
-  } else {
-    overallAssessment += `achieves an SGPA of ${achievedSgpa.toFixed(2)}. `;
-  }
-
-  if (hasHighRiskGrades) {
-    overallAssessment += "Note: Multiple grades exceed your current performance levels—choose this plan only if you're confident in significant improvement.";
-  } else {
-    overallAssessment += "All grades are realistic based on your past performance.";
-  }
-
-  return gradeExplanations.join(" | ") + " → " + overallAssessment;
+  return "";
 }
 
 export function buildRecommendations(
@@ -402,7 +237,10 @@ export function buildRecommendations(
   // Build probability models from historical data (NEW)
   const probabilityModels = semesters ? buildProbabilityModels(semesters, gpaScale) : {};
   
-  const rawCombinations = generateCombinations(subjects, requiredSgpa, gpaScale);
+  let rawCombinations = generateCombinations(subjects, requiredSgpa, gpaScale, MAX_RECOMMENDATION_RESULTS, true);
+  if (rawCombinations.length === 0) {
+    rawCombinations = generateCombinations(subjects, requiredSgpa, gpaScale, MAX_RECOMMENDATION_RESULTS, false);
+  }
   const requiredCredits = subjects.reduce((sum, subject) => sum + subject.credits, 0);
   const requiredPoints = requiredSgpa * requiredCredits;
 
@@ -452,105 +290,6 @@ export function buildRecommendations(
     };
   });
 
-  return removeDominatedPlans(scored)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return Math.abs(a.points - requiredPoints) - Math.abs(b.points - requiredPoints);
-    })
+  return pickDiversePlans(scored)
     .slice(0, 3);
-}
-
-/**
- * Phase 4 Architecture: Intelligent Recommendation Engine
- * 
- * Pipeline:
- * 1. Analyze: Build probability models from historical semester data
- * 2. Search: Use best-first search to explore top combinations efficiently
- * 3. Evaluate: Calculate multiple dimensions (probability, efficiency, risk)
- * 4. Rank: Multi-objective ranking (Probability > Efficiency > Risk)
- * 5. Explain: Generate detailed explanations with confidence percentages
- * 
- * Benefits over V1:
- * - Probability-driven scoring reflects actual likelihood of achieving grades
- * - Best-first search explores promising branches without exhaustive enumeration
- * - Multi-dimensional ranking considers efficiency and risk in addition to feasibility
- * - Confidence levels show quality of historical data backing each recommendation
- * 
- * @param subjects - List of subjects to assign grades to
- * @param requiredSgpa - Target SGPA to reach
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @param performance - Historical performance stats by category
- * @param semesters - Historical semester data for probability model building
- * @returns Top 3 recommendations with detailed metrics and explanations
- */
-export function buildRecommendationsV2(
-  subjects: PlannerSubject[],
-  requiredSgpa: number,
-  gpaScale: number,
-  performance: Record<string, CategoryPerformance>,
-  semesters?: any[]
-): CombinationResult[] {
-  if (subjects.length === 0) return [];
-
-  const probabilityModels = semesters ? buildProbabilityModels(semesters, gpaScale) : {};
-  const searchResults = bestFirstSearch(subjects, requiredSgpa, gpaScale, probabilityModels);
-
-  if (searchResults.length === 0) {
-    return buildRecommendations(subjects, requiredSgpa, gpaScale, performance, semesters);
-  }
-
-  const evaluated = searchResults.map((combination) =>
-    evaluateCombination(combination, probabilityModels, gpaScale, requiredSgpa)
-  );
-
-  let ranked = rankCombinations(evaluated);
-
-  // Add diversity filter: return up to 3 meaningfully different plans
-  const diversePlans: EvaluatedCombination[] = [];
-  for (const plan of ranked) {
-    if (diversePlans.every(p => combinationSimilarity(p.combination, plan.combination) < 0.7)) {
-      diversePlans.push(plan);
-    }
-  }
-
-  // Return top 3 diverse plans (or fewer if not enough diversity)
-  return diversePlans
-    .slice(0, 3)
-    .map((evaluated) => {
-      const { combination, sgpa, points } = evaluated;
-      const displayCombination = normalizePlanCombination(combination, gpaScale);
-
-      const strategy = classifyRecommendationStrategy(displayCombination, performance, gpaScale);
-      const pressure = calculatePlanPressure(displayCombination, performance, gpaScale);
-      const focusAreas = extractFocusAreas(displayCombination, performance, gpaScale);
-      const flexibleSubjects = findFlexibleSubjects(displayCombination, requiredSgpa, subjects, gpaScale);
-
-      return {
-        combination: displayCombination,
-        sgpa: roundGpa(sgpa),
-        points,
-        score: evaluated.finalScore,
-        explanation: buildStrategyExplanation(displayCombination, strategy, pressure, focusAreas, flexibleSubjects),
-        difficulty: getPlanDifficulty(requiredSgpa, gpaScale),
-        strategy,
-        pressure,
-        focusAreas,
-        flexibleSubjects,
-        strengthScore: evaluated.probabilityScore,
-      };
-    });
-}
-
-/**
- * Legacy explanation generator (V1 compatibility)
- * V2 uses buildStrategyExplanation instead
- */
-function buildExplanationV2(
-  _combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>,
-  _performance: Record<string, CategoryPerformance>,
-  _gpaScale: number,
-  _probabilityModels: Record<string, CategoryProbabilityModel>,
-  _evaluated: EvaluatedCombination
-): string {
-  return "";
 }

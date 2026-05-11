@@ -93,36 +93,53 @@ export function JobRegistration() {
   const handleLogin = async () => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const formData = new FormData();
-      formData.append("email", normalizedEmail);
-      formData.append("password", password);
-
       const response = await fetch(
         "http://localhost:8080/api/jobs/recruiters/login",
         {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            email: normalizedEmail,
+            password: password,
+          }).toString(),
         },
       );
 
       if (response.ok) {
         const recruiter = await response.json();
-        if (recruiter.status === "VERIFIED") {
-          setCurrentRecruiter(recruiter);
-          setIsAuthenticated(true);
-          setStep(3);
-          setIsRegistered(true);
-          setType(
-            recruiter.accountType === "individual" ? "individual" : "company",
-          );
-        } else {
-          toast.error("Your account is not yet verified.");
+        setCurrentRecruiter(recruiter);
+        setIsAuthenticated(true);
+        setStep(3);
+        setIsRegistered(true);
+        setType(
+          recruiter.accountType === "individual" ? "individual" : "company",
+        );
+      } else if (response.status === 401) {
+        try {
+          const errorData = await response.json();
+          const errorMessage = errorData.error || "Invalid credentials";
+          console.error("Login error:", errorMessage);
+          if (errorMessage.includes("not verified")) {
+            toast.error(
+              "Your account is not yet verified. Please contact support.",
+            );
+          } else {
+            toast.error(errorMessage);
+          }
+        } catch (e) {
+          // If response is not JSON, show generic error
+          toast.error("Invalid credentials.");
+          console.error("Error parsing error response:", e);
         }
       } else {
-        toast.error("Invalid credentials.");
+        console.error(`Login failed with status ${response.status}`);
+        toast.error("Login failed. Please try again.");
       }
     } catch (error) {
-      toast.error("Login failed.");
+      console.error("Login error:", error);
+      toast.error("Login failed. Please check your connection.");
     }
   };
 

@@ -8,16 +8,8 @@
 import { PlannerSubject } from "../types";
 import { PlannerGrade, MAX_RECOMMENDATION_RESULTS, BACKTRACK_GENERATION_LIMIT_MULTIPLIER, RECOMMENDATION_GRADE_FLOOR } from "../constants/gradeScales";
 import { getGradePoint } from "./gpaPrediction";
-import { normalizeGrade, roundGpa } from "../../../shared/validation";
+import { normalizeGrade } from "../../../shared/validation";
 
-/**
- * Get grades preferring the easiest ones that achieve each point value.
- * This detects grade equivalence (e.g., A and A+ both = 4.0 in 4.0 scale)
- * and prefers the easier grade.
- * 
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @returns Sorted array of grades from easiest to hardest, with equivalent grades deduplicated
- */
 export function getGradesPreferringEasiest(gpaScale: number): PlannerGrade[] {
   // All possible grades in order from hardest to easiest
   const allGrades: PlannerGrade[] = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F", "E"];
@@ -41,43 +33,12 @@ export function getGradesPreferringEasiest(gpaScale: number): PlannerGrade[] {
   return result;
 }
 
-/**
- * Calculate SGPA for given subjects with their assigned grades
- * @param subjects - Array of subjects with grades assigned
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @returns Calculated SGPA
- */
-export function calculateSgpaForSubjects(subjects: PlannerSubject[], gpaScale: number): number {
-  const totalCredits = subjects.reduce((sum, subject) => sum + subject.credits, 0);
-  const totalPoints = subjects.reduce(
-    (sum, subject) =>
-      sum +
-      getGradePoint(normalizeGrade(subject.grade, gpaScale) || subject.grade, gpaScale) *
-        subject.credits,
-    0
-  );
-  return totalCredits > 0 ? roundGpa(totalPoints / totalCredits) : 0;
-}
-
-/**
- * Generate all valid grade combinations that meet required SGPA
- * Uses backtracking to explore the space efficiently
- * Stops generating after reaching threshold to prevent long runtimes
- * 
- * Preference-based iteration: Grades are tried in order from easiest to hardest,
- * naturally producing practical recommendations that prefer achievable grades.
- * 
- * @param subjects - Subjects to assign grades
- * @param requiredSgpa - Target SGPA to achieve
- * @param gpaScale - GPA scale (4.0 or 4.2)
- * @param maxResults - Maximum top results to return (default 30)
- * @returns Top combinations sorted by proximity to required SGPA
- */
 export function generateCombinations(
   subjects: PlannerSubject[],
   requiredSgpa: number,
   gpaScale: number,
-  maxResults: number = MAX_RECOMMENDATION_RESULTS
+  maxResults: number = MAX_RECOMMENDATION_RESULTS,
+  useExpectedGradeFloor: boolean = true
 ): Array<{ subject: PlannerSubject; grade: PlannerGrade }[]> {
   const totalCredits = subjects.reduce((sum, subject) => sum + subject.credits, 0);
   const requiredPoints = requiredSgpa * totalCredits;
@@ -90,14 +51,27 @@ export function generateCombinations(
   
   // Filter to grades at or above the recommendation floor (exclude F/E grades)
   const floorPoints = getGradePoint(RECOMMENDATION_GRADE_FLOOR, gpaScale);
-  const usableGrades = gradesInPreferenceOrder.filter(
+  const globalUsableGrades = gradesInPreferenceOrder.filter(
     g => getGradePoint(g, gpaScale) >= floorPoints
   );
 
+  function getSubjectGrades(subject: PlannerSubject): PlannerGrade[] {
+    if (subject.lockedGrade) return [subject.lockedGrade];
+    if (!useExpectedGradeFloor || !subject.gradeModified) return globalUsableGrades;
+    const expectedPoints = getGradePoint(subject.grade, gpaScale);
+    const subjectFloor = Math.max(floorPoints, expectedPoints);
+    return globalUsableGrades.filter(g => getGradePoint(g, gpaScale) >= subjectFloor);
+  }
+
   // Heuristic: max points achievable with remaining subjects (for early pruning)
   const maxRemainingPoints = (index: number) => {
-    const remainingCredits = subjects.slice(index).reduce((sum, subject) => sum + subject.credits, 0);
-    return remainingCredits * maxGradePoint;
+    let maxPts = 0;
+    for (let i = index; i < subjects.length; i++) {
+      const grades = getSubjectGrades(subjects[i]);
+      const bestGrade = grades[grades.length - 1];
+      maxPts += getGradePoint(bestGrade, gpaScale) * subjects[i].credits;
+    }
+    return maxPts;
   };
 
   // Backtracking with pruning to explore valid grade combinations
@@ -106,12 +80,10 @@ export function generateCombinations(
     currentPoints: number,
     combination: Array<{ subject: PlannerSubject; grade: PlannerGrade }>
   ) {
-    // Stop if we've generated enough valid combinations (prevents timeout on large subject lists)
     if (results.length >= maxResults * BACKTRACK_GENERATION_LIMIT_MULTIPLIER) {
       return;
     }
 
-    // Base case: all subjects have been assigned grades
     if (index === subjects.length) {
       if (currentPoints >= requiredPoints) {
         const signature = combination
@@ -128,27 +100,13 @@ export function generateCombinations(
       return;
     }
 
-    // Early termination: even with maximum grades for all remaining subjects, can't reach target
     const remainingCap = maxRemainingPoints(index + 1);
+    const subjectGrades = getSubjectGrades(subjects[index]);
 
-    // If grade is locked, use it directly
-    if (subjects[index].lockedGrade) {
-      const gradePoints = getGradePoint(subjects[index].lockedGrade, gpaScale) * subjects[index].credits;
-      const nextPoints = currentPoints + gradePoints;
-      if (nextPoints + remainingCap < requiredPoints) return;
-      backtrack(index + 1, nextPoints, [
-        ...combination,
-        { subject: subjects[index], grade: subjects[index].lockedGrade },
-      ]);
-      return;
-    }
-
-    // Try grades in preference order (easiest first)
-    for (const grade of usableGrades) {
+    for (const grade of subjectGrades) {
       const gradePoints = getGradePoint(grade, gpaScale) * subjects[index].credits;
       const nextPoints = currentPoints + gradePoints;
 
-      // Prune: branch cannot achieve required SGPA regardless of future choices
       if (nextPoints + remainingCap < requiredPoints) continue;
 
       backtrack(index + 1, nextPoints, [
@@ -160,7 +118,6 @@ export function generateCombinations(
 
   backtrack(0, 0, []);
 
-  // Return first valid combinations found (unsorted - ranking handled by scorer)
   const unsorted = results.slice(0, maxResults);
 
   return unsorted;
