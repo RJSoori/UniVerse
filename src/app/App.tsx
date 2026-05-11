@@ -516,11 +516,9 @@ export default function App() {
         <Route
           path="/seller/dashboard"
           element={
-            <RequireAuth>
-              <EntryLayout>
-                <SellerDashboard />
-              </EntryLayout>
-            </RequireAuth>
+            <EntryLayout>
+              <SellerDashboard />
+            </EntryLayout>
           }
         />
         <Route

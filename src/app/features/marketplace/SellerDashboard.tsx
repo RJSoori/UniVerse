@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
@@ -6,145 +6,141 @@ import { Badge } from "../../shared/ui/badge";
 import { Input } from "../../shared/ui/input";
 import { Label } from "../../shared/ui/label";
 import { SellerSettings } from "./SellerSettings";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
 import {
   Plus, Trash2, ShoppingBag, Package, BarChart3,
-  Clock, LogOut, Settings, Tag, ImagePlus, X,
+  Clock, LogOut, Settings, Tag,
   CheckCircle,
 } from "lucide-react";
+import {
+  getMySellerProfile,
+  createItem,
+  deleteItem,
+  getItemsBySeller,
+  clearSellerSession,
+  type MarketplaceItemResponse,
+  type SellerResponse,
+} from "./marketplaceApi";
+import { toast } from "sonner";
 
-interface Listing {
-  id: string;
-  title: string;
-  description: string;
-  type: "sell" | "rent";
-  amount: string;
-  rentPeriod?: string;
-  condition: string;
-  category: string;
-  contactNumber: string;
-  location: string;
-  images: string[];
-  postedAt: string;
-  sellerEmail?: string;
-}
-
-interface ImagePreview {
-  id: string;
-  src: string;
-}
-
-const CONDITIONS = ["Brand New", "Like New", "Good", "Fair", "For Parts"];
+const CONDITIONS = ["BRAND_NEW", "LIKE_NEW", "GOOD", "FAIR", "FOR_PARTS"] as const;
+const CONDITIONS_LABELS: Record<string, string> = {
+  BRAND_NEW: "Brand New",
+  LIKE_NEW: "Like New",
+  GOOD: "Good",
+  FAIR: "Fair",
+  FOR_PARTS: "For Parts",
+};
 const CATEGORIES = [
   "Textbooks & Notes", "Electronics", "Clothing & Accessories",
   "Furniture", "Sports & Fitness", "Stationery",
   "Food & Drinks", "Services", "Other",
 ];
-const RENT_PERIODS = ["Per Day", "Per Week", "Per Month", "Per Semester"];
 
 const emptyForm = {
-  title: "",
+  itemName: "",
   description: "",
-  type: "sell" as "sell" | "rent",
-  amount: "",
-  rentPeriod: "Per Day",
-  condition: "",
+  type: "SELL" as "SELL" | "RENT",
+  price: "",
+  condition: "" as string,
   category: "",
-  contactNumber: "",
-  location: "",
-  images: [] as ImagePreview[],
+  imageUrl: "",
 };
 
 export default function SellerDashboard() {
   const navigate = useNavigate();
-  const activeSellerEmail = (localStorage.getItem("universe-active-seller") || "").toLowerCase();
-
-  const getAllListings = (): Listing[] =>
-    readJsonFromLocalStorage<Listing[]>("universe-listings", []);
-
-  const [listings, setListings] = useState<Listing[]>(() =>
-    getAllListings().filter((listing) => listing.sellerEmail?.toLowerCase() === activeSellerEmail)
-  );
+  const [seller, setSeller] = useState<SellerResponse | null>(null);
+  const [listings, setListings] = useState<MarketplaceItemResponse[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [isSettings, setIsSettings] = useState(false);   // ✅ settings state
+  const [isSettings, setIsSettings] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Render settings page when active — same pattern as friend's code
+  // ✅ Fetch seller profile and listings on load
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const sellerProfile = await getMySellerProfile();
+        setSeller(sellerProfile);
+
+       const myItems = await getItemsBySeller(sellerProfile.id);
+       setListings(myItems);
+      } catch (error) {
+        toast.error("Failed to load seller profile. Please login again.");
+        navigate("/seller/register");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [navigate]);
+
   if (isSettings) {
     return <SellerSettings onBack={() => setIsSettings(false)} />;
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (form.images.length + files.length > 5) {
-      setFormError("You can upload a maximum of 5 images.");
-      return;
-    }
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setForm((prev) => ({
-          ...prev,
-          images: [
-            ...prev.images,
-            {
-              id: crypto.randomUUID(),
-              src: ev.target?.result as string,
-            },
-          ],
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-    setFormError("");
-  };
-
-  const removeImage = (index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleSubmit = () => {
-    if (!form.title || !form.description || !form.amount || !form.condition || !form.category || !form.contactNumber || !form.location) {
+  const handleSubmit = async () => {
+    if (!form.itemName || !form.description || !form.price || !form.condition || !form.category) {
       setFormError("Please fill in all required fields.");
       return;
     }
-    if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
-      setFormError("Please enter a valid amount.");
+    if (isNaN(Number(form.price)) || Number(form.price) <= 0) {
+      setFormError("Please enter a valid price.");
       return;
     }
-    if (!/^\d{7,15}$/.test(form.contactNumber.replace(/\s/g, ""))) {
-      setFormError("Please enter a valid contact number.");
+    if (!seller) {
+      setFormError("Seller profile not found.");
       return;
     }
-    const newListing: Listing = {
-      id: String(Date.now()),
-      ...form,
-      images: form.images.map((image) => image.src),
-      sellerEmail: activeSellerEmail,
-      postedAt: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-    };
-    const allListings = getAllListings();
-    const updatedAll = [newListing, ...allListings];
-    setListings((prev) => [newListing, ...prev]);
-    localStorage.setItem("universe-listings", JSON.stringify(updatedAll));
-    setForm(emptyForm);
-    setShowForm(false);
-    setFormError("");
+
+    setIsSubmitting(true);
+    try {
+      const newItem = await createItem({
+        itemName: form.itemName,
+        description: form.description,
+        price: Number(form.price),
+        type: form.type,
+        condition: form.condition as any,
+        imageUrl: form.imageUrl || undefined,
+        sellerId: seller.id,
+      });
+
+      setListings((prev) => [newItem, ...prev]);
+      setForm(emptyForm);
+      setShowForm(false);
+      setFormError("");
+      toast.success("Listing created successfully!");
+    } catch (error) {
+      setFormError("Failed to create listing. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const deleteListing = (id: string) => {
-    if (confirm("Are you sure you want to delete this listing?")) {
-      const updated = listings.filter((l) => l.id !== id);
-      setListings(updated);
-      const allListings = getAllListings().filter((listing) => listing.id !== id);
-      localStorage.setItem("universe-listings", JSON.stringify(allListings));
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this listing?")) return;
+    try {
+      await deleteItem(id);
+      setListings((prev) => prev.filter((l) => l.id !== id));
+      toast.success("Listing deleted successfully!");
+    } catch (error) {
+      toast.error("Failed to delete listing.");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <ShoppingBag className="size-12 mx-auto text-primary opacity-50 animate-pulse" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 animate-in fade-in duration-500">
@@ -157,7 +153,9 @@ export default function SellerDashboard() {
               <ShoppingBag className="text-primary size-8" />
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight uppercase">Seller Hub</h2>
+              <h2 className="text-2xl font-black tracking-tight uppercase">
+                {seller?.storeName || "Seller Hub"}
+              </h2>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-primary/5">
                   Verified Seller
@@ -174,7 +172,6 @@ export default function SellerDashboard() {
             >
               <Plus className="mr-2 size-4" /> Create Listing
             </Button>
-            {/* ✅ Settings button now opens SellerSettings */}
             <Button
               variant="outline"
               size="sm"
@@ -188,7 +185,7 @@ export default function SellerDashboard() {
               size="sm"
               className="text-destructive hover:bg-destructive/5"
               onClick={() => {
-                localStorage.removeItem("universe-active-seller");
+                clearSellerSession();
                 navigate("/seller/register");
               }}
             >
@@ -245,11 +242,11 @@ export default function SellerDashboard() {
             <CardContent className="space-y-5">
 
               <div className="space-y-1">
-                <Label>Listing Title <span className="text-destructive">*</span></Label>
+                <Label>Item Name <span className="text-destructive">*</span></Label>
                 <Input
                   placeholder="e.g. Calculus Textbook – 3rd Edition"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  value={form.itemName}
+                  onChange={(e) => setForm({ ...form, itemName: e.target.value })}
                 />
               </div>
 
@@ -257,7 +254,7 @@ export default function SellerDashboard() {
                 <Label>Description <span className="text-destructive">*</span></Label>
                 <textarea
                   rows={3}
-                  placeholder="Describe your item — condition details, reason for selling, any flaws..."
+                  placeholder="Describe your item..."
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   className="w-full rounded-md border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring resize-none"
@@ -289,7 +286,7 @@ export default function SellerDashboard() {
                           : "border-border hover:border-primary text-muted-foreground"
                       }`}
                     >
-                      {c}
+                      {CONDITIONS_LABELS[c]}
                     </button>
                   ))}
                 </div>
@@ -298,7 +295,7 @@ export default function SellerDashboard() {
               <div className="space-y-2">
                 <Label>Listing Type <span className="text-destructive">*</span></Label>
                 <div className="flex gap-3">
-                  {(["sell", "rent"] as const).map((t) => (
+                  {(["SELL", "RENT"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => setForm({ ...form, type: t })}
@@ -308,91 +305,38 @@ export default function SellerDashboard() {
                           : "border-border hover:border-primary text-muted-foreground"
                       }`}
                     >
-                      {t === "sell" ? "For Sale" : "For Rent"}
+                      {t === "SELL" ? "For Sale" : "For Rent"}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-1 space-y-1">
-                  <Label>Amount (LKR) <span className="text-destructive">*</span></Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 1500"
-                    min={0}
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  />
-                </div>
-                {form.type === "rent" && (
-                  <div className="flex-1 space-y-1">
-                    <Label>Rent Period</Label>
-                    <select
-                      value={form.rentPeriod}
-                      onChange={(e) => setForm({ ...form, rentPeriod: e.target.value })}
-                      className="w-full rounded-md border border-border bg-input-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      {RENT_PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
-                )}
-              </div>
-
               <div className="space-y-1">
-                <Label>Location / Pickup Point <span className="text-destructive">*</span></Label>
+                <Label>Price (LKR) <span className="text-destructive">*</span></Label>
                 <Input
-                  placeholder="e.g. Faculty of Engineering, Block A"
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  type="number"
+                  placeholder="e.g. 1500"
+                  min={0}
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
                 />
               </div>
 
               <div className="space-y-1">
-                <Label>Contact Number <span className="text-destructive">*</span></Label>
+                <Label>Image URL <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
                 <Input
-                  type="tel"
-                  placeholder="e.g. 0771234567"
-                  value={form.contactNumber}
-                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                  placeholder="e.g. https://example.com/image.jpg"
+                  value={form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>
-                  Images <span className="text-muted-foreground text-xs font-normal">(max 5)</span>
-                </Label>
-                <div className="flex flex-wrap gap-3">
-                  {form.images.map((image, i) => (
-                    <div key={image.id} className="relative w-20 h-20 rounded-xl overflow-hidden border border-border">
-                      <img src={image.src} alt="" className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeImage(i)}
-                        className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 hover:bg-destructive transition-colors"
-                      >
-                        <X className="size-3 text-white" />
-                      </button>
-                    </div>
-                  ))}
-                  {form.images.length < 5 && (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-colors text-muted-foreground hover:text-primary"
-                    >
-                      <ImagePlus className="size-5" />
-                      <span className="text-[10px]">Add Photo</span>
-                    </button>
-                  )}
-                </div>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
-                <p className="text-xs text-muted-foreground">{form.images.length}/5 images added</p>
               </div>
 
               {formError && <p className="text-xs text-destructive">{formError}</p>}
 
               <div className="flex gap-3 pt-2">
-                <Button className="flex-1" onClick={handleSubmit}>
-                  <CheckCircle className="mr-2 size-4" /> Post Listing
+                <Button className="flex-1" onClick={handleSubmit} disabled={isSubmitting}>
+                  <CheckCircle className="mr-2 size-4" />
+                  {isSubmitting ? "Posting..." : "Post Listing"}
                 </Button>
                 <Button
                   variant="outline"
@@ -427,10 +371,10 @@ export default function SellerDashboard() {
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
                       <div className="flex items-start gap-5">
-                        {listing.images.length > 0 ? (
+                        {listing.imageUrl ? (
                           <img
-                            src={listing.images[0]}
-                            alt={listing.title}
+                            src={listing.imageUrl}
+                            alt={listing.itemName}
                             className="size-14 rounded-xl object-cover border border-border flex-shrink-0"
                           />
                         ) : (
@@ -439,26 +383,20 @@ export default function SellerDashboard() {
                           </div>
                         )}
                         <div>
-                          <h4 className="text-xl font-bold">{listing.title}</h4>
+                          <h4 className="text-xl font-bold">{listing.itemName}</h4>
                           <div className="flex flex-wrap gap-2 mt-2">
                             <Badge variant="secondary" className="text-[10px] uppercase">
-                              {listing.type === "sell" ? "For Sale" : "For Rent"}
+                              {listing.type === "SELL" ? "For Sale" : "For Rent"}
                             </Badge>
                             <Badge variant="outline" className="text-[10px]">
-                              {listing.condition}
+                              {CONDITIONS_LABELS[listing.condition] || listing.condition}
                             </Badge>
                             <Badge variant="outline" className="text-[10px]">
-                              {listing.category}
+                              {listing.status}
                             </Badge>
-                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 ml-2">
-                              <Clock className="size-3" /> Posted {listing.postedAt}
-                            </span>
                           </div>
                           <p className="text-sm font-bold text-primary mt-1">
-                            LKR {Number(listing.amount).toLocaleString()}
-                            {listing.type === "rent" && (
-                              <span className="text-xs font-normal text-muted-foreground"> / {listing.rentPeriod}</span>
-                            )}
+                            LKR {listing.price.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -468,7 +406,7 @@ export default function SellerDashboard() {
                           variant="ghost"
                           size="icon"
                           className="h-10 w-10 text-destructive hover:bg-destructive/10"
-                          onClick={() => deleteListing(listing.id)}
+                          onClick={() => handleDelete(listing.id)}
                         >
                           <Trash2 className="size-5" />
                         </Button>
@@ -480,7 +418,6 @@ export default function SellerDashboard() {
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
