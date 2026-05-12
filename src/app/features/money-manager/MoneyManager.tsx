@@ -12,6 +12,7 @@ import { BudgetTracker } from "./BudgetTracker";
 import { InsightsEngine } from "./InsightsEngine";
 import { ReportsDashboard } from "./ReportsDashboard";
 import { QuickAddTransaction } from "./QuickAddTransaction";
+import { RecurringExpenses } from "./RecurringExpenses";
 import {
   Wallet,
   TrendingUp,
@@ -20,6 +21,7 @@ import {
   BarChart3,
   AlertCircle,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 
 export function MoneyManager() {
@@ -165,19 +167,12 @@ export function MoneyManager() {
         ))}
       </div>
 
-      {/* Quick Add Floating Action Button */}
+      {/* Quick Add Dialog */}
       <QuickAddTransaction open={showQuickAdd} onOpenChange={setShowQuickAdd} />
-      <button
-        className="fixed bottom-6 right-6 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30"
-        onClick={() => setShowQuickAdd(true)}
-        aria-label="Quick add transaction"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="text-xs sm:text-sm">
             <Wallet className="h-4 w-4 mr-1" /> Overview
           </TabsTrigger>
@@ -189,6 +184,9 @@ export function MoneyManager() {
           </TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm">
             <BarChart3 className="h-4 w-4 mr-1" /> Transactions
+          </TabsTrigger>
+          <TabsTrigger value="recurring" className="text-xs sm:text-sm">
+            <RefreshCw className="h-4 w-4 mr-1" /> Recurring
           </TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm">
             <PieChart className="h-4 w-4 mr-1" /> Reports
@@ -255,6 +253,11 @@ export function MoneyManager() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        {/* Recurring Tab */}
+        <TabsContent value="recurring" className="mt-6">
+          <RecurringExpenses />
         </TabsContent>
 
         {/* Reports Tab */}

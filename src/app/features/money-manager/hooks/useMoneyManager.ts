@@ -665,8 +665,13 @@ function useMoneyManagerState() {
   const getCurrentMonthBudget = useCallback(() => {
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return budgets.find((b) => b.month === monthKey);
-  }, [budgets]);
+    const budget = budgets.find((b) => b.month === monthKey);
+    if (!budget) return null;
+    const spent = transactions
+      .filter((t) => t.type === "expense" && t.date.startsWith(monthKey))
+      .reduce((sum, t) => sum + t.amount, 0);
+    return { ...budget, totalSpent: roundMoney(spent) };
+  }, [budgets, transactions]);
 
   const getAvailableAfterFixed = useCallback(() => {
     const budget = getCurrentMonthBudget();
@@ -827,26 +832,12 @@ function useMoneyManagerState() {
       };
       setTransactions([newTx, ...transactions]);
 
-      // Update wallet balance (no adjustment transaction)
       if (wallet) {
         const newBalance =
           newTx.type === "income"
             ? wallet.balance + newTx.amount
             : wallet.balance - newTx.amount;
         applyWalletBalance(tx.walletId, newBalance);
-      }
-
-      // adjust current month budget
-      if (newTx.type === "expense") {
-        const now = new Date(newTx.date);
-        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        setBudgets((prev) =>
-          prev.map((b) =>
-            b.month === monthKey
-              ? { ...b, totalSpent: roundMoney(b.totalSpent + newTx.amount) }
-              : b
-          )
-        );
       }
 
       return { ok: true, value: newTx, warnings: validation.warnings };
@@ -858,7 +849,6 @@ function useMoneyManagerState() {
       transactions,
       wallets,
       setTransactions,
-      setBudgets,
     ]
   );
 
@@ -926,23 +916,6 @@ function useMoneyManagerState() {
         transactions.map((t) => (t.id === id ? normalizedTx : t))
       );
 
-      // adjust budget for month
-      if (isExpenseOld || isExpenseNew) {
-        const oldMonth = new Date(dateOld);
-        const newMonth = new Date(dateNew);
-        const oldKey = `${oldMonth.getFullYear()}-${String(oldMonth.getMonth() + 1).padStart(2, "0")}`;
-        const newKey = `${newMonth.getFullYear()}-${String(newMonth.getMonth() + 1).padStart(2, "0")}`;
-        setBudgets((prev) =>
-          prev.map((b) => {
-            let delta = 0;
-            if (b.month === oldKey && isExpenseOld) delta -= amountOld;
-            if (b.month === newKey && isExpenseNew) delta += amountNew;
-            if (delta !== 0) return { ...b, totalSpent: roundMoney(b.totalSpent + delta) };
-            return b;
-          })
-        );
-      }
-
       return { ok: true, value: normalizedTx, warnings: validation.warnings };
     },
     [
@@ -952,7 +925,6 @@ function useMoneyManagerState() {
       transactions,
       wallets,
       setTransactions,
-      setBudgets,
     ]
   );
 
@@ -963,7 +935,6 @@ function useMoneyManagerState() {
 
       setTransactions(transactions.filter((t) => t.id !== id));
 
-      // Reverse wallet balance
       const wallet = wallets.find((w) => w.id === tx.walletId);
       if (wallet) {
         const newBalance =
@@ -971,18 +942,8 @@ function useMoneyManagerState() {
         updateWalletBalance(tx.walletId, newBalance, false);
       }
 
-      // adjust budget
-      if (tx.type === "expense") {
-        const monthKey = tx.date.slice(0, 7);
-        setBudgets((prev) =>
-          prev.map((b) =>
-            b.month === monthKey ? { ...b, totalSpent: b.totalSpent - tx.amount } : b
-          )
-        );
-      }
-
     },
-    [transactions, wallets, setTransactions, updateWalletBalance, setBudgets]
+    [transactions, wallets, setTransactions, updateWalletBalance]
   );
 
   // Budget Management
