@@ -14,6 +14,12 @@ import {
 import { toast } from "sonner";
 import { getAllItems, type MarketplaceItemResponse } from "./marketplaceApi";
 
+/**
+ * Marketplace component - main browse and search interface for buying/selling items
+ * Features include: item browsing, search/filter, seller profiles, item reporting,
+ * and navigation to seller dashboard for listing items
+ */
+
 const CATEGORIES = [
   "All", "Textbooks & Notes", "Electronics", "Clothing & Accessories",
   "Furniture", "Sports & Fitness", "Stationery",
@@ -39,11 +45,12 @@ export function Marketplace() {
   const [reports, setReports] = useUniStorage<any[]>("universe-reports", []);
   const [viewingSellerId, setViewingSellerId] = useState<number | null>(null);
 
-  // ✅ Backend state
+  // Holds all marketplace items fetched from backend
   const [items, setItems] = useState<MarketplaceItemResponse[]>([]);
+  // Tracks whether items are still loading from the server
   const [loading, setLoading] = useState(true);
 
-  // ✅ Fetch items from backend on load
+  // Loads all marketplace items when component mounts
   useEffect(() => {
     getAllItems()
       .then(setItems)
@@ -53,6 +60,7 @@ export function Marketplace() {
 
   const trendingListings = items.slice(0, 3);
 
+  // Filters items based on search query and item type (sell/rent)
   const filtered = items.filter((l) => {
     const matchesSearch =
       l.itemName.toLowerCase().includes(search.toLowerCase()) ||
@@ -61,6 +69,7 @@ export function Marketplace() {
     return matchesSearch && matchesType;
   });
 
+  // Routes to seller dashboard if user is already a seller, otherwise prompts to become one
   const handleListAnItem = () => {
     const activeSeller = localStorage.getItem("universe-active-seller");
     if (activeSeller) {
@@ -70,6 +79,7 @@ export function Marketplace() {
     }
   };
 
+  // Submits a report for an inappropriate or fraudulent listing
   const handleReport = () => {
     if (!selectedListingForReport || !reportReason) return;
     setReports([
@@ -86,7 +96,7 @@ export function Marketplace() {
     toast.success("Report submitted. Thank you for helping keep UniVerse safe!");
   };
 
-  // ✅ Show seller profile page
+  // Display seller profile view when user clicks on a seller
   if (viewingSellerId) {
     return (
       <SellerProfile

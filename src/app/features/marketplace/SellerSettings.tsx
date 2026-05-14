@@ -19,7 +19,11 @@ interface SellerSettingsProps {
 
 type ActiveTab = "store" | "notifications" | "security";
 
-// ── Read/write account from localStorage ─────────────────────────────────────
+/**
+ * Local storage helper functions to manage seller account data
+ * These functions handle retrieving the active seller email and their associated account information
+ */
+// Retrieves the currently active seller's email from localStorage
 function getActiveEmail(): string {
   const activeSeller = localStorage.getItem("universe-active-seller");
   if (activeSeller) {
@@ -29,20 +33,26 @@ function getActiveEmail(): string {
   return Object.keys(accounts)[0] || "";
 }
 
+// Retrieves all account data for a specific seller email
 function getAccount(email: string) {
   if (!email) return null;
   const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
   return accounts[email.toLowerCase()] || null;
 }
 
+// Updates and persists seller account information to localStorage
 function saveAccount(email: string, data: Record<string, string>) {
   if (!email) return;
   const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
   accounts[email.toLowerCase()] = { ...accounts[email.toLowerCase()], ...data };
   localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Seller Settings Component
+ * Provides interface for sellers to update store profile, manage notifications,
+ * change password, and verify their seller status
+ */
 export function SellerSettings({ onBack }: SellerSettingsProps) {
   const email = getActiveEmail();
   const account = getAccount(email);
@@ -51,12 +61,13 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // ── Logo state ─────────────────────────────────────────────────────────────
+  // Manages store logo upload preview and storage
   const [logoPreview, setLogoPreview] = useState<string | null>(
     localStorage.getItem("universe-seller-logo") || null
   );
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // Converts uploaded image file to base64 data URL for preview and storage
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,7 +80,7 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
     reader.readAsDataURL(file);
   };
 
-  // ── Store info state — pre-filled from localStorage ────────────────────────
+  // Initialize store profile fields from seller account data
   const [storeName, setStoreName] = useState(account?.businessName || "");
   const [sellerType, setSellerType] = useState(account?.sellerType || "");
   const [sellerIdNumber, setSellerIdNumber] = useState(account?.idNumber || "");
@@ -78,13 +89,13 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
   const [contactNumber, setContactNumber] = useState(account?.contactNumber || "");
   const [location, setLocation] = useState(account?.location || "");
 
-  // ── Notifications state ────────────────────────────────────────────────────
+  // Manages seller notification preferences
   const [notifNewMessage, setNotifNewMessage] = useState(true);
   const [notifNewOffer, setNotifNewOffer] = useState(true);
   const [notifListingExpiry, setNotifListingExpiry] = useState(false);
   const [notifPlatformUpdates, setNotifPlatformUpdates] = useState(true);
 
-  // ── Security state ─────────────────────────────────────────────────────────
+  // Manages password change form state and validation
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -93,16 +104,16 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  // ── Re-verification state ──────────────────────────────────────────────────
+  // Manages seller re-verification workflow when account needs additional verification
   const [showReverifyModal, setShowReverifyModal] = useState(false);
   const [reverifyReason, setReverifyReason] = useState("");
   const [reverifySubmitted, setReverifySubmitted] = useState(false);
 
-  // ── Save store info back to localStorage ──────────────────────────────────
+  // Saves updated store profile information to localStorage
   const handleSave = () => {
     setIsSaving(true);
     setSaveSuccess(false);
-    // Save updated fields back — when you add a backend, replace this with an API call
+    // Persist all edited fields to account storage
     saveAccount(email, {
       sellerType,
       idNumber: sellerIdNumber,
@@ -119,6 +130,7 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
     }, 800);
   };
 
+  // Validates and updates seller password with security checks
   const handlePasswordChange = () => {
     setPasswordError("");
     setPasswordSuccess(false);

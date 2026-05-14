@@ -9,6 +9,11 @@ import {
 import { toast } from "sonner";
 import { getSellerById, getItemsBySeller, type SellerResponse, type MarketplaceItemResponse } from "./marketplaceApi";
 
+/**
+ * Seller Profile Component
+ * Displays a public seller profile with store information and their marketplace listings
+ */
+
 interface SellerProfileProps {
   sellerEmail: string;
   sellerId: number;
@@ -17,11 +22,15 @@ interface SellerProfileProps {
 }
 
 export function SellerProfile({ sellerId, onBack, onViewListing }: SellerProfileProps) {
+  // Stores seller profile information retrieved from backend
   const [seller, setSeller] = useState<SellerResponse | null>(null);
+  // Stores all items listed by this seller
   const [listings, setListings] = useState<MarketplaceItemResponse[]>([]);
+  // Tracks data loading state
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Fetches seller profile and their complete inventory in parallel
     const fetchData = async () => {
       try {
         const [sellerData, itemsData] = await Promise.all([
