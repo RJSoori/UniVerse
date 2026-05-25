@@ -9,6 +9,7 @@ export { TransactionList } from "./TransactionList";
 export { BudgetTracker } from "./BudgetTracker";
 export { InsightsEngine } from "./InsightsEngine";
 export { ReportsDashboard } from "./ReportsDashboard";
+export { RecurringExpenses } from "./RecurringExpenses";
 
 // Types
 export * from "./types";

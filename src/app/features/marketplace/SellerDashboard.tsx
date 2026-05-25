@@ -22,6 +22,12 @@ import {
 } from "./marketplaceApi";
 import { toast } from "sonner";
 
+/**
+ * Seller Dashboard Component
+ * Allows sellers to manage their store inventory: list items for sale/rent,
+ * delete listings, view sales, and update account settings
+ */
+
 const CONDITIONS = ["BRAND_NEW", "LIKE_NEW", "GOOD", "FAIR", "FOR_PARTS"] as const;
 const CONDITIONS_LABELS: Record<string, string> = {
   BRAND_NEW: "Brand New",
@@ -30,12 +36,15 @@ const CONDITIONS_LABELS: Record<string, string> = {
   FAIR: "Fair",
   FOR_PARTS: "For Parts",
 };
+
+// Available marketplace categories for item classification
 const CATEGORIES = [
   "Textbooks & Notes", "Electronics", "Clothing & Accessories",
   "Furniture", "Sports & Fitness", "Stationery",
   "Food & Drinks", "Services", "Other",
 ];
 
+// Default empty form state for creating new listings
 const emptyForm = {
   itemName: "",
   description: "",
@@ -48,14 +57,20 @@ const emptyForm = {
 
 export default function SellerDashboard() {
   const navigate = useNavigate();
+  // Holds current seller profile information
   const [seller, setSeller] = useState<SellerResponse | null>(null);
+  // Holds all items currently listed by this seller
   const [listings, setListings] = useState<MarketplaceItemResponse[]>([]);
+  // Controls visibility of item creation form
   const [showForm, setShowForm] = useState(false);
+  // Toggles between dashboard view and settings view
   const [isSettings, setIsSettings] = useState(false);
+  // Form fields for creating a new item listing
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Reference to hidden file input for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ✅ Fetch seller profile and listings on load
