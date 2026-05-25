@@ -12,7 +12,7 @@ import {
 } from "../../shared/ui/dialog";
 import { Input } from "../../shared/ui/input";
 import { Label } from "../../shared/ui/label";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getCurrentISTDate, getCurrentISTTime } from "./utils/dates";
 import {
   CATEGORY_ICONS,
@@ -122,24 +122,15 @@ export function QuickAddTransaction({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0">
-        <Card className="overflow-hidden">
-          <CardHeader className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg">Quick Add</CardTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Add a transaction in 2–3 taps.
-              </DialogDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <DialogContent className="max-w-md p-0 max-h-[90vh] flex flex-col">
+        <Card className="overflow-hidden flex flex-col max-h-full">
+          <CardHeader className="flex-shrink-0">
+            <CardTitle className="text-lg">Quick Add</CardTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Add a transaction in 2–3 taps.
+            </DialogDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 overflow-y-auto flex-1">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label className="text-xs">Amount</Label>
