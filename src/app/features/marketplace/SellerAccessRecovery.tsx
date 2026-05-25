@@ -6,24 +6,34 @@ import { Label } from "../../shared/ui/label";
 import { ArrowLeft, ShieldCheck, Mail, Store, User, CheckCircle } from "lucide-react";
 import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
 
+/**
+ * Seller Access Recovery Component
+ * Helps sellers recover access to their accounts through email verification
+ * and seller identification number validation
+ */
+
 interface SellerAccessRecoveryProps {
   onBack: () => void;
 }
 
+// Retrieves all seller account data from local storage
 function getAccounts(): Record<string, { password: string; sellerType?: string; businessName?: string; idNumber?: string }> {
   return readJsonFromLocalStorage<Record<string, { password: string; sellerType?: string; businessName?: string; idNumber?: string }>>("universe-seller-accounts", {});
 }
 
 export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
+  // Tracks which step of recovery process user is on (1: email verification, 2: ID verification, 3: success)
   const [step, setStep] = useState(1);
+  // Seller's email address for account lookup
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  // Stores seller type (shop/individual) retrieved from account data
   const [sellerType, setSellerType] = useState<string | null>(null);
   const [idNumber, setIdNumber] = useState("");
   const [idError, setIdError] = useState("");
   const [recovered, setRecovered] = useState(false);
 
-  // ── Step 1: Check email exists ─────────────────────────────────────────────
+  // Validates seller email and checks if account exists in system
   const handleCheckEmail = () => {
     setEmailError("");
     if (!email) {
@@ -45,7 +55,7 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
     setStep(2);
   };
 
-  // ── Step 2: Verify ID number ───────────────────────────────────────────────
+  // Validates seller ID number against stored account data
   const handleVerify = () => {
     setIdError("");
     if (!idNumber || idNumber.trim().length < 5) {
