@@ -37,14 +37,14 @@ import { RecruiterSettings } from "./RecruiterSettings";
 export function JobRegistration() {
   const navigate = useNavigate();
 
-  // ===== USER INTERFACE STATE MANAGEMENT =====
+  // USER INTERFACE STATE MANAGEMENT
   // Controls the overall authentication flow and UI navigation
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isSettings, setIsSettings] = useState(false);
 
-  // Password visibility toggles for better UX
+  // Password visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] =
@@ -53,13 +53,13 @@ export function JobRegistration() {
   // Registration flow state
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // ===== FORM DATA STATE =====
+  // FORM DATA STATE
   // Core authentication credentials
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Multi-step registration wizard state
+  // Multi-step registration state
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"company" | "individual" | null>(null);
 
@@ -68,8 +68,10 @@ export function JobRegistration() {
   const [currentRecruiter, setCurrentRecruiter] = useState<any>(null);
   const [allJobs, setAllJobs] = useState<any[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  // Prevent multiple registration submissions
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ===== REGISTRATION DOCUMENT UPLOAD STATE =====
+  // REGISTRATION DOCUMENT UPLOAD STATE
   // Required verification documents for company registration
   const [businessRegistration, setBusinessRegistration] = useState<File | null>(
     null,
@@ -81,7 +83,7 @@ export function JobRegistration() {
   const [companyName, setCompanyName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
 
-  // ===== PASSWORD SECURITY VALIDATION =====
+  // PASSWORD SECURITY VALIDATION
   // Evaluates password strength based on length and character diversity
   // Returns visual feedback for user experience
   const getPasswordStrength = (pwd: string) => {
@@ -102,7 +104,7 @@ export function JobRegistration() {
   const passwordsMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
 
-  // ===== AUTHENTICATION & API COMMUNICATION =====
+  // AUTHENTICATION & API COMMUNICATION
   // Handles recruiter login with backend validation and status checking
   const handleLogin = async () => {
     try {
@@ -158,7 +160,7 @@ export function JobRegistration() {
     }
   };
 
-  // ===== JOB MANAGEMENT FUNCTIONS =====
+  // JOB MANAGEMENT FUNCTIONS
   // Fetches all job postings for a specific recruiter from the backend
   const loadRecruiterJobs = async (recruiterId: number) => {
     setIsLoadingJobs(true);
@@ -189,10 +191,12 @@ export function JobRegistration() {
     }
   };
 
-  // ===== ACCOUNT REGISTRATION =====
+  // ACCOUNT REGISTRATION
   // Creates a new recruiter account with validation and file uploads
   const handleRegisterAccount = async () => {
-    // ===== INPUT VALIDATION =====
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    // INPUT VALIDATION
     // Ensure all required fields are properly filled
     if (!email.includes("@")) {
       toast.error("Please enter a valid work email.");
@@ -226,10 +230,18 @@ export function JobRegistration() {
       formData.append("contactPerson", contactPerson);
       formData.append("accountType", type ?? "company");
       formData.append("password", password);
-      if (businessRegistration)
-        formData.append("businessRegistration", businessRegistration);
-      if (orgLogo) formData.append("orgLogo", orgLogo);
-      if (authLetter) formData.append("authLetter", authLetter);
+
+      if (type === "company") {
+        if (businessRegistration)
+          formData.append("businessRegistration", businessRegistration);
+        if (orgLogo) formData.append("orgLogo", orgLogo);
+        if (authLetter) formData.append("authLetter", authLetter);
+      } else {
+        // Individual mapping: orgLogo => profilePicture, businessRegistration => idDocument
+        if (orgLogo) formData.append("profilePicture", orgLogo);
+        if (businessRegistration)
+          formData.append("idDocument", businessRegistration);
+      }
 
       const response = await fetch(
         "http://localhost:8080/api/jobs/recruiters",
@@ -253,6 +265,8 @@ export function JobRegistration() {
       }
     } catch (error) {
       toast.error("Registration failed.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -323,7 +337,7 @@ export function JobRegistration() {
     }
   };
 
-  // ===== UI NAVIGATION & CONDITIONAL RENDERING =====
+  // UI NAVIGATION & CONDITIONAL RENDERING
   // Route to different sub-views based on current application state
   if (showRecovery)
     return <AccessRecovery onBack={() => setShowRecovery(false)} />;
@@ -340,7 +354,7 @@ export function JobRegistration() {
       <RecruiterSettings type={type} onBack={() => setIsSettings(false)} />
     );
 
-  // ===== VERIFICATION STATUS & DASHBOARD ACCESS =====
+  // VERIFICATION STATUS & DASHBOARD ACCESS
   // Show pending verification screen for unapproved recruiters
   if (isAuthenticated && isRegistered && step === 3) {
     if (currentRecruiter?.status === "PENDING") {
@@ -389,7 +403,7 @@ export function JobRegistration() {
     );
   }
 
-  // ===== MAIN AUTHENTICATION INTERFACE =====
+  // MAIN AUTHENTICATION INTERFACE
   // Render login/registration tabs when user is not authenticated
   if (!isAuthenticated && !isRegistering) {
     return (
@@ -425,6 +439,7 @@ export function JobRegistration() {
                   Register
                 </TabsTrigger>
               </TabsList>
+
               {/* Login Tab */}
               <TabsContent value="login" className="space-y-4">
                 <div className="space-y-2">
@@ -439,6 +454,7 @@ export function JobRegistration() {
                     className="h-12 bg-muted/20 border-border/60 px-5 rounded-xl font-medium focus-visible:ring-1"
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-70">
                     Password
@@ -474,6 +490,7 @@ export function JobRegistration() {
                   Forgot Credentials?
                 </Button>
               </TabsContent>
+
               {/* Register Tab */}
               <TabsContent value="register" className="space-y-4">
                 <div className="space-y-2">
@@ -488,7 +505,8 @@ export function JobRegistration() {
                     className="h-12 bg-muted/20 border-border/60 px-5 rounded-xl font-medium focus-visible:ring-1"
                   />
                 </div>
-                //Password Creation
+
+                {/*Password Creation*/}
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-70">
                     Create Password
@@ -508,7 +526,8 @@ export function JobRegistration() {
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  // Password strength bar
+
+                  {/*Password strength bar*/}
                   {passwordStrength && (
                     <div className="space-y-1 px-1">
                       <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
@@ -540,7 +559,8 @@ export function JobRegistration() {
                     </div>
                   )}
                 </div>
-                //Confirm Password
+
+                {/*Confirm Password*/}
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-70">
                     Confirm Password
@@ -574,7 +594,8 @@ export function JobRegistration() {
                       )}
                     </button>
                   </div>
-                  // Password matching
+
+                  {/*Password matching*/}
                   {passwordsMatch && (
                     <p className="text-[10px] font-bold text-green-500 ml-1">
                       ✓ Passwords match
@@ -634,7 +655,8 @@ export function JobRegistration() {
                     : "text-muted-foreground/40 group-hover:text-primary/50 transition-colors"
                 }
               />
-              //Corporate
+
+              {/*Corporate*/}
               <div className="text-center">
                 <h3 className="text-2xl font-black">Corporate</h3>
                 <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">
@@ -654,7 +676,8 @@ export function JobRegistration() {
                     : "text-muted-foreground/40 group-hover:text-primary/50 transition-colors"
                 }
               />
-              //Individual
+
+              {/*Individual*/}
               <div className="text-center">
                 <h3 className="text-2xl font-black">Individual</h3>
                 <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mt-1">
@@ -801,21 +824,21 @@ export function JobRegistration() {
                       className="h-14 bg-muted/20 border-border/60 px-6 rounded-2xl font-medium focus-visible:ring-1"
                     />
                   </div>
-                  <div className="space-y-3">
-                    <Label className="font-black text-[10px] uppercase tracking-[0.2em] ml-1 opacity-70">
-                      {type === "company"
-                        ? "Authorization Letter"
-                        : "Resume/CV"}
-                    </Label>
-                    <Input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) =>
-                        setAuthLetter(e.target.files?.[0] || null)
-                      }
-                      className="h-14 bg-muted/20 border-border/60 px-6 rounded-2xl font-medium focus-visible:ring-1"
-                    />
-                  </div>
+                  {type === "company" && (
+                    <div className="space-y-3">
+                      <Label className="font-black text-[10px] uppercase tracking-[0.2em] ml-1 opacity-70">
+                        Authorization Letter
+                      </Label>
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) =>
+                          setAuthLetter(e.target.files?.[0] || null)
+                        }
+                        className="h-14 bg-muted/20 border-border/60 px-6 rounded-2xl font-medium focus-visible:ring-1"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -830,8 +853,9 @@ export function JobRegistration() {
                 <Button
                   className="flex-[2] h-14 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-primary/20 bg-primary"
                   onClick={handleRegisterAccount}
+                  disabled={isSubmitting}
                 >
-                  Submit Application
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
                 </Button>
               </div>
             </CardContent>
