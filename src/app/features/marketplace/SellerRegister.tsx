@@ -19,6 +19,11 @@ import {
   setSellerData,
 } from "./marketplaceApi";
 
+/**
+ * Seller registration and authentication component
+ * Handles: seller login, new account creation, seller type selection,
+ * business verification, and session management
+ */
 export default function SellerRegister() {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,19 +34,19 @@ export default function SellerRegister() {
   const [showRecovery, setShowRecovery] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Login state
+  // Manages seller login form data and validation
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Register state
+  // Manages seller registration form data for new account creation
   const [regEmail, setRegEmail] = useState("");
   const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
   const [registerError, setRegisterError] = useState("");
 
-  // Verification state
+  // Manages business verification form data for store details submission
   const [verifBusinessName, setVerifBusinessName] = useState("");
   const [verifIdNumber, setVerifIdNumber] = useState("");
   const [verifContact, setVerifContact] = useState("");
@@ -50,6 +55,7 @@ export default function SellerRegister() {
   const [verifDescription, setVerifDescription] = useState("");
   const [verifyError, setVerifyError] = useState("");
 
+  // Automatically redirects to dashboard after completion
   const shouldRedirectToDashboard = isAuthenticated && isRegistered && step === 3;
 
   useEffect(() => {
@@ -58,6 +64,7 @@ export default function SellerRegister() {
     }
   }, [navigate, shouldRedirectToDashboard]);
 
+  // Displays account recovery interface for password reset
   if (showRecovery) {
     return <SellerAccessRecovery onBack={() => setShowRecovery(false)} />;
   }
