@@ -261,10 +261,28 @@ export function JobRegistration() {
           "Registration submitted successfully. Awaiting verification.",
         );
       } else {
-        toast.error("Registration failed.");
+        try {
+          const errorData = await response.json();
+          console.error("Server error response:", errorData);
+          toast.error(
+            errorData.message ||
+              errorData.error ||
+              `Registration failed: ${response.status}`,
+          );
+        } catch (e) {
+          console.error(`Registration failed with status ${response.status}`);
+          toast.error(
+            `Registration failed: ${response.status} ${response.statusText}`,
+          );
+        }
       }
     } catch (error) {
-      toast.error("Registration failed.");
+      console.error("Registration submission error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Registration failed. Please check your connection.",
+      );
     } finally {
       setIsSubmitting(false);
     }
