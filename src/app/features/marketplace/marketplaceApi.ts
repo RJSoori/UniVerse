@@ -54,6 +54,12 @@ export interface SellerAuthResponse {
   seller: SellerResponse;
 }
 
+export interface SellerUpdateRequest {
+  storeName?: string;
+  phone?: string;
+  description?: string;
+}
+
 /**
  * Session management for seller authentication and data persistence
  * Stores seller token and profile data in browser localStorage
@@ -191,5 +197,15 @@ export async function getMySellerProfile(): Promise<SellerResponse> {
 export async function getSellerById(id: number): Promise<SellerResponse> {
   const response = await apiFetch(`/api/marketplace/sellers/${id}`);
   if (!response.ok) throw new Error("Failed to fetch seller");
+  return response.json();
+}
+
+// Updates the authenticated seller's profile information
+export async function updateMySellerProfile(request: SellerUpdateRequest): Promise<SellerResponse> {
+  const response = await sellerFetch("/api/marketplace/sellers/me", {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error("Failed to update seller profile");
   return response.json();
 }

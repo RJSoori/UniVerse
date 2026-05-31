@@ -11,7 +11,11 @@ import {
   Eye, EyeOff, X, CheckCircle, AlertTriangle,
   ToggleLeft, ToggleRight,
 } from "lucide-react";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
+import {
+  getSellerData,
+  setSellerData,
+  updateMySellerProfile,
+} from "./marketplaceApi";
 
 interface SellerSettingsProps {
   onBack: () => void;
@@ -19,55 +23,20 @@ interface SellerSettingsProps {
 
 type ActiveTab = "store" | "notifications" | "security";
 
-/**
- * Local storage helper functions to manage seller account data
- * These functions handle retrieving the active seller email and their associated account information
- */
-// Retrieves the currently active seller's email from localStorage
-function getActiveEmail(): string {
-  const activeSeller = localStorage.getItem("universe-active-seller");
-  if (activeSeller) {
-    return activeSeller.toLowerCase();
-  }
-  const accounts = readJsonFromLocalStorage<Record<string, unknown>>("universe-seller-accounts", {});
-  return Object.keys(accounts)[0] || "";
-}
-
-// Retrieves all account data for a specific seller email
-function getAccount(email: string) {
-  if (!email) return null;
-  const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
-  return accounts[email.toLowerCase()] || null;
-}
-
-// Updates and persists seller account information to localStorage
-function saveAccount(email: string, data: Record<string, string>) {
-  if (!email) return;
-  const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
-  accounts[email.toLowerCase()] = { ...accounts[email.toLowerCase()], ...data };
-  localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
-}
-
-/**
- * Seller Settings Component
- * Provides interface for sellers to update store profile, manage notifications,
- * change password, and verify their seller status
- */
 export function SellerSettings({ onBack }: SellerSettingsProps) {
-  const email = getActiveEmail();
-  const account = getAccount(email);
+  const sellerData = getSellerData();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("store");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  // Manages store logo upload preview and storage
+  // ── Logo state ─────────────────────────────────────────────────────────────
   const [logoPreview, setLogoPreview] = useState<string | null>(
     localStorage.getItem("universe-seller-logo") || null
   );
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Converts uploaded image file to base64 data URL for preview and storage
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -80,22 +49,18 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
     reader.readAsDataURL(file);
   };
 
-  // Initialize store profile fields from seller account data
-  const [storeName, setStoreName] = useState(account?.businessName || "");
-  const [sellerType, setSellerType] = useState(account?.sellerType || "");
-  const [sellerIdNumber, setSellerIdNumber] = useState(account?.idNumber || "");
-  const [categoryFocus, setCategoryFocus] = useState(account?.categoryFocus || "");
-  const [storeDescription, setStoreDescription] = useState(account?.storeDescription || "");
-  const [contactNumber, setContactNumber] = useState(account?.contactNumber || "");
-  const [location, setLocation] = useState(account?.location || "");
+  // ── Store info state — pre-filled from seller data ─────────────────────────
+  const [storeName, setStoreName] = useState(sellerData?.storeName || "");
+  const [phone, setPhone] = useState(sellerData?.phone || "");
+  const [description, setDescription] = useState(sellerData?.description || "");
 
-  // Manages seller notification preferences
+  // ── Notifications state ────────────────────────────────────────────────────
   const [notifNewMessage, setNotifNewMessage] = useState(true);
   const [notifNewOffer, setNotifNewOffer] = useState(true);
   const [notifListingExpiry, setNotifListingExpiry] = useState(false);
   const [notifPlatformUpdates, setNotifPlatformUpdates] = useState(true);
 
-  // Manages password change form state and validation
+  // ── Security state ─────────────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -104,42 +69,37 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  // Manages seller re-verification workflow when account needs additional verification
+  // ── Re-verification state ──────────────────────────────────────────────────
   const [showReverifyModal, setShowReverifyModal] = useState(false);
   const [reverifyReason, setReverifyReason] = useState("");
   const [reverifySubmitted, setReverifySubmitted] = useState(false);
 
-  // Saves updated store profile information to localStorage
-  const handleSave = () => {
+  // ── Save store info to backend ─────────────────────────────────────────────
+  const handleSave = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
-    // Persist all edited fields to account storage
-    saveAccount(email, {
-      sellerType,
-      idNumber: sellerIdNumber,
-      businessName: storeName,
-      categoryFocus,
-      storeDescription,
-      contactNumber,
-      location,
-    });
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError("");
+    try {
+      const updated = await updateMySellerProfile({
+        storeName,
+        phone,
+        description,
+      });
+      setSellerData(updated); // update localStorage with new data
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+    } catch (error) {
+      setSaveError("Failed to save changes. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Validates and updates seller password with security checks
   const handlePasswordChange = () => {
     setPasswordError("");
     setPasswordSuccess(false);
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError("Please fill in all fields.");
-      return;
-    }
-    if (account?.password && account.password !== currentPassword) {
-      setPasswordError("Current password is incorrect.");
       return;
     }
     if (newPassword.length < 8) {
@@ -150,7 +110,7 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
       setPasswordError("New passwords do not match.");
       return;
     }
-    saveAccount(email, { password: newPassword });
+    // TODO: connect to backend password change endpoint
     setPasswordSuccess(true);
     setCurrentPassword("");
     setNewPassword("");
@@ -195,6 +155,9 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
               <span className="text-xs text-green-600 flex items-center gap-1">
                 <CheckCircle className="size-3" /> Saved
               </span>
+            )}
+            {saveError && (
+              <span className="text-xs text-destructive">{saveError}</span>
             )}
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? "Saving..." : "Save Changes"} <Save className="ml-2 size-4" />
@@ -241,8 +204,8 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                   onChange={handleLogoUpload}
                 />
               </div>
-              <h3 className="font-bold text-lg">Store Logo</h3>
-              <p className="text-xs text-muted-foreground">Click to upload. Visible to buyers.</p>
+              <h3 className="font-bold text-lg">{sellerData?.storeName || "Your Store"}</h3>
+              <p className="text-xs text-muted-foreground">{sellerData?.email}</p>
               {logoPreview && (
                 <button
                   onClick={() => {
@@ -280,85 +243,46 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                 <CardHeader>
                   <CardTitle className="text-lg">Store Profile</CardTitle>
                   <CardDescription>
-                    Pre-filled from your registration. Edit and save to update.
-                    {/* When backend is ready: replace localStorage reads/writes with API calls */}
+                    Update your store information. Changes will be visible to buyers.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Store / Display Name</Label>
-                      <Input
-                        placeholder="e.g. Jane's Handmade Crafts"
-                        value={storeName}
-                        onChange={(e) => setStoreName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Seller Type</Label>
-                      <Input
-                        placeholder="Shop / Individual"
-                        value={sellerType === "shop" ? "Shop / Business" : sellerType === "individual" ? "Individual" : "Not selected"}
-                        readOnly
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Store / Display Name</Label>
+                    <Input
+                      placeholder="e.g. Jane's Handmade Crafts"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Category Focus</Label>
-                      <div className="relative">
-                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. Textbooks, Electronics"
-                          value={categoryFocus}
-                          onChange={(e) => setCategoryFocus(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{sellerType === "shop" ? "Business Registration ID" : "NIC / Student ID"}</Label>
+                  <div className="space-y-2">
+                    <Label>Contact Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                       <Input
-                        placeholder={sellerType === "shop" ? "e.g. PV-XXXXXX" : "e.g. 200XXXXXXXXX"}
-                        value={sellerIdNumber}
-                        onChange={(e) => setSellerIdNumber(e.target.value)}
+                        className="pl-10"
+                        placeholder="e.g. 0771234567"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Store Description</Label>
                     <Textarea
-                      className="min-h-[100px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
-                      placeholder="Describe what you sell and why students should buy from you..."
-                      value={storeDescription}
-                      onChange={(e) => setStoreDescription(e.target.value)}
+                      className="min-h-[100px] resize-none"
+                      placeholder="Describe what you sell..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Contact Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. 0771234567"
-                          value={contactNumber}
-                          onChange={(e) => setContactNumber(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pickup / Location</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. Faculty of Engineering"
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-xs">Email (cannot be changed)</Label>
+                    <Input
+                      value={sellerData?.email || ""}
+                      readOnly
+                      className="bg-muted/20 text-muted-foreground"
+                    />
                   </div>
                 </CardContent>
               </Card>
