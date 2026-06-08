@@ -29,6 +29,7 @@ interface UpdateProfilePayload {
 }
 
 interface AuthResponse {
+  //JWT token for authenticated session
   token: string;
   user: AuthUser;
 }
@@ -49,6 +50,7 @@ function normalizeAuthUser(user: AuthUser): AuthUser {
 }
 
 interface AuthContextValue {
+  //Current authenticated user or null if not authenticated
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
@@ -63,11 +65,13 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  //Initialize auth state from localStorage and manage session lifecycle
   const [userState, setUserState] = useState<AuthUser | null>(() => getUser());
   const [tokenState, setTokenState] = useState<string | null>(() => getToken());
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
+    //Clear all authentication data and reset state
     clearAuthStorage();
     setUserState(null);
     setTokenState(null);
@@ -89,7 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      const refreshedUser = normalizeAuthUser((await response.json()) as AuthUser);
+
+      const refreshedUser = (await response.json()) as AuthUser;
       setUser(refreshedUser);
       setUserState(refreshedUser);
       setTokenState(token);
@@ -104,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const applyAuthResponse = useCallback((auth: AuthResponse) => {
+    //Apply authentication response by storing token and user data, and updating state
     setToken(auth.token);
     const normalizedUser = normalizeAuthUser(auth.user);
     setUser(normalizedUser);
@@ -112,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(
+    //Perform login by sending credentials to backend and handling response
     async (credentials: LoginCredentials) => {
       const response = await apiFetch("/api/auth/login", {
         method: "POST",
@@ -128,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
+    //Perform registration by sending user details to backend and handling response
     async (credentials: RegisterCredentials) => {
       const response = await apiFetch("/api/auth/register", {
         method: "POST",

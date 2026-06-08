@@ -78,7 +78,7 @@ export function WidgetDashboard() {
     const todayStr = new Date().toISOString().split("T")[0];
     return events
       .filter((e) => e.date === todayStr)
-      .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+      .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));// Sort by start time
   }, [events]);
 
   return (
@@ -403,7 +403,6 @@ export function WidgetDashboard() {
         <div className="space-y-6">
           <MoneyWidget onNavigate={goSection} compact />
           <GpaWidget onNavigate={goSection} compact />
-          <FocusTimer compact />
         </div>
       </div>
     </div>

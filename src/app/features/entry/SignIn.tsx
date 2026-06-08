@@ -10,31 +10,32 @@ export default function SignIn() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  //Input change handler with error reset
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError("");
   };
 
+  //Submission handler with authentication logic and error handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
     try {
+      //Attempt login and navigate on success
       await auth.login(formData);
-      // Always land on a fresh dashboard after login. Deep-link preservation
-      // would be confusing on a shared machine where account A's last route
-      // gets replayed when account B signs in.
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login Error:", err);
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
     } finally {
-      setSubmitting(false);
+      setSubmitting(false);//Reset submitting state regardless of outcome to re-enable form
     }
   };
 
   return (
+    //outer viewport
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted px-4">
       <button
         onClick={() => navigate("/")}
@@ -50,12 +51,14 @@ export default function SignIn() {
         </div>
 
         <div className="bg-card rounded-2xl shadow-xl border border-border p-8 sm:p-10">
+          {/* Error Alert */}
           {error && (
             <div className="mb-6 p-4 bg-destructive/10 border-l-4 border-destructive text-destructive text-sm rounded-r-md animate-in fade-in slide-in-from-top-1">
               {error}
             </div>
           )}
 
+          {/*Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-foreground ml-1">Username</label>
@@ -102,7 +105,7 @@ export default function SignIn() {
           </form>
 
           <p className="text-center mt-8 text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Don't have an account?{" "}
             <span
               className="text-primary font-bold cursor-pointer hover:underline"
               onClick={() => navigate("/signup/student/register")}

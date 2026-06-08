@@ -17,12 +17,14 @@ const SettingsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // Update form fields when user data changes
     setName(user?.name || "");
     setEmail(user?.email || "");
     setDegree(user?.degree || "");
   }, [user]);
 
   const handleSave = async (e: React.FormEvent) => {
+    //Handle profile update with loading state and error handling
     e.preventDefault();
     setSaving(true);
     setError("");

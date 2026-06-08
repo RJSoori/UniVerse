@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
 import { Button } from "../../shared/ui/button";
 
+//Multi-step student registration process
 export default function StudentRegistration() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -27,11 +28,14 @@ export default function StudentRegistration() {
     username: "",
     password: "",
   });
+
+  //validation and UI feedback states
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  //Generic input changes Handler
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
@@ -48,14 +52,17 @@ export default function StudentRegistration() {
     if (submitError) setSubmitError("");
   };
 
+  //step transition handler
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(2);
   };
 
+  //final form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    //final client-side validation
     if (formData.password !== confirmPassword) {
       setPasswordError("Passwords do not match. Please enter the same password twice.");
       return;
@@ -78,6 +85,7 @@ export default function StudentRegistration() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted px-4">
+      {/* Navigation Control: Toggles between form steps or returns to landing */}
       <button
         onClick={() => (step === 2 ? setStep(1) : navigate("/"))}
         className="absolute top-8 left-8 text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-sm font-medium"
@@ -85,6 +93,7 @@ export default function StudentRegistration() {
         {step === 2 ? "Previous Step" : "Back"}
       </button>
 
+      {/*Visual indicators for current registration step*/}
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Create Profile</h2>
@@ -98,6 +107,7 @@ export default function StudentRegistration() {
         </div>
 
         <div className="bg-card rounded-2xl shadow-xl border border-border p-8 sm:p-10">
+          {/*Profile Information Step*/}
           {step === 1 && (
             <form onSubmit={handleNext} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
@@ -140,6 +150,7 @@ export default function StudentRegistration() {
             </form>
           )}
 
+          {/*Account Credentials Step*/}
           {step === 2 && (
             <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
@@ -192,6 +203,8 @@ export default function StudentRegistration() {
                   className="w-full border border-border bg-background text-foreground rounded-xl px-4 py-3 focus:ring-4 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/70"
                   required
                 />
+                
+                {/*Validation Feedback*/}
                 {passwordError && <p className="text-xs text-destructive mt-1">{passwordError}</p>}
                 {submitError && <p className="text-xs text-destructive mt-1">{submitError}</p>}
               </div>
