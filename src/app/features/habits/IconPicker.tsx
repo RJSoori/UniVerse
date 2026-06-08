@@ -268,7 +268,6 @@ interface IconPickerProps {
   selectedIconId: string
   onSelect: (iconId: string) => void
 }
-
 export function IconPicker({ selectedIconId, onSelect }: IconPickerProps) {
   return (
     <div className="flex gap-2 flex-wrap">
@@ -294,7 +293,6 @@ export function IconPicker({ selectedIconId, onSelect }: IconPickerProps) {
     </div>
   )
 }
-
 export function IconBadge({
   iconId,
   size = 'md',
@@ -355,3 +353,5 @@ export function IconBadge({
     </div>
   )
 }
+
+

@@ -33,6 +33,21 @@ interface AuthResponse {
   user: AuthUser;
 }
 
+function normalizeAuthUser(user: AuthUser): AuthUser {
+  // Ensure the auth user has at least one timestamp the UI can use for onboarding
+  // or sorting purposes. The backend may return `createdAt`; for older records
+  // we set `firstSeenAt` on the client so components like HabitTracker can
+  // determine account age reliably.
+  if (user.createdAt || user.firstSeenAt) {
+    return user;
+  }
+
+  return {
+    ...user,
+    firstSeenAt: new Date().toISOString(),
+  };
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
@@ -74,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      const refreshedUser = (await response.json()) as AuthUser;
+      const refreshedUser = normalizeAuthUser((await response.json()) as AuthUser);
       setUser(refreshedUser);
       setUserState(refreshedUser);
       setTokenState(token);
@@ -90,9 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applyAuthResponse = useCallback((auth: AuthResponse) => {
     setToken(auth.token);
-    setUser(auth.user);
+    const normalizedUser = normalizeAuthUser(auth.user);
+    setUser(normalizedUser);
     setTokenState(auth.token);
-    setUserState(auth.user);
+    setUserState(normalizedUser);
   }, []);
 
   const login = useCallback(
@@ -151,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(await parseApiError(response));
       }
 
-      const updatedUser = (await response.json()) as AuthUser;
+      const updatedUser = normalizeAuthUser((await response.json()) as AuthUser);
       setUser(updatedUser);
       setUserState(updatedUser);
       return updatedUser;

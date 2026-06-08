@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { useSchedule, type ScheduleEvent } from "../../shared/hooks/useSchedule";
 import { Card, CardContent } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
@@ -22,15 +22,6 @@ import {
   Briefcase,
 } from "lucide-react";
 
-interface ScheduleEvent {
-  id: string;
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  type: "class" | "study" | "meeting" | "other";
-}
-
 const formatDateLocal = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -38,37 +29,71 @@ const formatDateLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * Displays a calendar scheduler for students.
+ * Lets students add, view, and delete events in week or month view.
+ */
 export function Scheduler() {
-  const [events, setEvents] = useUniStorage<ScheduleEvent[]>("schedule-events", []);
+  const { events, loading, error, createEvent, removeEvent } = useSchedule();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showAddForm, setShowAddForm] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [newEvent, setNewEvent] = useState<Omit<ScheduleEvent, "id">>({
     title: "",
     date: formatDateLocal(new Date()),
     startTime: "",
     endTime: "",
+    description: "",
     type: "class",
   });
 
-  const addEvent = () => {
-    if (!newEvent.title || !newEvent.date) return;
-    const event: ScheduleEvent = {
-      id: Date.now().toString(),
-      ...newEvent,
-    };
-    setEvents([...events, event]);
+  /**
+   * Saves a new event to the calendar and database.
+   * Clears the form when done.
+   */
+  const addEvent = async () => {
+    if (!newEvent.title || !newEvent.date) {
+      setFeedbackMsg({ type: 'error', text: 'Title and date are required' });
+      return;
+    }
+    try {
+      const result = await createEvent(newEvent);
+      if (!result) {
+        setFeedbackMsg({ type: 'error', text: 'Failed to create event. Check that you are logged in.' });
+        return;
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      setFeedbackMsg({ type: 'error', text: `Error: ${errMsg}` });
+      console.error('createEvent failed:', err);
+    }
     setNewEvent({
       title: "",
       date: formatDateLocal(new Date()),
       startTime: "",
       endTime: "",
+      description: "",
       type: "class",
     });
     setShowAddForm(false);
   };
 
-  const deleteEvent = (id: string) => {
-    setEvents(events.filter((e) => e.id !== id));
+  /**
+   * Removes an event from the calendar and database.
+   * Shows an error message if deletion fails.
+   */
+  const deleteEvent = async (id: string) => {
+    try {
+      const result = await removeEvent(id);
+      if (!result) {
+        setFeedbackMsg({ type: 'error', text: 'Failed to delete event.' });
+        return;
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      setFeedbackMsg({ type: 'error', text: `Delete error: ${errMsg}` });
+      console.error('removeEvent failed:', err);
+    }
   };
 
   const handleDateClick = (dateStr: string) => {
@@ -155,6 +180,22 @@ export function Scheduler() {
           <Plus className="mr-2 h-4 w-4" /> New Event
         </Button>
       </div>
+
+      {feedbackMsg && (
+        <Card className={feedbackMsg.type === 'error' ? 'border-destructive bg-destructive/5' : 'border-green-500 bg-green-500/5'}>
+          <CardContent className={`p-3 text-sm ${feedbackMsg.type === 'error' ? 'text-destructive' : 'text-green-700'}`}>
+            {feedbackMsg.text}
+          </CardContent>
+        </Card>
+      )}
+
+      {error && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="p-3 text-sm text-destructive">
+            Hook error: {error}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent className="sm:max-w-[600px]">
@@ -299,37 +340,43 @@ export function Scheduler() {
                   }
 
                   const dateStr = formatDateLocal(day);
-                  const dayEvents = events.filter((e) => e.date === dateStr).slice(0, 3);
+                  const dayEvents = events.filter((e) => e.date === dateStr);
                   const isToday = formatDateLocal(new Date()) === dateStr;
 
                   return (
                     <div
                       key={dateStr}
-                      className={`aspect-square p-2 rounded-lg border transition-all hover:shadow-sm cursor-pointer hover:ring-2 hover:ring-primary/50 ${
+                      className={`aspect-square p-2 rounded-lg border transition-all hover:shadow-sm cursor-pointer hover:ring-2 hover:ring-primary/50 flex flex-col overflow-hidden ${
                         isToday ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
                       }`}
                       onClick={() => handleDateClick(dateStr)}
                     >
                       <p className={`text-xs font-bold mb-1 ${isToday ? "" : "text-muted-foreground"}`}>{day.getDate()}</p>
-                      <div className="space-y-1">
-                        {dayEvents.map((event) => (
+                      <div className="space-y-1 overflow-y-auto flex-1 min-h-0">
+                        {dayEvents.slice(0, 4).map((event) => (
                           <div
                             key={event.id}
-                            className={`text-[9px] p-1 rounded truncate cursor-pointer flex items-center gap-1 group relative ${getTypeColor(event.type)}`}
-                            onClick={(e) => e.stopPropagation()}
+                            className={`text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between gap-1 group ${getTypeColor(event.type)}`}
+                            title={event.title}
                           >
-                            <span className="truncate flex-1">{getTypeIcon(event.type)}</span>
+                            <div className="flex items-center gap-1 min-w-0 flex-1">
+                              {getTypeIcon(event.type)}
+                              <span className="truncate flex-1">{event.title}</span>
+                            </div>
                             <button
-                              onClick={() => deleteEvent(event.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteEvent(event.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                             >
-                              <Trash2 className="size-2" />
+                              <Trash2 className="size-2.5" />
                             </button>
                           </div>
                         ))}
-                        {events.filter((e) => e.date === dateStr).length > 3 && (
-                          <p className="text-[8px] text-muted-foreground">
-                            +{events.filter((e) => e.date === dateStr).length - 3} more
+                        {dayEvents.length > 4 && (
+                          <p className="text-[8px] text-muted-foreground px-1">
+                            +{dayEvents.length - 4} more
                           </p>
                         )}
                       </div>

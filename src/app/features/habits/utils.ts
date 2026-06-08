@@ -7,14 +7,12 @@ export function getRecentDays() {
   }
   return days;
 }
-
 export function toDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
 export function calculateStreak(completedDates: string[]) {
   if (!completedDates || completedDates.length === 0) return 0;
 
@@ -68,20 +66,111 @@ export function calculateStreak(completedDates: string[]) {
 
   return streak;
 }
-
 export function generateInviteCode() {
   const raw = Math.random().toString(36).slice(2, 8);
   return raw.toUpperCase();
 }
-
 export function buildInviteLink(groupId: string, code: string) {
   const origin = typeof window === "undefined" ? "https://universe.app" : window.location.origin;
   return `${origin}/habits/join?group=${encodeURIComponent(groupId)}&code=${encodeURIComponent(code)}`;
 }
-
 export function buildInviteEmail(link: string, code: string, groupName: string, habitName: string) {
   const subject = `Join my habit group: ${groupName}`;
   const body = `You are invited to join the group \"${groupName}\" for the habit \"${habitName}\".\n\nInvite link: ${link}\nInvite code: ${code}\n\nOpen UniVerse and enter the code to join.`;
 
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+/**
+ * Detects pattern anomalies in habit completion and returns an alert message.
+ * Checks for: recently created habits, broken streaks, and long gaps in completions.
+ * @param completedDates Array of completion dates in YYYY-MM-DD format
+ * @param createdAt ISO 8601 timestamp when habit was created
+ * @returns Alert message string, or null if no pattern detected
+ */
+export function detectPatternAlert(completedDates: string[], createdAt?: string): string | null {
+  // --- STAGE 1: Recently Created Habit ---
+  // Show encouraging message for habits created in the last 7 days
+  // Purpose: New habits need motivation to stick during the critical first week
+  if (createdAt) {
+    const created = new Date(createdAt);
+    const now = new Date();
+    // Convert milliseconds to days: 1000ms * 60s * 60m * 24h
+    const daysSinceCreation = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceCreation < 7) {
+      return "🌱 Keep building this habit! Every completion counts.";
+    }
+  }
+
+  // Exit early if no completions recorded yet
+  if (!completedDates || completedDates.length === 0) return null;
+
+  // --- Date Normalization ---
+  // Converts various date formats (ISO strings, timestamps) to consistent YYYY-MM-DD format
+  // Prevents timezone-related bugs where the same day could be interpreted differently
+  const normalizeDateKey = (value: string): string | null => {
+    const plainDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (plainDatePattern.test(value)) return value;
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return toDateKey(parsed);
+  };
+
+  // Build a Set of normalized dates for O(1) lookup during streak detection
+  const normalizedDates = new Set<string>();
+  for (const raw of completedDates) {
+    const normalized = normalizeDateKey(raw);
+    if (normalized) normalizedDates.add(normalized);
+  }
+
+  if (normalizedDates.size === 0) return null;
+
+  // Normalize "today" to midnight for consistent date comparisons
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // --- STAGE 2: Long Gap Detection ---
+  // Alert user if they haven't completed habit in 5+ days
+  // Purpose: Catch momentum loss before streak completely resets
+  const sortedDates = Array.from(normalizedDates).sort().reverse();
+  const lastCompletion = sortedDates[0];
+  const lastCompletionDate = new Date(lastCompletion);
+  const daysSinceCompletion = (today.getTime() - lastCompletionDate.getTime()) / (1000 * 60 * 60 * 24);
+
+  // Alert for 5-30 day gaps (beyond 30 days, assume habit is abandoned)
+  if (daysSinceCompletion >= 5 && daysSinceCompletion < 30) {
+    const days = Math.floor(daysSinceCompletion);
+    return `⚠️ No completions in ${days} days. Time to get back on track!`;
+  }
+
+  // --- STAGE 3: Broken Streak Detection ---
+  // Check if current streak is broken (no completions in recent days)
+  // Count backward from today up to 10 days to detect if habit was being done regularly
+  let streakLength = 0;
+  for (let i = 0; i < Math.min(10, completedDates.length); i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(today.getDate() - i);
+    const key = toDateKey(checkDate);
+
+    if (normalizedDates.has(key)) {
+      streakLength++;
+    } else if (i > 0) {
+      // Stop counting when we hit the first gap (streak is broken)
+      break;
+    }
+  }
+
+  // If no recent streak but habit has 10+ historical completions, user had momentum that broke
+  // Alert: "You had momentum! Let's rebuild your streak."
+  // This is different from a gap alert - it specifically targets habits that were going well
+  if (streakLength === 0 && normalizedDates.size >= 10) {
+    return "📉 You had momentum! Let's rebuild your streak.";
+  }
+
+  // No pattern issues detected
+  return null;
+}
+
+
