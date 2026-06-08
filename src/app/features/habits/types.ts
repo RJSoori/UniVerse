@@ -1,11 +1,22 @@
+export type HabitFocusArea =
+  | "education"
+  | "health"
+  | "fitness"
+  | "career"
+  | "finance"
+  | "wellbeing"
+  | "social";
+
 export interface PersonalHabit {
   id: string;
   name: string;
   completedDates: string[]; // Format: YYYY-MM-DD
   color: string;
+  createdAt?: string; // ISO 8601 timestamp
   iconId?: string;
   description?: string;
   category?: "build" | "break";
+  focusArea?: HabitFocusArea;
 }
 
 export interface HabitGroupMember {
@@ -26,6 +37,8 @@ export interface HabitGroup {
   createdAt: string; // ISO string
   members: HabitGroupMember[];
   iconId?: string;
+  completedDates?: string[];
+  memberProgress?: Record<string, string[]>;
 }
 
 export interface GroupHabitProgress {

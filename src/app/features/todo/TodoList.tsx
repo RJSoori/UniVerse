@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { useTodos } from "../../shared/hooks/useTodos";
+import { type TodoItem } from "../../shared/api/todosApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
 import { Checkbox } from "../../shared/ui/checkbox";
 import { Badge } from "../../shared/ui/badge";
-import { Bell, Plus, Trash2, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Bell, Plus, Trash2, Calendar as CalendarIcon, Clock, AlertCircle } from "lucide-react";
 import { Label } from "../../shared/ui/label";
 import {
   Select,
@@ -21,26 +22,18 @@ import {
   DialogTitle,
 } from "../../shared/ui/dialog";
 
-export interface TodoItem {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  dueTime: string;
-  reservedMinutes: string;
-  priority: "low" | "medium" | "high";
-  completed: boolean;
-  reminderEnabled: boolean;
-}
-
 interface TodoListProps {
   compact?: boolean;
   maxItems?: number;
 }
 
+/** 
+ * A component to manage and display a list of tasks.
+ * Supports adding, deleting, and tracking task completion.
+ */
 export function TodoList({ compact = false, maxItems }: TodoListProps) {
-  // Persistence hook for syncing with the Dashboard
-  const [todos, setTodos] = useUniStorage<TodoItem[]>("todos", []);
+  // Syncs the task list with backend database.
+  const { todos, addTodo, toggleCompletion, removeTodo, toggleReminder, loading, error } = useTodos();
 
   const [newTodo, setNewTodo] = useState<Omit<TodoItem, "id" | "completed">>({
     title: "",
@@ -51,18 +44,67 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     priority: "medium",
     reminderEnabled: true,
   });
+  const [dueDateInput, setDueDateInput] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const addTodo = () => {
-    if (!newTodo.title) return;
+  /**
+   * Converts dd/mm/yyyy into yyyy-mm-dd for backend.
+    * Keeps the manual date field compatible with the API's ISO date format.
+   */
+  const parseDmyToIsoDate = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
 
-    const todo: TodoItem = {
-      id: Date.now().toString(),
-      ...newTodo,
-      completed: false,
-    };
+    const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
 
-    setTodos([todo, ...todos]);
+    const day = Number.parseInt(match[1], 10);
+    const month = Number.parseInt(match[2], 10);
+    const year = Number.parseInt(match[3], 10);
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const testDate = new Date(year, month - 1, day);
+    const validDate =
+      testDate.getFullYear() === year &&
+      testDate.getMonth() === month - 1 &&
+      testDate.getDate() === day;
+
+    if (!validDate) return null;
+
+    return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+  };
+
+  /** 
+   * Adds a new task to the list.
+   * Also requests browser notification permissions.
+   */
+  const addTodoItem = async () => {
+    const title = newTodo.title.trim();
+    if (!title) return;
+
+    const parsedDueDate = parseDmyToIsoDate(dueDateInput);
+    if (dueDateInput.trim() && !parsedDueDate) {
+      return;
+    }
+
+    // Call the hook's addTodo to create in database
+    const created = await addTodo({
+      title,
+      description: newTodo.description,
+      dueDate: parsedDueDate ?? "",
+      dueTime: newTodo.dueTime,
+      reservedMinutes: newTodo.reservedMinutes,
+      priority: newTodo.priority,
+      reminderEnabled: newTodo.reminderEnabled,
+    });
+
+    if (!created) {
+      return;
+    }
+
+    // Clear form
+    setShowAddForm(false);
     setNewTodo({
       title: "",
       description: "",
@@ -72,8 +114,9 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
       priority: "medium",
       reminderEnabled: true,
     });
-    setShowAddForm(false);
+    setDueDateInput("");
 
+    // Browser notifications 
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission()
           .then((permission) => {
@@ -83,24 +126,31 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     }
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos(todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
+  /** 
+   * Switches between completed and pending.
+   */
+  const toggleTodo = async (id: string) => {
+    await toggleCompletion(id);
   };
 
-  const deleteTodo = (id: string) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+  
+  const deleteTodo = async (id: string) => {
+    await removeTodo(id);
   };
 
-  const toggleReminder = (id: string) => {
-    setTodos(
-        todos.map((todo) =>
-            todo.id === id ? { ...todo, reminderEnabled: !todo.reminderEnabled } : todo
-        )
-    );
+  /** 
+   * Enables or disables alerts for a specific task.
+   */
+  
+  const toggleReminderLocal = async (id: string) => {
+    await toggleReminder(id);
   };
 
   const displayedTodos = maxItems ? todos.slice(0, maxItems) : todos;
 
+  /** 
+   * UI variant 
+   */
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high": return "destructive";
@@ -110,7 +160,30 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     }
   };
 
+  /** 
+   * Formats date string 
+   */
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month || !day) return dateStr;
+    return `${day}/${month}/${year}`;
+  };
+
   if (compact) {
+    if (loading) {
+      return (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Today's Tasks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground text-center py-4">Loading tasks...</p>
+            </CardContent>
+          </Card>
+      );
+    }
+
     return (
         <Card>
           <CardHeader className="pb-2">
@@ -121,6 +194,12 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
+              {error && (
+                  <div className="flex items-center gap-2 text-xs text-destructive mb-2">
+                    <AlertCircle className="size-3" />
+                    {error}
+                  </div>
+              )}
               {displayedTodos.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
               ) : (
@@ -149,14 +228,28 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
             <div className="app-page-header">
               <div className="space-y-1">
                 <h2 className="app-page-title">Todo List</h2>
-                <CardDescription className="app-page-subtitle">{todos.filter((t) => !t.completed).length} pending tasks</CardDescription>
+                <CardDescription className="app-page-subtitle">
+                  {loading ? "Loading..." : `${todos.filter((t) => !t.completed).length} pending tasks`}
+                </CardDescription>
               </div>
-              <Button onClick={() => setShowAddForm(true)}>
+              <Button onClick={() => setShowAddForm(true)} disabled={loading}>
                 <Plus className="mr-2 size-4" /> Add Task
               </Button>
             </div>
           </CardHeader>
         </Card>
+
+        {error && (
+            <Card className="border-destructive bg-destructive/5">
+              <CardContent className="p-4 flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="size-4 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Error</p>
+                  <p className="text-xs">{error}</p>
+                </div>
+              </CardContent>
+            </Card>
+        )}
 
         <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
           <DialogContent className="sm:max-w-[500px]">
@@ -170,13 +263,23 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                   placeholder="Enter task..."
                   value={newTodo.title}
                   onChange={(e) => setNewTodo({ ...newTodo, title: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && addTodo()}
+                  onKeyDown={(e) => e.key === "Enter" && addTodoItem()}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div className="space-y-2">
                   <Label>Due Date</Label>
-                  <Input type="date" value={newTodo.dueDate} onChange={(e) => setNewTodo({ ...newTodo, dueDate: e.target.value })} />
+                  <Input
+                    type="text"
+                    placeholder="dd/mm/yyyy"
+                    value={dueDateInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDueDateInput(value);
+                      const parsed = parseDmyToIsoDate(value);
+                      setNewTodo({ ...newTodo, dueDate: parsed ?? "" });
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Due Time</Label>
@@ -208,7 +311,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <Button onClick={addTodo} className="flex-1">Add Task</Button>
+                <Button onClick={addTodoItem} className="flex-1">Add Task</Button>
                 <Button variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
               </div>
             </div>
@@ -216,7 +319,9 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
         </Dialog>
 
         <div className="space-y-2">
-          {todos.length === 0 ? (
+          {loading ? (
+              <Card><CardContent className="py-8 text-center text-muted-foreground">Loading tasks...</CardContent></Card>
+          ) : todos.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-muted-foreground">No tasks yet</CardContent></Card>
           ) : (
               todos.map((todo) => (
@@ -233,7 +338,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                               {todo.dueDate && (
                                   <div className="flex items-center gap-1">
                                     <CalendarIcon className="size-3" />
-                                    {new Date(todo.dueDate).toLocaleDateString()}
+                                    {formatDate(todo.dueDate)}
                                   </div>
                               )}
                               {todo.dueTime && (
@@ -252,7 +357,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => toggleReminder(todo.id)} className={todo.reminderEnabled ? "text-primary" : "text-muted-foreground"}>
+                        <Button variant="ghost" size="sm" onClick={() => toggleReminderLocal(todo.id)} className={todo.reminderEnabled ? "text-primary" : "text-muted-foreground"}>
                           <Bell className="size-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo.id)} className="text-destructive">

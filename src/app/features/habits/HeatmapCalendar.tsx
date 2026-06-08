@@ -4,12 +4,15 @@ import { toDateKey } from "./utils";
 type HeatmapCalendarProps = {
   completedDates: string[];
   color?: string;
+  secondaryDates?: string[];
+  secondaryColor?: string;
   months?: number;
 };
-
 export function HeatmapCalendar({
   completedDates,
   color = "#3b82f6",
+  secondaryDates = [],
+  secondaryColor = "#22c55e",
   months = 2,
 }: HeatmapCalendarProps) {
   const totalDays = Math.max(1, months * 30);
@@ -34,6 +37,7 @@ export function HeatmapCalendar({
         {dates.map((date) => {
           const dateStr = toDateKey(date);
           const isDone = completedDates.includes(dateStr);
+          const isSecondaryDone = !isDone && secondaryDates.includes(dateStr);
 
           return (
             <div
@@ -41,8 +45,8 @@ export function HeatmapCalendar({
               title={date.toLocaleDateString("en-US")}
               className="h-4 w-4 rounded-sm border"
               style={{
-                backgroundColor: isDone ? color : "transparent",
-                borderColor: isDone ? color : "hsl(var(--border))",
+                backgroundColor: isDone ? color : isSecondaryDone ? secondaryColor : "transparent",
+                borderColor: isDone ? color : isSecondaryDone ? secondaryColor : "hsl(var(--border))",
               }}
             />
           );
