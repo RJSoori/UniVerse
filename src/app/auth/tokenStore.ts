@@ -7,6 +7,10 @@ export interface AuthUser {
   email: string;
   degree?: string | null;
   role: UserRole;
+  /** ISO timestamp when the account was created (added server-side). */
+  createdAt?: string | null;
+  /** Client-side fallback timestamp when the user was first seen by the frontend. */
+  firstSeenAt?: string | null;
 }
 
 const TOKEN_KEY = "auth_token";
