@@ -11,13 +11,10 @@ import { useGpaCalculator } from "../gpa-calculator/hooks/useGpaCalculator";
 import { focusApi } from "./focusApi";
 
 export function FocusTimer() {
+  //Retrieve Data from GPA module
   const { getCgpa } = useGpaCalculator();
 
-  /**
-   * DYNAMIC USER AUTHENTICATION
-   * Pulls the actual logged-in user from localStorage. 
-   * This replaces "test_user" for your 4-credit project evaluation.
-   */
+  //Identify current user
   const userString = localStorage.getItem("user");
   const userData = userString ? JSON.parse(userString) : null;
   const currentUserId = userData?.username || userData?.id || "guest_student";
@@ -29,17 +26,21 @@ export function FocusTimer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const intervalRef = useRef<number | null>(null);
   
+  // Guard Ref
+  const isSavingRef = useRef(false);
+  
   // State for Analytics
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const [weeklyData, setWeeklyData] = useState([]);
   const [todayMinutes, setTodayMinutes] = useState(0);
 
-  // GPA Goals Logic (Based on your Semester 1/2 GPA of 3.73/3.43)
+  //GPA Analysis Logic
   const currentCgpa = getCgpa();
   const targetGpa = 3.80;
   const gpaGap = Math.max(0, targetGpa - currentCgpa);
   const suggestedHours = gpaGap > 0 ? (2 + gpaGap * 4).toFixed(1) : "2.0";
 
+  //Data loading function for analytics
   const loadData = async () => {
     if (!currentUserId || currentUserId === "guest_student") return;
     const data = await focusApi.getAnalytics(currentUserId);
@@ -54,37 +55,44 @@ export function FocusTimer() {
     loadData();
   }, [currentUserId]);
 
+  //Session persistence
   const saveSession = async (mins: number) => {
-    if (mins < 1 || currentUserId === "guest_student") return; 
+    if (isSavingRef.current || mins < 1 || currentUserId === "guest_student") return; 
+    
     try {
+      // Lock to prevent multiple rapid saves and ensure meaningful session lengths
+      isSavingRef.current = true; //Lock
       await focusApi.saveSession(mins, currentUserId);
       await loadData(); 
     } catch (error) {
       console.error("Error saving session:", error);
+    } finally {
+      setTimeout(() => {
+        isSavingRef.current = false;//Unlock
+      }, 1000);// Short delay to prevent immediate re-saving
     }
   };
 
+  //Timer Effect with auto-save
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && timeLeft > 0) {
+      //Start countdown
       intervalRef.current = window.setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            saveSession(duration); 
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+        setTimeLeft((prev) => prev - 1);// Decrement time every second
+      }, 1000);// 1-second interval
+    } else if (timeLeft === 0 && isRunning) {
+      setIsRunning(false);
+      saveSession(duration);
     }
+
+    // Cleanup on unmount or when timer stops
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isRunning, duration, currentUserId]);
+  }, [isRunning, timeLeft, duration, currentUserId]);
 
   const toggleTimer = () => setIsRunning(!isRunning);
 
   const resetTimer = () => {
+    // Partial progress saving Logic
     if (isRunning || timeLeft < duration * 60) {
       const secondsPassed = (duration * 60) - timeLeft;
       const minutesToSave = Math.floor(secondsPassed / 60);
@@ -96,15 +104,18 @@ export function FocusTimer() {
     setIsRunning(false); 
     setTimeLeft(duration * 60); 
   };
-  
+
+  //Formats seconds into MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
   
+  // Calculate progress percentage for the progress bar
   const progress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
 
+  //FULL-SCREEN mode Logic
   const toggleFullscreen = () => {
     if (!isFullscreen) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
@@ -140,6 +151,7 @@ export function FocusTimer() {
   return (
     <div className="p-8 w-full space-y-8">
       {showFullAnalysis && (
+        //Pass weekly data and a callback to close the full analysis view to the FocusTrendChart component
         <FocusTrendChart 
           data={weeklyData} 
           isFullPage={true} 
@@ -159,6 +171,7 @@ export function FocusTimer() {
         </div>
       </div>
 
+      {/* GPA Focus Goal Card */}
       <Card className="border-blue-100 bg-blue-50/20 shadow-sm">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
@@ -188,6 +201,7 @@ export function FocusTimer() {
         </CardContent>
       </Card>
 
+      {/*Timer Controls card*/}
       <Card>
         <CardHeader>
           <CardTitle>Session Timer</CardTitle>
@@ -208,6 +222,7 @@ export function FocusTimer() {
         </CardContent>
       </Card>
 
+      {/*Settings & Analytics Access*/}
       <Card>
         <CardHeader><CardTitle>Settings & Insights</CardTitle></CardHeader>
         <CardContent className="space-y-6">

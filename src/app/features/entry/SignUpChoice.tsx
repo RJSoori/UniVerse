@@ -8,9 +8,9 @@ export default function SignUpChoice() {
     <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground text-center">
       <h2 className="text-2xl font-bold mb-12">Start your journey as</h2>
 
-      {/* Cards + Buttons aligned */}
+      {/* Role Selection Container */}
       <div className="flex flex-row gap-12">
-        {/* Student Column */}
+        {/* Student Role Column */}
         <div className="flex flex-col items-center gap-6 w-64">
           <div className="bg-card border border-border rounded-lg shadow-md p-6 w-full h-40 flex flex-col justify-between hover:shadow-lg transition-shadow">
             <div>
@@ -20,6 +20,7 @@ export default function SignUpChoice() {
               </p>
             </div>
           </div>
+          
           <Button
             className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
             onClick={() => navigate("/signup/student")}

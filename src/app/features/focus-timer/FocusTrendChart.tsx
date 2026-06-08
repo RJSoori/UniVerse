@@ -7,13 +7,14 @@ interface FocusData {
   date: string;
   minutes: number;
 }
-
+//
 interface FocusTrendChartProps {
   data: FocusData[];
   onBack?: () => void;
   isFullPage?: boolean;
 }
 
+//Data changing comparisons
 export default function FocusTrendChart({ data = [], onBack, isFullPage }: FocusTrendChartProps) {
   
   const comparisons = useMemo(() => {
@@ -22,16 +23,18 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
     const getSumForRange = (start: Date, end: Date) => {
       return data
         .filter(d => {
+          //Filter data points that fall within the specified date range
           const dDate = new Date(d.date);
           return dDate >= start && dDate < end;
         })
-        .reduce((sum, d) => sum + d.minutes, 0);
+        .reduce((sum, d) => sum + d.minutes, 0);// Sum minutes for the specified range
     };
 
+    //Weekly window calculation
     const thisWeekStart = new Date();
-    thisWeekStart.setDate(now.getDate() - 7);
+    thisWeekStart.setDate(now.getDate() - 7);// Get date 7 days ago from today
     const lastWeekStart = new Date();
-    lastWeekStart.setDate(now.getDate() - 14);
+    lastWeekStart.setDate(now.getDate() - 14);// Get date 14 days ago from today
 
     const thisWeekTotal = getSumForRange(thisWeekStart, now);
     const lastWeekTotal = getSumForRange(lastWeekStart, thisWeekStart);
@@ -39,24 +42,26 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
     const weekDiff = thisWeekTotal - lastWeekTotal;
     const weekPercent = lastWeekTotal > 0 ? Math.round((weekDiff / lastWeekTotal) * 100) : 0;
 
+    //Monthly window calculation
     const thisMonthTotal = data
       .filter(d => {
         const dDate = new Date(d.date);
-        return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
+        return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();// Filter for current month
       })
-      .reduce((sum, d) => sum + d.minutes, 0);
+      .reduce((sum, d) => sum + d.minutes, 0);// Sum minutes for current month
 
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthTotal = data
       .filter(d => {
         const dDate = new Date(d.date);
-        return dDate.getMonth() === lastMonthDate.getMonth() && dDate.getFullYear() === lastMonthDate.getFullYear();
+        return dDate.getMonth() === lastMonthDate.getMonth() && dDate.getFullYear() === lastMonthDate.getFullYear();// Filter for last month
       })
-      .reduce((sum, d) => sum + d.minutes, 0);
+      .reduce((sum, d) => sum + d.minutes, 0);// Sum minutes for last month
 
     const monthDiff = thisMonthTotal - lastMonthTotal;
     const monthPercent = lastMonthTotal > 0 ? Math.round((monthDiff / lastMonthTotal) * 100) : 0;
 
+    //Trend analysis logic
     return {
       week: {
         total: thisWeekTotal,
@@ -77,11 +82,12 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
     };
   }, [data]);
 
+  //chart data
   const weeklyViewData = useMemo(() => {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const now = new Date();
     const dayOfWeek = now.getDay(); 
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;// Get Monday of the current week
     const monday = new Date(now);
     monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
@@ -89,7 +95,7 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
     return days.map((dayName, index) => {
       const targetDate = new Date(monday);
       targetDate.setDate(monday.getDate() + index);
-      const dateStr = targetDate.toISOString().split('T')[0];
+      const dateStr = targetDate.toISOString().split('T')[0];// Find the record for this date
       const record = data.find(d => d.date === dateStr);
       return { 
         day: dayName, 
@@ -103,12 +109,12 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
   return (
     <div className="absolute inset-0 bg-background text-foreground z-[999] flex flex-col transition-colors duration-200">
       {/* HEADER */}
-      <div className="px-8 py-6 flex items-center justify-between border-b border-border/40">
+      <div className="px-8 py-6 flex items-center justify-center border-b border-border/40">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">Performance Analytics</h2>
+          <h2 className="text-2xl justify-center font-bold tracking-tight">Performance Analytics</h2>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">UniVerse Data Engine</p>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ">UniVerse Data Engine</p>
         </div>
       </div>
 
@@ -161,6 +167,7 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
                     color: 'var(--foreground)'
                   }} 
                 />
+                {/* Dynamically color bars based on whether minutes > 0 */}
                 <Bar dataKey="minutes" radius={[10, 10, 0, 0]} barSize={40}>
                   {weeklyViewData.map((entry, index) => (
                     <Cell 
@@ -211,6 +218,7 @@ export default function FocusTrendChart({ data = [], onBack, isFullPage }: Focus
   );
 }
 
+//Trend Card Component
 function TrendCard({ title, msg, percent, status, diff }: any) {
   const isIncrease = status === "increase";
   const isStable = status === "stable";
@@ -222,6 +230,7 @@ function TrendCard({ title, msg, percent, status, diff }: any) {
     return "bg-destructive/5 dark:bg-destructive/10 border-destructive/20 text-destructive";
   };
 
+  //Badge styles
   const getBadgeStyles = () => {
     if (isIncrease) return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
     if (isStable) return "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400";

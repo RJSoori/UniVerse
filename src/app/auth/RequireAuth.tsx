@@ -3,6 +3,7 @@ import type React from "react";
 import { useAuth } from "./AuthContext";
 
 export default function RequireAuth({ children }: { children?: React.ReactNode }) {
+  //Checks if user is authenticated, if not redirects to sign-in page
   const { user, loading } = useAuth();
   const location = useLocation();
 

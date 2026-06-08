@@ -3,13 +3,15 @@ import axios from 'axios';
 const API_URL = 'http://localhost:8080/api/focus';
 
 export const focusApi = {
-  // Saves the completed session to MySQL for a specific user
+  // Saves a focus session for the user
   saveSession: async (minutes: number, userId: string) => {
     const sessionData = {
       totalMinutes: minutes, 
       userId: userId, 
       focusDate: new Date().toISOString().split('T')[0] 
     };
+
+    // Send the session data to the backend API
     return await axios.post(`${API_URL}/save`, sessionData);
   },
 

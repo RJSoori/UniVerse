@@ -17,8 +17,13 @@ interface TodoItem {
   title?: string;
 }
 
-const timeToMinutes = (t: string | undefined) =>
-  (t ?? "").split(":").reduce((h, m) => +h * 60 + +m, 0);
+// Robust helper to convert "HH:MM" to total minutes
+const timeToMinutes = (t: string | undefined): number => {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
 const formatDuration = (mins: number) =>
   mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
 
@@ -26,59 +31,62 @@ export default function ProductivityGapCard() {
   const [events] = useUniStorage<ScheduleEvent[]>("schedule-events", []);
   const [todos] = useUniStorage<TodoItem[]>("todos", []);
 
-  const suggestion = useMemo<{ message: string; type: "gap" | "busy" } | null>(() => {
+  const suggestion = useMemo<{ message: string; type: "gap" | "clear" } | null>(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    // Using local date format to match YYYY-MM-DD storage
+    const todayStr = now.toLocaleDateString('en-CA'); 
     const currentMin = now.getHours() * 60 + now.getMinutes();
-    const lookAheadLimit = currentMin + 5 * 60;
 
     const busyBlocks: { start: number; end: number; title: string }[] = [];
 
+    // Map events
     events
       .filter((e) => e.date === todayStr && e.startTime)
       .forEach((e) => {
         busyBlocks.push({
           start: timeToMinutes(e.startTime),
-          end: timeToMinutes(e.endTime || e.startTime) + 15,
-          title: e.title ?? "event",
+          end: timeToMinutes(e.endTime || e.startTime) + 15, // 15m buffer
+          title: e.title ?? "Event",
         });
       });
 
+    // Map uncompleted tasks
     todos
       .filter((t) => t.dueDate === todayStr && t.dueTime && !t.completed)
       .forEach((t) => {
         const start = timeToMinutes(t.dueTime);
-        busyBlocks.push({ start, end: start + 45, title: t.title ?? "task" });
+        busyBlocks.push({ start, end: start + 45, title: t.title ?? "Task" });
       });
 
     busyBlocks.sort((a, b) => a.start - b.start);
 
+    // Logic: Gap before first event
     if (busyBlocks.length > 0) {
-      const firstEvent = busyBlocks[0];
-      if (firstEvent.start > currentMin + 40) {
-        const gapDuration = firstEvent.start - currentMin;
+      if (busyBlocks[0].start > currentMin + 30) {
         return {
-          message: `You're free for the next ${formatDuration(gapDuration)} before your ${firstEvent.title}. Time for a quick task?`,
+          message: `You're free for ${formatDuration(busyBlocks[0].start - currentMin)} before your ${busyBlocks[0].title}. Perfect time to start!`,
           type: "gap",
         };
       }
-    }
 
-    for (let i = 0; i < busyBlocks.length - 1; i++) {
-      const gapStart = busyBlocks[i].end;
-      const gapEnd = busyBlocks[i + 1].start;
-      const gapDuration = gapEnd - gapStart;
-      if (gapStart >= currentMin && gapStart < lookAheadLimit && gapDuration >= 45) {
-        return {
-          message: `Nice! You'll have ${formatDuration(gapDuration)} free after this session. Plan your next study block?`,
-          type: "gap",
-        };
+      // Logic: Gap between blocks
+      for (let i = 0; i < busyBlocks.length - 1; i++) {
+        const gapStart = busyBlocks[i].end;
+        const gapEnd = busyBlocks[i + 1].start;
+        const duration = gapEnd - gapStart;
+
+        if (gapStart > currentMin && duration >= 30) {
+          return {
+            message: `Nice! You have ${formatDuration(duration)} free after ${busyBlocks[i].title}. Time for a quick study session?`,
+            type: "gap",
+          };
+        }
       }
     }
 
     return {
-      message: "Your upcoming window looks focused. Keep up the great momentum!",
-      type: "busy",
+      message: "Your schedule is clear! A perfect time to get ahead on your long-term goals.",
+      type: "clear",
     };
   }, [events, todos]);
 
@@ -86,21 +94,18 @@ export default function ProductivityGapCard() {
 
   return (
     <Card className="relative overflow-hidden border-none h-full min-h-[180px] rounded-2xl group transition-all duration-300 hover:shadow-lg">
-      {/* Dynamic Background Gradient based on type */}
       <div className={`absolute inset-0 z-0 transition-all duration-500 ${
         suggestion.type === 'gap' 
         ? 'bg-gradient-to-br from-indigo-600 via-blue-500 to-sky-400' 
         : 'bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900'
       }`} />
 
-      {/* Glossy Overlay Decorations */}
       <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-400/20 rounded-full blur-2xl" />
       </div>
 
       <CardContent className="relative z-20 p-6 flex flex-col h-full text-white">
-        {/* Header Section */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
             <Zap className={`size-3.5 ${suggestion.type === 'gap' ? 'text-yellow-300' : 'text-slate-300'}`} fill="currentColor" />
@@ -114,7 +119,6 @@ export default function ProductivityGapCard() {
           </div>
         </div>
 
-        {/* Content Section */}
         <div className="flex flex-col flex-grow justify-center gap-4">
           <div className="flex items-start gap-4">
             <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">

@@ -8,17 +8,17 @@ export default function SleepSuggestionCard() {
   const [todos] = useUniStorage<any[]>("todos", []);
 
   const analysis = useMemo(() => {
+    // Analyze today's schedule and todos to determine sleep suggestions
     const now = new Date();
     const todayStr = now.toLocaleDateString('en-CA'); 
     const tomorrowStr = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toLocaleDateString('en-CA');
-
     const toMins = (t: string | undefined) => {
       if (!t) return null;
       const [h, m] = t.split(":").map(Number);
       return h * 60 + m;
     };
 
-    // Helper to turn 1439 mins into "11:59 PM"
+    // Calculation Logic
     const formatMinsToTime = (mins: number) => {
       let h = Math.floor(mins / 60) % 24;
       const m = mins % 60;
@@ -27,7 +27,7 @@ export default function SleepSuggestionCard() {
       return `${h}:${m < 10 ? '0' + m : m} ${ampm}`;
     };
 
-    // 1. Find boundaries
+    //Find boundaries
     let latestMinsToday = toMins("23:30")!; // Default sleep
     let earliestMinsTomorrow = toMins("06:30")!; // Default wake
     let lastAct = "Routine";
@@ -35,10 +35,12 @@ export default function SleepSuggestionCard() {
 
     events.forEach(e => {
       if (e.date === todayStr) {
+        // Check end time for today's events to find latest activity
         const m = toMins(e.endTime || e.startTime);
         if (m !== null && m > latestMinsToday) { latestMinsToday = m; lastAct = e.title || "Event"; }
       }
       if (e.date === tomorrowStr) {
+        // Check start time for tomorrow's events to find earliest activity
         const m = toMins(e.startTime);
         if (m !== null && m < earliestMinsTomorrow) { earliestMinsTomorrow = m; firstAct = e.title || "Event"; }
       }
@@ -46,15 +48,18 @@ export default function SleepSuggestionCard() {
 
     todos.forEach(t => {
       if (t.dueDate === todayStr && !t.completed) {
+        // Check due time for today's uncompleted tasks to find latest activity
         const m = toMins(t.dueTime);
         if (m !== null && m > latestMinsToday) { latestMinsToday = m; lastAct = t.title || "Task"; }
       }
       if (t.dueDate === tomorrowStr && !t.completed) {
+        // Check due time for tomorrow's uncompleted tasks to find earliest activity
         const m = toMins(t.dueTime);
         if (m !== null && m < earliestMinsTomorrow) { earliestMinsTomorrow = m; firstAct = t.title || "Task"; }
       }
     });
 
+    // Calculate gap and determine suggestion
     const gapHrs = (((1440 - latestMinsToday) + earliestMinsTomorrow) / 60).toFixed(1);
     const isRestricted = parseFloat(gapHrs) < 7;
 

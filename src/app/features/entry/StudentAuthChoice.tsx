@@ -2,9 +2,11 @@ import { Button } from "../../shared/ui/button";
 import { useNavigate } from "react-router-dom";
 
 export default function StudentAuthChoice() {
+  //Navigation hook
   const navigate = useNavigate();
 
   return (
+    //Main Layout Container
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-background to-muted px-4">
 
       <div className="w-full max-w-md bg-card p-10 rounded-2xl shadow-xl border border-border text-center">

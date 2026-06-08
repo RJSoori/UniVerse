@@ -1,5 +1,6 @@
 export type UserRole = "STUDENT" | "ADMIN" | "RECRUITER" | "SELLER";
 
+// Represents the authenticated user's information stored in localStorage
 export interface AuthUser {
   id: number;
   username: string;
