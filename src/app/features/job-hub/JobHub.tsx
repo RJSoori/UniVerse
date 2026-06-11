@@ -32,6 +32,8 @@ const REPORT_REASONS = [
 ];
 
 export function JobHub() {
+  //Hooks (fetch data from APIs, navigate between pages)
+
   const navigate = useNavigate();
 
   // ===== SHARED JOB BOARD STATE =====
@@ -50,6 +52,10 @@ export function JobHub() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<
     "all" | "full-time" | "part-time"
+  >("all");
+  // Work-type filter (On Site / Remote / Hybrid)
+  const [workFilter, setWorkFilter] = useState<
+    "all" | "On Site" | "Remote" | "Hybrid"
   >("all");
 
   // ===== NAVIGATION STATE =====
@@ -214,9 +220,14 @@ export function JobHub() {
     const matchesSearch = (job.title + " " + (job.company || ""))
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesType =
-      filterType === "all" || job.employmentType === filterType;
-    return matchesSearch && matchesType;
+    const normalize = (s?: string) =>
+      (s || "").toLowerCase().replace(/[-\s]/g, "");
+    const matchesEmployment =
+      filterType === "all" ||
+      normalize(job.employmentType) === normalize(filterType);
+    const matchesWork =
+      workFilter === "all" || normalize(job.workType) === normalize(workFilter);
+    return matchesSearch && matchesEmployment && matchesWork;
   });
 
   return (
@@ -245,7 +256,7 @@ export function JobHub() {
         </div>
       </div>
 
-      {/* --- Filter & Search Bar --- */}
+      {/* --- Search bar --- */}
       <div className="flex flex-col md:flex-row gap-3 bg-muted/30 p-3 rounded-2xl border">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -257,6 +268,7 @@ export function JobHub() {
           />
         </div>
 
+        {/* --- Filters --- */}
         <div className="flex bg-background rounded-xl p-1 border shadow-sm">
           {(["all", "full-time", "part-time"] as const).map((type) => (
             <Button
@@ -265,6 +277,19 @@ export function JobHub() {
               size="sm"
               className="capitalize px-4 h-8 text-[11px] font-black"
               onClick={() => setFilterType(type)}
+            >
+              {type}
+            </Button>
+          ))}
+        </div>
+        <div className="flex bg-background rounded-xl p-1 border shadow-sm">
+          {(["all", "On Site", "Remote", "Hybrid"] as const).map((type) => (
+            <Button
+              key={type}
+              variant={workFilter === type ? "default" : "ghost"}
+              size="sm"
+              className="capitalize px-4 h-8 text-[11px] font-black"
+              onClick={() => setWorkFilter(type)}
             >
               {type}
             </Button>
