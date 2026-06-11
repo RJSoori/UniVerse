@@ -34,9 +34,8 @@ export function RecruiterDashboard({
   onDeleteJob,
   onOpenSettings,
 }: RecruiterDashboardProps) {
-  // ✅ FILTER: Only show jobs posted by THIS recruiter's email (accessKey)
-  //const myJobs = jobs.filter((job) => job.postedBy === accessKey);
-  const myJobs = jobs.filter((job) => job.recruiter?.email === accessKey);
+  // Jobs are already loaded for the current recruiter, so render them directly.
+  const myJobs = jobs;
 
   return (
     <div className="min-h-screen bg-background p-6 animate-in fade-in duration-500">

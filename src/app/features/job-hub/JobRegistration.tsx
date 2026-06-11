@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -103,6 +103,41 @@ export function JobRegistration() {
     confirmPassword.length > 0 && password === confirmPassword;
   const passwordsMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
+
+  // Restore recruiter session on refresh
+  useEffect(() => {
+    const saved = localStorage.getItem("universe-recruiter");
+    if (!saved) return;
+
+    try {
+      const recruiter = JSON.parse(saved);
+      if (recruiter?.id) {
+        setCurrentRecruiter(recruiter);
+        setIsAuthenticated(true);
+        setIsRegistered(true);
+        setType(
+          recruiter.accountType === "individual" ? "individual" : "company",
+        );
+        setStep(3);
+        loadRecruiterJobs(recruiter.id);
+      }
+    } catch (error) {
+      console.error("Failed to restore recruiter session:", error);
+      localStorage.removeItem("universe-recruiter");
+    }
+  }, []);
+
+  // Persist recruiter session until user logs out
+  useEffect(() => {
+    if (currentRecruiter?.id) {
+      localStorage.setItem(
+        "universe-recruiter",
+        JSON.stringify(currentRecruiter),
+      );
+    } else {
+      localStorage.removeItem("universe-recruiter");
+    }
+  }, [currentRecruiter]);
 
   // AUTHENTICATION & API COMMUNICATION
   // Handles recruiter login with backend validation and status checking
@@ -395,6 +430,10 @@ export function JobRegistration() {
               className="w-full h-12 rounded-2xl font-bold"
               onClick={() => {
                 setIsAuthenticated(false);
+                setIsRegistered(false);
+                setCurrentRecruiter(null);
+                setAllJobs([]);
+                setType(null);
                 setIsRegistering(false);
                 setStep(1);
               }}
@@ -412,10 +451,15 @@ export function JobRegistration() {
         accessKey={email}
         jobs={allJobs}
         onPostNew={() => setIsPosting(true)}
-        onDeleteJob={(id) =>
-          setAllJobs((prevJobs) => prevJobs.filter((job) => job.id !== id))
-        }
-        onSignOut={() => setIsAuthenticated(false)}
+        onDeleteJob={handleDeleteJob}
+        onSignOut={() => {
+          setIsAuthenticated(false);
+          setIsRegistered(false);
+          setCurrentRecruiter(null);
+          setAllJobs([]);
+          setType(null);
+          setStep(1);
+        }}
         onOpenSettings={() => setIsSettings(true)}
       />
     );
