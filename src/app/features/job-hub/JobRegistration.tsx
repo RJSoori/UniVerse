@@ -144,22 +144,23 @@ export function JobRegistration() {
   const handleLogin = async () => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const response = await fetch(
-        "http://localhost:8080/api/jobs/recruiters/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            email: normalizedEmail,
-            password: password,
-          }).toString(),
+      const response = await apiFetch("/api/jobs/recruiters/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-      );
+        body: new URLSearchParams({
+          email: normalizedEmail,
+          password: password,
+        }).toString(),
+      });
 
       if (response.ok) {
-        const recruiter = await response.json();
+        const data = await response.json();
+        if (data.token) {
+          localStorage.setItem("universe-recruiter-token", data.token);
+        }
+        const recruiter = data;
         setCurrentRecruiter(recruiter);
         setIsAuthenticated(true);
         setStep(3);
@@ -278,13 +279,10 @@ export function JobRegistration() {
           formData.append("idDocument", businessRegistration);
       }
 
-      const response = await fetch(
-        "http://localhost:8080/api/jobs/recruiters",
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
+      const response = await apiFetch("/api/jobs/recruiters", {
+        method: "POST",
+        body: formData,
+      });
 
       if (response.ok) {
         const recruiter = await response.json();
@@ -334,11 +332,9 @@ export function JobRegistration() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Recruiter-Token": localStorage.getItem("universe-recruiter-token") || "",
         },
-        body: JSON.stringify({
-          ...job,
-          recruiterId: currentRecruiter.id,
-        }),
+        body: JSON.stringify(job),
       });
 
       if (!response.ok) {
@@ -374,6 +370,9 @@ export function JobRegistration() {
         `/api/jobs/recruiters/${currentRecruiter.id}/jobs/${id}`,
         {
           method: "DELETE",
+          headers: {
+            "X-Recruiter-Token": localStorage.getItem("universe-recruiter-token") || "",
+          },
         },
       );
       if (!response.ok) {
@@ -436,6 +435,7 @@ export function JobRegistration() {
                 setType(null);
                 setIsRegistering(false);
                 setStep(1);
+                localStorage.removeItem("universe-recruiter-token");
               }}
             >
               Log Out
@@ -459,6 +459,7 @@ export function JobRegistration() {
           setAllJobs([]);
           setType(null);
           setStep(1);
+          localStorage.removeItem("universe-recruiter-token");
         }}
         onOpenSettings={() => setIsSettings(true)}
       />

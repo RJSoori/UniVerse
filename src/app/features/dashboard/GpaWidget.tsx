@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Badge } from "../../shared/ui/badge";
 import { GraduationCap, TrendingUp } from "lucide-react";
 import { useGpaCalculator } from "../gpa-calculator/hooks/useGpaCalculator";
+import { GpaWidgetSkeleton, WidgetError } from "./WidgetSkeleton";
 
 interface GpaWidgetProps {
   onNavigate: (section: string) => void;
@@ -9,8 +10,11 @@ interface GpaWidgetProps {
 }
 
 export function GpaWidget({ onNavigate, compact = false }: GpaWidgetProps) {
-  const { getCgpa, getDegreeClass, semesters, getSemesterGpa } =
+  const { getCgpa, getDegreeClass, semesters, getSemesterGpa, isLoading, error, reload } =
     useGpaCalculator();
+
+  if (isLoading) return <GpaWidgetSkeleton compact={compact} />;
+  if (error) return <WidgetError message={error} onRetry={reload} compact={compact} />;
 
   const cgpa = getCgpa();
   const degreeClass = getDegreeClass();

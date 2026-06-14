@@ -1,30 +1,27 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:8080/api/focus';
+import { apiFetch } from "../../shared/api/client";
 
 export const focusApi = {
-  // Saves a focus session for the user
-  saveSession: async (minutes: number, userId: string) => {
+  saveSession: async (minutes: number) => {
     const sessionData = {
-      totalMinutes: minutes, 
-      userId: userId, 
-      focusDate: new Date().toISOString().split('T')[0] 
+      totalMinutes: minutes,
+      focusDate: new Date().toISOString().split("T")[0],
     };
-
-    // Send the session data to the backend API
-    return await axios.post(`${API_URL}/save`, sessionData);
+    const response = await apiFetch("/api/focus/save", {
+      method: "POST",
+      body: JSON.stringify(sessionData),
+    });
+    if (!response.ok) throw new Error("Failed to save focus session");
+    return response.json();
   },
 
-  // Fetches the analytics data specifically for the logged-in user
-  getAnalytics: async (userId: string) => {
+  getAnalytics: async () => {
     try {
-      const response = await axios.get(`${API_URL}/analytics`, {
-        params: { userId: userId } // This sends the ID as a query parameter
-      });
-      return response.data;
+      const response = await apiFetch("/api/focus/analytics");
+      if (!response.ok) return [];
+      return response.json();
     } catch (error) {
       console.error("Error fetching analytics:", error);
       return [];
     }
-  }
+  },
 };

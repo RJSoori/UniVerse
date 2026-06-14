@@ -4,10 +4,8 @@ import { apiFetch, parseApiError } from "../shared/api/client";
 import type { AuthUser } from "./tokenStore";
 import {
   clearAuthStorage,
-  getToken,
   getUser,
   onUnauthorized,
-  setToken,
   setUser,
 } from "./tokenStore";
 
@@ -50,9 +48,7 @@ function normalizeAuthUser(user: AuthUser): AuthUser {
 }
 
 interface AuthContextValue {
-  //Current authenticated user or null if not authenticated
   user: AuthUser | null;
-  token: string | null;
   loading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
@@ -67,24 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   //Initialize auth state from localStorage and manage session lifecycle
   const [userState, setUserState] = useState<AuthUser | null>(() => getUser());
-  const [tokenState, setTokenState] = useState<string | null>(() => getToken());
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
-    //Clear all authentication data and reset state
     clearAuthStorage();
     setUserState(null);
-    setTokenState(null);
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      clearSession();
-      setLoading(false);
-      return null;
-    }
-
     try {
       const response = await apiFetch("/api/auth/me");
       if (!response.ok) {
@@ -92,12 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return null;
       }
-
-
       const refreshedUser = (await response.json()) as AuthUser;
       setUser(refreshedUser);
       setUserState(refreshedUser);
-      setTokenState(token);
       setLoading(false);
       return refreshedUser;
     } catch (error) {
@@ -109,11 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const applyAuthResponse = useCallback((auth: AuthResponse) => {
-    //Apply authentication response by storing token and user data, and updating state
-    setToken(auth.token);
     const normalizedUser = normalizeAuthUser(auth.user);
     setUser(normalizedUser);
-    setTokenState(auth.token);
     setUserState(normalizedUser);
   }, []);
 
@@ -153,9 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      if (getToken()) {
-        await apiFetch("/api/auth/logout", { method: "POST" });
-      }
+      await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
       // Local logout should still complete even if the backend is unavailable.
     } finally {
@@ -197,7 +175,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user: userState,
-      token: tokenState,
       loading,
       login,
       register,
@@ -205,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       refreshSession,
     }),
-    [loading, login, logout, refreshSession, register, tokenState, updateProfile, userState],
+    [loading, login, logout, refreshSession, register, updateProfile, userState],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

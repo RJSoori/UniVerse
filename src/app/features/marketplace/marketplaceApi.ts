@@ -1,5 +1,11 @@
 import { apiFetch } from "../../shared/api/client";
 
+const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
+function getBackendUrl(): string {
+  if (configuredBackendUrl) return configuredBackendUrl.replace(/\/$/, "");
+  return "http://localhost:8080";
+}
+
 /**
  * API layer for marketplace operations including seller authentication,
  * item management, and seller profile handling
@@ -113,7 +119,7 @@ async function sellerFetch(path: string, init: RequestInit = {}): Promise<Respon
   if (token) {
     headers.set("X-Seller-Token", token);
   }
-  return fetch(`http://localhost:8080${path}`, { ...init, headers });
+  return fetch(`${getBackendUrl()}${path}`, { ...init, credentials: "include", headers });
 }
 
 /**

@@ -1,4 +1,4 @@
-import { clearAuthStorage, getToken, notifyUnauthorized } from "../../auth/tokenStore";
+import { clearAuthStorage, notifyUnauthorized } from "../../auth/tokenStore";
 
 const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
 
@@ -20,18 +20,15 @@ function getBackendUrl(): string {
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = getToken();
   const headers = new Headers(init.headers);
 
-  if (!headers.has("Content-Type") && init.body) {
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
-  }
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${getBackendUrl()}${path}`, {
     ...init,
+    credentials: "include",
     headers,
   });
 

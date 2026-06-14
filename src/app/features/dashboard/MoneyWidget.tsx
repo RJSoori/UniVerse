@@ -10,6 +10,7 @@ import { useMoneyManager } from "../money-manager/hooks/useMoneyManager";
 import { ArrowRight, TrendingDown, Wallet } from "lucide-react";
 import { Progress } from "../../shared/ui/progress";
 import { formatCurrency } from "../money-manager/utils/currency";
+import { MoneyWidgetSkeleton, WidgetError } from "./WidgetSkeleton";
 
 interface MoneyWidgetProps {
   onNavigate?: (section: string) => void;
@@ -17,8 +18,11 @@ interface MoneyWidgetProps {
 }
 
 export function MoneyWidget({ onNavigate, compact }: MoneyWidgetProps) {
-  const { getBalance, getCurrentMonthBudget, generateReport } =
+  const { getBalance, getCurrentMonthBudget, generateReport, isLoading, error, reload } =
     useMoneyManager();
+
+  if (isLoading) return <MoneyWidgetSkeleton compact={compact} />;
+  if (error) return <WidgetError message={error} onRetry={reload} compact={compact} />;
 
   const balance = getBalance();
   const budget = getCurrentMonthBudget();
