@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import {
   Wallet,
   Transaction,
@@ -261,34 +262,50 @@ function useMoneyManagerState() {
     void hydrateFromBackend();
   }, [hydrateFromBackend]);
 
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!hasHydratedFromBackend.current) {
       return;
     }
 
-    void saveMoneyManagerState({
-      wallets,
-      transactions,
-      budgets,
-      recurringExpenses,
-      categoryBudgets,
-      settings,
-    })
-      .then(() => {
-        setError(null);
-        if (shouldClearLegacyStorageRef.current) {
-          clearLegacyMoneyManagerStorage();
-          shouldClearLegacyStorageRef.current = false;
-        }
+    if (syncTimeoutRef.current !== null) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(() => {
+      syncTimeoutRef.current = null;
+      void saveMoneyManagerState({
+        wallets,
+        transactions,
+        budgets,
+        recurringExpenses,
+        categoryBudgets,
+        settings,
       })
-      .catch((syncError) => {
-        console.error("Failed to sync Money Manager data to backend:", syncError);
-        setError(
-          syncError instanceof Error
-            ? syncError.message
-            : "Failed to sync Money Manager data to backend.",
-        );
-    });
+        .then(() => {
+          setError(null);
+          if (shouldClearLegacyStorageRef.current) {
+            clearLegacyMoneyManagerStorage();
+            shouldClearLegacyStorageRef.current = false;
+          }
+        })
+        .catch((syncError) => {
+          console.error("Failed to sync Money Manager data to backend:", syncError);
+          const message =
+            syncError instanceof Error
+              ? syncError.message
+              : "Failed to sync Money Manager data to backend.";
+          setError(message);
+          toast.error("Changes not saved — " + message);
+        });
+    }, 800);
+
+    return () => {
+      if (syncTimeoutRef.current !== null) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
   }, [wallets, transactions, budgets, recurringExpenses, categoryBudgets, settings]);
 
   const applyWalletBalance = useCallback(
@@ -995,8 +1012,8 @@ function useMoneyManagerState() {
   }, [transactions]);
 
   const getBalance = useCallback((): number => {
-    return getTotalIncome() - getTotalExpenses();
-  }, [getTotalIncome, getTotalExpenses]);
+    return getIncludedWalletBalance();
+  }, [getIncludedWalletBalance]);
 
   const getDailyAllowance = useCallback((): DailyAllowance => {
     const budget = getCurrentMonthBudget();

@@ -9,15 +9,12 @@ import { Label } from "../../shared/ui/label";
 import FocusTrendChart from "./FocusTrendChart";
 import { useGpaCalculator } from "../gpa-calculator/hooks/useGpaCalculator";
 import { focusApi } from "./focusApi";
+import { useAuth } from "../../auth/AuthContext";
 
 export function FocusTimer() {
   //Retrieve Data from GPA module
   const { getCgpa } = useGpaCalculator();
-
-  //Identify current user
-  const userString = localStorage.getItem("user");
-  const userData = userString ? JSON.parse(userString) : null;
-  const currentUserId = userData?.username || userData?.id || "guest_student";
+  const { user } = useAuth();
 
   // Timer State
   const [duration, setDuration] = useState(25);
@@ -42,10 +39,10 @@ export function FocusTimer() {
 
   //Data loading function for analytics
   const loadData = async () => {
-    if (!currentUserId || currentUserId === "guest_student") return;
-    const data = await focusApi.getAnalytics(currentUserId);
+    if (!user) return;
+    const data = await focusApi.getAnalytics();
     setWeeklyData(data);
-    
+
     const today = new Date().toISOString().split('T')[0];
     const todayRecord = data.find((item: any) => item.date === today);
     setTodayMinutes(todayRecord ? todayRecord.minutes : 0);
@@ -53,17 +50,17 @@ export function FocusTimer() {
 
   useEffect(() => {
     loadData();
-  }, [currentUserId]);
+  }, [user]);
 
   //Session persistence
   const saveSession = async (mins: number) => {
-    if (isSavingRef.current || mins < 1 || currentUserId === "guest_student") return; 
-    
+    if (isSavingRef.current || mins < 1 || !user) return;
+
     try {
       // Lock to prevent multiple rapid saves and ensure meaningful session lengths
       isSavingRef.current = true; //Lock
-      await focusApi.saveSession(mins, currentUserId);
-      await loadData(); 
+      await focusApi.saveSession(mins);
+      await loadData();
     } catch (error) {
       console.error("Error saving session:", error);
     } finally {
@@ -87,7 +84,7 @@ export function FocusTimer() {
 
     // Cleanup on unmount or when timer stops
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isRunning, timeLeft, duration, currentUserId]);
+  }, [isRunning, timeLeft, duration, user]);
 
   const toggleTimer = () => setIsRunning(!isRunning);
 
@@ -164,7 +161,7 @@ export function FocusTimer() {
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-tight">Focus Timer</h2>
             <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-500 uppercase tracking-widest">
-              ID: {currentUserId}
+              {user?.username ?? ""}
             </span>
           </div>
           <p className="text-slate-500">Track study sessions for your IT degree goals</p>
