@@ -1,4 +1,4 @@
-import { apiFetch } from "../../shared/api/client";
+import { apiFetch, parseApiError } from "../../shared/api/client";
 
 const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
 function getBackendUrl(): string {
@@ -48,6 +48,7 @@ export interface SellerRequest {
   password: string;
   phone?: string;
   description?: string;
+  emailVerificationToken: string;
 }
 
 export interface SellerLoginRequest {
@@ -143,6 +144,55 @@ export async function loginSellerAuth(request: SellerLoginRequest): Promise<Sell
   });
   if (!response.ok) throw new Error("Invalid username or password");
   return response.json();
+}
+
+/**
+ * Seller signup email verification (send/verify a 6-digit code before an account exists)
+ * and forgot-password (send/verify a 6-digit code, then reset). Both mirror the recruiter
+ * flow in job-hub/JobRegistration.tsx and job-hub/AccessRecovery.tsx.
+ */
+export async function sendSellerEmailCode(email: string): Promise<void> {
+  const response = await apiFetch("/api/marketplace/sellers/email/send-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
+}
+
+export async function verifySellerEmailCode(email: string, code: string): Promise<string> {
+  const response = await apiFetch("/api/marketplace/sellers/email/verify-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
+  const data = await response.json();
+  return data.verificationToken as string;
+}
+
+export async function sellerForgotPassword(email: string): Promise<void> {
+  const response = await apiFetch("/api/marketplace/sellers/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
+}
+
+export async function verifySellerResetCode(email: string, code: string): Promise<string> {
+  const response = await apiFetch("/api/marketplace/sellers/verify-reset-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
+  const data = await response.json();
+  return data.resetToken as string;
+}
+
+export async function resetSellerPassword(email: string, resetToken: string, newPassword: string): Promise<void> {
+  const response = await apiFetch("/api/marketplace/sellers/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email, resetToken, newPassword }),
+  });
+  if (!response.ok) throw new Error(await parseApiError(response));
 }
 
 /**

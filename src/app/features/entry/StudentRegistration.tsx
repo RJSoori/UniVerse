@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
 import { Button } from "../../shared/ui/button";
+import { apiFetch, parseApiError } from "../../shared/api/client";
+import { CheckCircle } from "lucide-react";
 
 //Multi-step student registration process
 export default function StudentRegistration() {
@@ -34,6 +36,99 @@ export default function StudentRegistration() {
   const [passwordError, setPasswordError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // WORK EMAIL VERIFICATION STATE
+  // Students must verify ownership of their email (6-digit code) before the account
+  // can be created. Mirrors the recruiter signup flow in job-hub/JobRegistration.tsx.
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailCodeError, setEmailCodeError] = useState("");
+  const [emailResendCooldown, setEmailResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (formData.email.trim().toLowerCase() !== verifiedEmail) {
+      setEmailVerified(false);
+      setEmailVerificationToken("");
+    }
+  }, [formData.email, verifiedEmail]);
+
+  useEffect(() => {
+    if (emailResendCooldown <= 0) return;
+    const timer = setInterval(
+      () => setEmailResendCooldown((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [emailResendCooldown]);
+
+  const handleSendEmailCode = async () => {
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      toast.error("Please enter a valid email address first.");
+      return;
+    }
+    setIsSendingEmailCode(true);
+    try {
+      const response = await apiFetch("/api/auth/email/send-code", {
+        method: "POST",
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      toast.success("Verification code sent to your email.");
+      setShowEmailCodeInput(true);
+      setEmailCode("");
+      setEmailCodeError("");
+      setEmailResendCooldown(30);
+    } catch (error) {
+      console.error("Failed to send email verification code:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send code. Please try again.",
+      );
+    } finally {
+      setIsSendingEmailCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    setEmailCodeError("");
+    if (!/^\d{6}$/.test(emailCode)) {
+      setEmailCodeError("Enter the 6-digit code from your email.");
+      return;
+    }
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    setIsVerifyingEmailCode(true);
+    try {
+      const response = await apiFetch("/api/auth/email/verify-code", {
+        method: "POST",
+        body: JSON.stringify({ email: normalizedEmail, code: emailCode }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      const data = await response.json();
+      setEmailVerificationToken(data.verificationToken);
+      setVerifiedEmail(normalizedEmail);
+      setEmailVerified(true);
+      setShowEmailCodeInput(false);
+      toast.success("Email verified!");
+    } catch (error) {
+      console.error("Email code verification failed:", error);
+      setEmailCodeError(
+        error instanceof Error ? error.message : "Invalid or expired code.",
+      );
+    } finally {
+      setIsVerifyingEmailCode(false);
+    }
+  };
 
   //Generic input changes Handler
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -67,12 +162,16 @@ export default function StudentRegistration() {
       setPasswordError("Passwords do not match. Please enter the same password twice.");
       return;
     }
+    if (!emailVerified || formData.email.trim().toLowerCase() !== verifiedEmail) {
+      setSubmitError("Please verify your email before submitting.");
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError("");
 
     try {
-      await auth.register(formData);
+      await auth.register({ ...formData, emailVerificationToken });
       toast.success("Registration successful");
       navigate("/dashboard");
     } catch (error) {
@@ -155,15 +254,66 @@ export default function StudentRegistration() {
             <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground ml-1">Email Address</label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="name@address.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full border border-border bg-background text-foreground rounded-xl px-4 py-3 focus:ring-4 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/70"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="name@address.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="flex-1 border border-border bg-background text-foreground rounded-xl px-4 py-3 focus:ring-4 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground/70"
+                    required
+                  />
+                  {emailVerified ? (
+                    <div className="px-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center gap-2 text-green-600 font-bold text-xs whitespace-nowrap">
+                      <CheckCircle className="size-4" /> Verified
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl font-bold whitespace-nowrap"
+                      onClick={handleSendEmailCode}
+                      disabled={isSendingEmailCode || !formData.email.includes("@")}
+                    >
+                      {isSendingEmailCode ? "Sending..." : "Verify"}
+                    </Button>
+                  )}
+                </div>
+
+                {showEmailCodeInput && !emailVerified && (
+                  <div className="flex gap-2 items-start pt-1">
+                    <div className="flex-1">
+                      <input
+                        inputMode="numeric"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={emailCode}
+                        onChange={(e) => {
+                          setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                          setEmailCodeError("");
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleVerifyEmailCode())}
+                        className="w-full border border-border bg-background text-foreground rounded-xl px-4 py-2.5 font-mono text-center tracking-[0.4em] focus:ring-4 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+                      />
+                      {emailCodeError && <p className="text-xs text-destructive mt-1 ml-1">{emailCodeError}</p>}
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-primary mt-1 ml-1 font-semibold disabled:opacity-50"
+                        onClick={handleSendEmailCode}
+                        disabled={emailResendCooldown > 0 || isSendingEmailCode}
+                      >
+                        {emailResendCooldown > 0 ? `Resend in ${emailResendCooldown}s` : "Resend code"}
+                      </button>
+                    </div>
+                    <Button type="button" className="rounded-xl" onClick={handleVerifyEmailCode} disabled={isVerifyingEmailCode || emailCode.length !== 6}>
+                      {isVerifyingEmailCode ? "Checking..." : "Confirm"}
+                    </Button>
+                  </div>
+                )}
+                {!showEmailCodeInput && !emailVerified && (
+                  <p className="text-xs text-muted-foreground ml-1">We'll send a 6-digit code to confirm you own this email.</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -211,10 +361,14 @@ export default function StudentRegistration() {
 
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !emailVerified}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 rounded-xl text-lg font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
               >
-                {submitting ? "Creating account..." : "Complete Registration"}
+                {submitting
+                  ? "Creating account..."
+                  : emailVerified
+                    ? "Complete Registration"
+                    : "Verify Your Email to Continue"}
               </Button>
             </form>
           )}
