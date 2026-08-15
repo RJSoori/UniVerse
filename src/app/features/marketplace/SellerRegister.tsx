@@ -10,13 +10,16 @@ import { SellerAccessRecovery } from "./SellerAccessRecovery";
 import {
   ShoppingBag, GraduationCap, Lock, UserPlus, Key,
   ArrowLeft, Eye, EyeOff, Store, User, Upload,
-  MapPin, FileText, Tag, ShieldCheck, Phone,
+  MapPin, FileText, Tag, ShieldCheck, Phone, CheckCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   registerSellerAuth,
   loginSellerAuth,
   setSellerToken,
   setSellerData,
+  sendSellerEmailCode,
+  verifySellerEmailCode,
 } from "./marketplaceApi";
 
 /**
@@ -46,6 +49,19 @@ export default function SellerRegister() {
   const [regConfirm, setRegConfirm] = useState("");
   const [registerError, setRegisterError] = useState("");
 
+  // WORK EMAIL VERIFICATION STATE
+  // Sellers must verify ownership of their email (6-digit code) before the account can be
+  // created. Mirrors the recruiter signup flow in job-hub/JobRegistration.tsx.
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailCodeError, setEmailCodeError] = useState("");
+  const [emailResendCooldown, setEmailResendCooldown] = useState(0);
+
   // Manages business verification form data for store details submission
   const [verifBusinessName, setVerifBusinessName] = useState("");
   const [verifIdNumber, setVerifIdNumber] = useState("");
@@ -63,6 +79,75 @@ export default function SellerRegister() {
       navigate("/seller/dashboard");
     }
   }, [navigate, shouldRedirectToDashboard]);
+
+  // Any edit to the email after verification invalidates it - the verified token is only
+  // valid for the exact address it was issued for.
+  useEffect(() => {
+    if (regEmail.trim().toLowerCase() !== verifiedEmail) {
+      setEmailVerified(false);
+      setEmailVerificationToken("");
+    }
+  }, [regEmail, verifiedEmail]);
+
+  useEffect(() => {
+    if (emailResendCooldown <= 0) return;
+    const timer = setInterval(
+      () => setEmailResendCooldown((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [emailResendCooldown]);
+
+  const handleSendEmailCode = async () => {
+    const normalizedEmail = regEmail.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      toast.error("Please enter a valid email first.");
+      return;
+    }
+    setIsSendingEmailCode(true);
+    try {
+      await sendSellerEmailCode(normalizedEmail);
+      toast.success("Verification code sent to your email.");
+      setShowEmailCodeInput(true);
+      setEmailCode("");
+      setEmailCodeError("");
+      setEmailResendCooldown(30);
+    } catch (error) {
+      console.error("Failed to send email verification code:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send code. Please try again.",
+      );
+    } finally {
+      setIsSendingEmailCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    setEmailCodeError("");
+    if (!/^\d{6}$/.test(emailCode)) {
+      setEmailCodeError("Enter the 6-digit code from your email.");
+      return;
+    }
+    const normalizedEmail = regEmail.trim().toLowerCase();
+    setIsVerifyingEmailCode(true);
+    try {
+      const token = await verifySellerEmailCode(normalizedEmail, emailCode);
+      setEmailVerificationToken(token);
+      setVerifiedEmail(normalizedEmail);
+      setEmailVerified(true);
+      setShowEmailCodeInput(false);
+      toast.success("Email verified!");
+    } catch (error) {
+      console.error("Email code verification failed:", error);
+      setEmailCodeError(
+        error instanceof Error ? error.message : "Invalid or expired code.",
+      );
+    } finally {
+      setIsVerifyingEmailCode(false);
+    }
+  };
 
   // Displays account recovery interface for password reset
   if (showRecovery) {
@@ -123,6 +208,10 @@ export default function SellerRegister() {
       setRegisterError("Passwords do not match.");
       return;
     }
+    if (!emailVerified || regEmail.trim().toLowerCase() !== verifiedEmail) {
+      setRegisterError("Please verify your email before continuing.");
+      return;
+    }
     setIsAuthenticated(true);
     setStep(1);
   };
@@ -148,6 +237,7 @@ export default function SellerRegister() {
         password: regPassword,
         phone: verifContact,
         description: verifDescription,
+        emailVerificationToken,
       });
 
       // ✅ Store seller token and data
@@ -249,12 +339,61 @@ export default function SellerRegister() {
                 </p>
                 <div className="space-y-2">
                   <Label>Email Address</Label>
-                  <Input
-                    type="email"
-                    placeholder="jane@example.com"
-                    value={regEmail}
-                    onChange={(e) => { setRegEmail(e.target.value); setRegisterError(""); }}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="jane@example.com"
+                      className="flex-1"
+                      value={regEmail}
+                      onChange={(e) => { setRegEmail(e.target.value); setRegisterError(""); }}
+                    />
+                    {emailVerified ? (
+                      <div className="px-3 rounded-md bg-green-500/10 border border-green-500/30 flex items-center gap-2 text-green-600 font-bold text-xs whitespace-nowrap">
+                        <CheckCircle className="size-4" /> Verified
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="whitespace-nowrap"
+                        onClick={handleSendEmailCode}
+                        disabled={isSendingEmailCode || !regEmail.includes("@")}
+                      >
+                        {isSendingEmailCode ? "Sending..." : "Verify"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {showEmailCodeInput && !emailVerified && (
+                    <div className="flex gap-2 items-start pt-1">
+                      <div className="flex-1">
+                        <Input
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="000000"
+                          className="font-mono tracking-[0.4em] text-center"
+                          value={emailCode}
+                          onChange={(e) => {
+                            setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                            setEmailCodeError("");
+                          }}
+                          onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailCode()}
+                        />
+                        {emailCodeError && <p className="text-xs text-destructive mt-1">{emailCodeError}</p>}
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-primary mt-1 font-semibold disabled:opacity-50"
+                          onClick={handleSendEmailCode}
+                          disabled={emailResendCooldown > 0 || isSendingEmailCode}
+                        >
+                          {emailResendCooldown > 0 ? `Resend in ${emailResendCooldown}s` : "Resend code"}
+                        </button>
+                      </div>
+                      <Button type="button" onClick={handleVerifyEmailCode} disabled={isVerifyingEmailCode || emailCode.length !== 6}>
+                        {isVerifyingEmailCode ? "Checking..." : "Confirm"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Username</Label>
@@ -293,8 +432,8 @@ export default function SellerRegister() {
                   />
                 </div>
                 {registerError && <p className="text-xs text-destructive">{registerError}</p>}
-                <Button className="w-full" variant="secondary" onClick={handleRegister}>
-                  <UserPlus className="mr-2 size-4" /> Continue
+                <Button className="w-full" variant="secondary" onClick={handleRegister} disabled={!emailVerified}>
+                  <UserPlus className="mr-2 size-4" /> {emailVerified ? "Continue" : "Verify Your Email to Continue"}
                 </Button>
               </TabsContent>
             </Tabs>

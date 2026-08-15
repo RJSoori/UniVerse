@@ -44,8 +44,8 @@ const StudentAuthChoice = lazy(
 const StudentRegistration = lazy(
   () => import("./features/entry/StudentRegistration"),
 );
-const PasswordResetUnavailable = lazy(
-  () => import("./features/entry/PasswordResetUnavailable"),
+const StudentAccessRecovery = lazy(
+  () => import("./features/entry/StudentAccessRecovery"),
 );
 const JobRegistration = lazy(() =>
   import("./features/job-hub/JobRegistration").then((module) => ({
@@ -485,7 +485,7 @@ export default function App() {
           path="/forgot-password"
           element={
             <EntryLayout>
-              <PasswordResetUnavailable />
+              <StudentAccessRecovery />
             </EntryLayout>
           }
         />
@@ -493,7 +493,7 @@ export default function App() {
           path="/reset-password"
           element={
             <EntryLayout>
-              <PasswordResetUnavailable />
+              <StudentAccessRecovery />
             </EntryLayout>
           }
         />

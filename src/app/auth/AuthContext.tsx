@@ -18,6 +18,7 @@ interface RegisterCredentials extends LoginCredentials {
   name: string;
   degree: string;
   email: string;
+  emailVerificationToken: string;
 }
 
 interface UpdateProfilePayload {

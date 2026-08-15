@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
 import { Label } from "../../shared/ui/label";
 import { ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import { sellerForgotPassword, verifySellerResetCode, resetSellerPassword } from "./marketplaceApi";
+import { apiFetch, parseApiError } from "../../shared/api/client";
 
 /**
- * Seller Access Recovery — real forgot-password flow backed by the API:
+ * Student Access Recovery — real forgot-password flow backed by the API:
  *   1. Enter the registered email -> backend emails a 6-digit code (if the email matches).
  *   2. Enter the code -> backend verifies it and returns a short-lived reset token.
  *   3. Choose a new password -> backend consumes the reset token and updates the password.
- * Mirrors job-hub/AccessRecovery.tsx and entry/StudentAccessRecovery.tsx, hitting the
- * seller auth endpoints instead. Replaces the previous localStorage-only mock.
+ * Mirrors job-hub/AccessRecovery.tsx and marketplace/SellerAccessRecovery.tsx, hitting the
+ * student auth endpoints instead. Route-based (no onBack prop) since it's wired directly to
+ * /forgot-password and /reset-password in App.tsx.
  */
-
-interface SellerAccessRecoveryProps {
-  onBack: () => void;
-}
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
-export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
+export default function StudentAccessRecovery() {
+  const navigate = useNavigate();
+
   // 1: email, 2: verification code, 3: new password, 4: success
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,7 +58,13 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
 
     setIsSubmitting(true);
     try {
-      await sellerForgotPassword(email.trim().toLowerCase());
+      const response = await apiFetch("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
       toast.success("If that email is registered, a verification code is on its way.");
       setStep(2);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
@@ -79,8 +85,15 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
 
     setIsSubmitting(true);
     try {
-      const token = await verifySellerResetCode(email.trim().toLowerCase(), code);
-      setResetToken(token);
+      const response = await apiFetch("/api/auth/verify-reset-code", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      const data = await response.json();
+      setResetToken(data.resetToken);
       setStep(3);
     } catch (error) {
       console.error("Code verification failed:", error);
@@ -98,8 +111,8 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
 
   const handleResetPassword = async () => {
     setPasswordError("");
-    if (newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters.");
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -109,7 +122,17 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
 
     setIsSubmitting(true);
     try {
-      await resetSellerPassword(email.trim().toLowerCase(), resetToken, newPassword);
+      const response = await apiFetch("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          resetToken,
+          newPassword,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
       setStep(4);
     } catch (error) {
       console.error("Password reset failed:", error);
@@ -121,7 +144,6 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
     }
   };
 
-  // ── Success screen ─────────────────────────────────────────────────────────
   if (step === 4) {
     return (
       <div className="max-w-md mx-auto pt-20 px-4">
@@ -132,10 +154,10 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
             </div>
             <h2 className="text-xl font-bold">Password Updated</h2>
             <p className="text-sm text-muted-foreground">
-              Your password has been reset successfully. You can now log in with your new password.
+              Your password has been reset successfully. You can now sign in with your new password.
             </p>
-            <Button className="w-full mt-2" onClick={onBack}>
-              Back to Login
+            <Button className="w-full mt-2" onClick={() => navigate("/signin")}>
+              Back to Sign In
             </Button>
           </CardContent>
         </Card>
@@ -148,11 +170,11 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => (step === 1 ? onBack() : setStep((s) => (s === 3 ? 2 : 1)))}
+        onClick={() => (step === 1 ? navigate("/signin") : setStep((s) => (s === 3 ? 2 : 1)))}
         className="mb-4 text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="mr-2 size-4" />
-        {step === 1 ? "Back to Login" : "Back"}
+        {step === 1 ? "Back to Sign In" : "Back"}
       </Button>
 
       <Card className="border-primary/20 shadow-xl">
@@ -169,7 +191,6 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* ── Step 1: Email ── */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -178,7 +199,7 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type="email"
-                    placeholder="jane@example.com"
+                    placeholder="name@address.com"
                     className="pl-10"
                     value={email}
                     onChange={(e) => {
@@ -196,7 +217,6 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
             </div>
           )}
 
-          {/* ── Step 2: Verification code ── */}
           {step === 2 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
               <div className="p-3 bg-muted rounded-lg flex items-center gap-3 border">
@@ -243,7 +263,6 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
             </div>
           )}
 
-          {/* ── Step 3: New password ── */}
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
               <div className="space-y-2">
@@ -252,7 +271,7 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type="password"
-                    placeholder="At least 8 characters"
+                    placeholder="At least 6 characters"
                     className="pl-10"
                     value={newPassword}
                     onChange={(e) => {

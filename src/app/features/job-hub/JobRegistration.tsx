@@ -27,6 +27,7 @@ import {
   MapPin,
   FileText,
   ImageIcon,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AccessRecovery } from "./AccessRecovery";
@@ -82,6 +83,101 @@ export function JobRegistration() {
   // Company details for registration
   const [companyName, setCompanyName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
+
+  // WORK EMAIL VERIFICATION STATE
+  // Recruiters must verify ownership of their work email (6-digit code) before the
+  // account can be created. Mirrors the forgot-password flow in AccessRecovery.tsx.
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailCodeError, setEmailCodeError] = useState("");
+  const [emailResendCooldown, setEmailResendCooldown] = useState(0);
+
+  // Any edit to the email after verification invalidates it - the verified token is only
+  // valid for the exact address it was issued for.
+  useEffect(() => {
+    if (email.trim().toLowerCase() !== verifiedEmail) {
+      setEmailVerified(false);
+      setEmailVerificationToken("");
+    }
+  }, [email, verifiedEmail]);
+
+  useEffect(() => {
+    if (emailResendCooldown <= 0) return;
+    const timer = setInterval(
+      () => setEmailResendCooldown((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [emailResendCooldown]);
+
+  const handleSendEmailCode = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      toast.error("Please enter a valid work email first.");
+      return;
+    }
+    setIsSendingEmailCode(true);
+    try {
+      const response = await apiFetch("/api/jobs/recruiters/email/send-code", {
+        method: "POST",
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      toast.success("Verification code sent to your email.");
+      setShowEmailCodeInput(true);
+      setEmailCode("");
+      setEmailCodeError("");
+      setEmailResendCooldown(30);
+    } catch (error) {
+      console.error("Failed to send email verification code:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send code. Please try again.",
+      );
+    } finally {
+      setIsSendingEmailCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    setEmailCodeError("");
+    if (!/^\d{6}$/.test(emailCode)) {
+      setEmailCodeError("Enter the 6-digit code from your email.");
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    setIsVerifyingEmailCode(true);
+    try {
+      const response = await apiFetch("/api/jobs/recruiters/email/verify-code", {
+        method: "POST",
+        body: JSON.stringify({ email: normalizedEmail, code: emailCode }),
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      const data = await response.json();
+      setEmailVerificationToken(data.verificationToken);
+      setVerifiedEmail(normalizedEmail);
+      setEmailVerified(true);
+      setShowEmailCodeInput(false);
+      toast.success("Email verified!");
+    } catch (error) {
+      console.error("Email code verification failed:", error);
+      setEmailCodeError(
+        error instanceof Error ? error.message : "Invalid or expired code.",
+      );
+    } finally {
+      setIsVerifyingEmailCode(false);
+    }
+  };
 
   // PASSWORD SECURITY VALIDATION
   // Evaluates password strength based on length and character diversity
@@ -236,22 +332,32 @@ export function JobRegistration() {
     // Ensure all required fields are properly filled
     if (!email.includes("@")) {
       toast.error("Please enter a valid work email.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!emailVerified || email.trim().toLowerCase() !== verifiedEmail) {
+      toast.error("Please verify your work email before submitting.");
+      setIsSubmitting(false);
       return;
     }
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters.");
+      setIsSubmitting(false);
       return;
     }
     if (password !== confirmPassword) {
       toast.error("Passwords do not match. Please re-enter to confirm.");
+      setIsSubmitting(false);
       return;
     }
     if (!contactPerson) {
       toast.error("Please fill in all required fields.");
+      setIsSubmitting(false);
       return;
     }
     if (type === "company" && !companyName) {
       toast.error("Please fill in all required fields.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -266,6 +372,7 @@ export function JobRegistration() {
       formData.append("contactPerson", contactPerson);
       formData.append("accountType", type ?? "company");
       formData.append("password", password);
+      formData.append("emailVerificationToken", emailVerificationToken);
 
       if (type === "company") {
         if (businessRegistration)
@@ -817,13 +924,78 @@ export function JobRegistration() {
                   <Label className="font-black text-[10px] uppercase tracking-[0.2em] ml-1 opacity-70">
                     Work Email
                   </Label>
-                  <Input
-                    type="email"
-                    className="h-14 bg-muted/20 border-border/60 px-6 rounded-2xl font-medium focus-visible:ring-1"
-                    placeholder="hr@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      className="h-14 bg-muted/20 border-border/60 px-6 rounded-2xl font-medium focus-visible:ring-1 flex-1"
+                      placeholder="hr@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    {emailVerified ? (
+                      <div className="h-14 px-4 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center gap-2 text-green-600 font-bold text-xs whitespace-nowrap">
+                        <CheckCircle className="size-4" /> Verified
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-14 px-6 rounded-2xl font-bold whitespace-nowrap"
+                        onClick={handleSendEmailCode}
+                        disabled={isSendingEmailCode || !email.includes("@")}
+                      >
+                        {isSendingEmailCode ? "Sending..." : "Verify"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {showEmailCodeInput && !emailVerified && (
+                    <div className="flex gap-2 items-start pt-1 animate-in fade-in slide-in-from-top-1">
+                      <div className="flex-1">
+                        <Input
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="000000"
+                          className="h-12 bg-muted/20 border-border/60 px-5 rounded-xl font-mono tracking-[0.4em] text-center"
+                          value={emailCode}
+                          onChange={(e) => {
+                            setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                            setEmailCodeError("");
+                          }}
+                          onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailCode()}
+                        />
+                        {emailCodeError && (
+                          <p className="text-[10px] text-destructive mt-1 ml-1">{emailCodeError}</p>
+                        )}
+                        <button
+                          type="button"
+                          className="text-[10px] text-muted-foreground hover:text-primary mt-1 ml-1 font-bold disabled:opacity-50"
+                          onClick={handleSendEmailCode}
+                          disabled={emailResendCooldown > 0 || isSendingEmailCode}
+                        >
+                          {emailResendCooldown > 0
+                            ? `Resend in ${emailResendCooldown}s`
+                            : "Resend code"}
+                        </button>
+                      </div>
+                      <Button
+                        type="button"
+                        className="h-12 rounded-xl font-bold"
+                        onClick={handleVerifyEmailCode}
+                        disabled={isVerifyingEmailCode || emailCode.length !== 6}
+                      >
+                        {isVerifyingEmailCode ? "Checking..." : "Confirm"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {!showEmailCodeInput && (
+                    <p className="text-[10px] text-muted-foreground ml-1">
+                      {emailVerified
+                        ? "This email has been verified."
+                        : "We'll send a 6-digit code to confirm you own this email."}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <Label className="font-black text-[10px] uppercase tracking-[0.2em] ml-1 opacity-70">
@@ -916,9 +1088,13 @@ export function JobRegistration() {
                 <Button
                   className="flex-[2] h-14 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-primary/20 bg-primary"
                   onClick={handleRegisterAccount}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !emailVerified}
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Application"}
+                  {isSubmitting
+                    ? "Submitting..."
+                    : emailVerified
+                      ? "Submit Application"
+                      : "Verify Your Email to Continue"}
                 </Button>
               </div>
             </CardContent>
