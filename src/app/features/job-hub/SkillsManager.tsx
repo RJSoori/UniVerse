@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
@@ -16,38 +16,123 @@ import {
     BrainCircuit,
     Wand2
 } from "lucide-react";
-import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { toast } from "sonner";
+import { apiFetch, parseApiError } from "../../shared/api/client";
 
+/**
+ * Skills profile for the Job Hub. Backed by real endpoints:
+ *   GET/PUT  /api/skills      - the student's manually-managed skill list
+ *   POST     /api/skills/cv   - upload a PDF CV; the backend extracts text (Apache PDFBox)
+ *                                and asks Gemini to identify skills, merging any new ones in.
+ */
 export function SkillsManager() {
     const navigate = useNavigate();
-    const [mySkills, setMySkills] = useUniStorage<string[]>("student-skills", ["React", "TypeScript", "Node.js"]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [mySkills, setMySkills] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [newSkill, setNewSkill] = useState("");
     const [isUploading, setIsUploading] = useState(false);
     const [uploadComplete, setUploadComplete] = useState(false);
+    const [newlyExtracted, setNewlyExtracted] = useState<string[]>([]);
+
+    useEffect(() => {
+        const loadSkills = async () => {
+            try {
+                const response = await apiFetch("/api/skills");
+                if (!response.ok) {
+                    throw new Error(await parseApiError(response));
+                }
+                const data = await response.json();
+                setMySkills(data.skills ?? []);
+            } catch (error) {
+                console.error("Failed to load skills:", error);
+                toast.error("Unable to load your skills. Please try again.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadSkills();
+    }, []);
+
+    const saveSkills = async (updated: string[]) => {
+        const previous = mySkills;
+        setMySkills(updated); // optimistic
+        try {
+            const response = await apiFetch("/api/skills", {
+                method: "PUT",
+                body: JSON.stringify(updated),
+            });
+            if (!response.ok) {
+                throw new Error(await parseApiError(response));
+            }
+            const data = await response.json();
+            setMySkills(data.skills ?? updated);
+        } catch (error) {
+            console.error("Failed to save skills:", error);
+            toast.error("Unable to save that change. Please try again.");
+            setMySkills(previous); // roll back
+        }
+    };
 
     const handleAddSkill = (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (newSkill && !mySkills.includes(newSkill)) {
-            setMySkills([...mySkills, newSkill]);
+        const trimmed = newSkill.trim();
+        if (trimmed && !mySkills.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+            saveSkills([...mySkills, trimmed]);
             setNewSkill("");
         }
     };
 
     const removeSkill = (skillToRemove: string) => {
-        setMySkills(mySkills.filter(skill => skill !== skillToRemove));
+        saveSkills(mySkills.filter((skill) => skill !== skillToRemove));
     };
 
-    const simulateCvParse = () => {
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = ""; // allow re-selecting the same file later
+        if (!file) return;
+
+        if (file.type !== "application/pdf") {
+            toast.error("Please upload a PDF file.");
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error("File exceeds the maximum allowed size of 10MB.");
+            return;
+        }
+
         setIsUploading(true);
-        // Mocking AI parsing logic
-        setTimeout(() => {
-            const extracted = ["Docker", "Kubernetes", "AWS", "Python"];
-            const uniqueNew = extracted.filter(s => !mySkills.includes(s));
-            setMySkills([...mySkills, ...uniqueNew]);
-            setIsUploading(false);
+        setNewlyExtracted([]);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await apiFetch("/api/skills/cv", {
+                method: "POST",
+                body: formData,
+            });
+            if (!response.ok) {
+                throw new Error(await parseApiError(response));
+            }
+            const data = await response.json();
+            setMySkills(data.skills ?? []);
+            const extracted: string[] = data.newlyExtracted ?? [];
+            setNewlyExtracted(extracted);
+
+            if (extracted.length > 0) {
+                toast.success(`Added ${extracted.length} skill${extracted.length === 1 ? "" : "s"} from your CV.`);
+            } else {
+                toast.info("We couldn't find any new skills in that CV beyond what's already listed.");
+            }
             setUploadComplete(true);
             setTimeout(() => setUploadComplete(false), 3000);
-        }, 2000);
+        } catch (error) {
+            console.error("CV upload failed:", error);
+            toast.error(error instanceof Error ? error.message : "Unable to analyze that CV. Please try again.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -76,9 +161,16 @@ export function SkillsManager() {
                         <CardDescription className="text-xs">Extract skills from your resume automatically.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={handleFileSelected}
+                        />
                         <div
-                            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-all ${isUploading ? 'bg-background animate-pulse' : 'bg-background/50 hover:bg-background'}`}
-                            onClick={simulateCvParse}
+                            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${isUploading ? 'bg-background animate-pulse pointer-events-none' : 'bg-background/50 hover:bg-background'}`}
+                            onClick={() => fileInputRef.current?.click()}
                         >
                             {isUploading ? (
                                 <Wand2 className="size-8 text-primary animate-spin" />
@@ -89,11 +181,20 @@ export function SkillsManager() {
                             )}
                             <div className="text-center">
                                 <p className="text-xs font-bold">{isUploading ? "Analyzing..." : uploadComplete ? "Skills Added!" : "Upload CV"}</p>
-                                <p className="text-[10px] text-muted-foreground">PDF/DOCX (Max 5MB)</p>
+                                <p className="text-[10px] text-muted-foreground">PDF only (Max 10MB)</p>
                             </div>
                         </div>
+                        {newlyExtracted.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {newlyExtracted.map((skill) => (
+                                    <Badge key={skill} className="bg-primary/10 text-primary border-none text-[10px]">
+                                        + {skill}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                         <p className="text-[10px] text-muted-foreground text-center italic">
-                            Our AI identifies technical keywords to sync with recruiter requirements.
+                            Gemini reads your CV and identifies technical keywords to sync with recruiter requirements.
                         </p>
                     </CardContent>
                 </Card>
@@ -122,7 +223,11 @@ export function SkillsManager() {
                         <div className="space-y-3">
                             <Label className="text-xs font-bold uppercase tracking-widest opacity-60">Currently Identified Skills</Label>
                             <div className="flex flex-wrap gap-2 p-4 bg-muted/20 rounded-2xl min-h-[120px]">
-                                {mySkills.length === 0 ? (
+                                {isLoading ? (
+                                    <div className="w-full flex flex-col items-center justify-center opacity-30 py-8">
+                                        <p className="text-xs">Loading your skills...</p>
+                                    </div>
+                                ) : mySkills.length === 0 ? (
                                     <div className="w-full flex flex-col items-center justify-center opacity-30 py-8">
                                         <FileText className="size-8 mb-2" />
                                         <p className="text-xs">No skills listed yet.</p>
