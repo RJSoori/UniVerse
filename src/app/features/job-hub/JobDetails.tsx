@@ -16,11 +16,12 @@ import {
 
 interface JobDetailsProps {
   job: any;
+  matchPercentage?: number;
   onBack: () => void;
   onReport?: (job: any) => void;
 }
 
-export function JobDetails({ job, onBack, onReport }: JobDetailsProps) {
+export function JobDetails({ job, matchPercentage, onBack, onReport }: JobDetailsProps) {
   const handleEmailCV = () => {
     const subject = encodeURIComponent(
       `Application for ${job.title} - UniVerse Portal`,
@@ -115,10 +116,25 @@ export function JobDetails({ job, onBack, onReport }: JobDetailsProps) {
                 <p className="text-xs text-muted-foreground font-bold mb-1">
                   UniVerse Match Score
                 </p>
-                <p className="text-4xl font-black text-primary">85%</p>
-                <p className="text-[10px] text-primary/70 mt-1 font-medium">
-                  Strong Candidate
-                </p>
+                {matchPercentage === undefined ? (
+                  <>
+                    <p className="text-2xl font-black text-muted-foreground">—</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+                      Not enough data yet
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-4xl font-black text-primary">{matchPercentage}%</p>
+                    <p className="text-[10px] text-primary/70 mt-1 font-medium">
+                      {matchPercentage >= 80
+                        ? "Strong Candidate"
+                        : matchPercentage >= 50
+                          ? "Good Fit"
+                          : "Skill Gap"}
+                    </p>
+                  </>
+                )}
               </div>
 
               <Button

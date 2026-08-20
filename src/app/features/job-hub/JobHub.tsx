@@ -7,6 +7,7 @@ import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
 import { Badge } from "../../shared/ui/badge";
 import { JobDetails } from "./JobDetails";
+import { SuggestedSkillsDialog } from "./SuggestedSkillsDialog";
 import {
   Briefcase,
   Plus,
@@ -41,6 +42,15 @@ export function JobHub() {
   // This ensures consistency and prevents fragmentation of the job market
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ===== UNIVERSE SKILL MATCHER =====
+  // Real per-job match percentages (keyed by job id) plus the student's own skill count,
+  // fetched separately from the job list so match badges progressively enhance rather than
+  // block the page. mySkillsCount stays null until loaded, to distinguish "still loading"
+  // from "loaded and the student genuinely has 0 skills."
+  const [matchScores, setMatchScores] = useState<Record<number, number>>({});
+  const [mySkillsCount, setMySkillsCount] = useState<number | null>(null);
+  const [suggestedSkillsOpen, setSuggestedSkillsOpen] = useState(false);
 
   // ===== USER-SPECIFIC REPORTING SYSTEM =====
   // Each student's report history is stored locally and tied to their account
@@ -131,6 +141,37 @@ export function JobHub() {
     };
   }, []);
 
+  // ===== SKILL MATCHER DATA =====
+  // Decoupled from the job list load above - this is a progressive enhancement (match
+  // badges/top card), not something the page should block on or fail loudly over.
+  useEffect(() => {
+    const loadSkillMatchData = async () => {
+      try {
+        const [scoresResponse, skillsResponse] = await Promise.all([
+          apiFetch("/api/skills/match-scores"),
+          apiFetch("/api/skills"),
+        ]);
+
+        if (scoresResponse.ok) {
+          const scores: { jobId: number; matchPercentage: number }[] =
+            await scoresResponse.json();
+          setMatchScores(
+            Object.fromEntries(scores.map((s) => [s.jobId, s.matchPercentage])),
+          );
+        }
+
+        if (skillsResponse.ok) {
+          const data = await skillsResponse.json();
+          setMySkillsCount((data.skills ?? []).length);
+        }
+      } catch (error) {
+        console.error("Skill matcher data fetch failed:", error);
+      }
+    };
+
+    loadSkillMatchData();
+  }, []);
+
   // ===== VIEW ROUTING =====
   // Switch between job list view and detailed job view
   if (selectedJob) {
@@ -138,6 +179,7 @@ export function JobHub() {
       <>
         <JobDetails
           job={selectedJob}
+          matchPercentage={matchScores[selectedJob.id]}
           onBack={() => setSelectedJob(null)}
           onReport={(job) => {
             setSelectedJobForReport(job);
@@ -230,6 +272,17 @@ export function JobHub() {
     return matchesSearch && matchesEmployment && matchesWork;
   });
 
+  // Best-matching role for the top "UniVerse Skill Matcher" card: the first job (in list
+  // order) hitting the highest known score - deterministic, no need to break ties explicitly.
+  let bestMatch: { job: any; percentage: number } | null = null;
+  for (const job of jobs) {
+    const percentage = matchScores[job.id];
+    if (percentage === undefined) continue;
+    if (!bestMatch || percentage > bestMatch.percentage) {
+      bestMatch = { job, percentage };
+    }
+  }
+
   return (
     <div className="app-page pb-20">
       <div className="app-page-header">
@@ -309,11 +362,38 @@ export function JobHub() {
             </div>
           </CardHeader>
           <CardContent className="text-[11px] font-semibold text-muted-foreground">
-            Based on your IT & Management profile, you have a 92% affinity for
-            Cloud and Analyst roles.
-            <span className="text-primary ml-1 cursor-pointer hover:underline">
-              View suggested skills →
-            </span>
+            {mySkillsCount === null ? (
+              "Crunching your skill match..."
+            ) : mySkillsCount === 0 ? (
+              <>
+                Add your skills to see how well you match open roles.{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/jobs/skills")}
+                  className="text-primary cursor-pointer hover:underline font-semibold"
+                >
+                  Add skills →
+                </button>
+              </>
+            ) : bestMatch ? (
+              <>
+                You're a{" "}
+                <span className="text-primary font-black">
+                  {bestMatch.percentage}%
+                </span>{" "}
+                match for <strong className="text-foreground">{bestMatch.job.title}</strong> roles
+                based on your current skills.
+                <button
+                  type="button"
+                  onClick={() => setSuggestedSkillsOpen(true)}
+                  className="text-primary ml-1 cursor-pointer hover:underline font-semibold"
+                >
+                  View suggested skills →
+                </button>
+              </>
+            ) : (
+              "No matching roles yet - check back as more jobs are posted."
+            )}
           </CardContent>
         </Card>
 
@@ -356,10 +436,12 @@ export function JobHub() {
                   <div className="flex items-start gap-5">
                     <div className="p-4 bg-muted rounded-2xl group-hover:bg-primary/10 transition-colors relative">
                       <Briefcase className="h-7 w-7 text-muted-foreground group-hover:text-primary transition-colors" />
-                      {/* Match Score Badge */}
-                      <div className="absolute -top-2 -right-2 bg-primary text-[9px] text-white px-2 py-0.5 rounded-full font-black shadow-lg">
-                        85%
-                      </div>
+                      {/* Match Score Badge - only shown once a real score is known */}
+                      {matchScores[job.id] !== undefined && (
+                        <div className="absolute -top-2 -right-2 bg-primary text-[9px] text-white px-2 py-0.5 rounded-full font-black shadow-lg">
+                          {matchScores[job.id]}%
+                        </div>
+                      )}
                     </div>
                     <div>
                       <h4 className="font-black text-xl tracking-tight uppercase">
@@ -422,6 +504,11 @@ export function JobHub() {
           ))
         )}
       </div>
+
+      <SuggestedSkillsDialog
+        open={suggestedSkillsOpen}
+        onOpenChange={setSuggestedSkillsOpen}
+      />
     </div>
   );
 }

@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiFetch("/api/auth/login", {
         method: "POST",
         body: JSON.stringify(credentials),
+        skipAuthRedirect: true,
       });
 
       if (!response.ok) {

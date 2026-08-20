@@ -25,6 +25,7 @@ import {
 } from "../types";
 import { getCurrentISTDate, getCurrentISTTime } from "../utils/dates";
 import { escapeCsvValue } from "../utils/csv";
+import { buildMoneyManagerPdf, type MoneyManagerPdfData } from "../utils/pdf";
 import {
   roundMoney,
   type ValidationResult,
@@ -1171,7 +1172,9 @@ function useMoneyManagerState() {
     [transactions, wallets]
   );
 
-  const generateMoneyManagerCsv = useCallback(
+  // Shared row-building logic used by both the CSV and PDF report exports,
+  // so the two formats never drift apart in what they report.
+  const buildMoneyManagerReportData = useCallback(
     (studentName: string = "Student Name", degree: string = "Degree") => {
       const dateGenerated = new Date().toISOString();
       const totalIncome = getTotalIncome();
@@ -1219,38 +1222,158 @@ function useMoneyManagerState() {
         getCategoryBudgetRemaining(budget.category),
       ]);
 
+      // Chart data for the PDF's Charts & Insights page. Computed across all
+      // transactions (same all-time scope as the rest of the export) rather
+      // than the dashboard's selectable period, so every part of the export
+      // reports on the same data.
+      const categoryMap = new Map<string, number>();
+      transactions
+        .filter((tx) => tx.type === "expense")
+        .forEach((tx) => {
+          categoryMap.set(tx.category, (categoryMap.get(tx.category) || 0) + tx.amount);
+        });
+      const categoryBreakdown = Array.from(categoryMap.entries())
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const needsAmount = transactions
+        .filter((tx) => tx.type === "expense" && getCategoryType(tx.category) === "needs")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const wantsAmount = transactions
+        .filter((tx) => tx.type === "expense" && getCategoryType(tx.category) === "wants")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const savingsAmount = balance > 0 ? balance : 0;
+
+      // Rolling 30-day window ending today, matching the trend the dashboard
+      // shows by default.
+      const trend: { date: string; income: number; expense: number }[] = [];
+      const trendStart = new Date();
+      trendStart.setDate(trendStart.getDate() - 29);
+      const trendCursor = new Date(trendStart);
+      const today = new Date();
+      while (trendCursor <= today) {
+        const dateStr = formatLocalDate(trendCursor);
+        const dayIncome = transactions
+          .filter((tx) => tx.type === "income" && tx.date === dateStr)
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        const dayExpense = transactions
+          .filter((tx) => tx.type === "expense" && tx.date === dateStr)
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        trend.push({ date: dateStr, income: dayIncome, expense: dayExpense });
+        trendCursor.setDate(trendCursor.getDate() + 1);
+      }
+
+      const walletBreakdown = wallets.map((wallet) => ({
+        walletName: wallet.name,
+        balance: wallet.balance,
+      }));
+
+      return {
+        studentName,
+        degree,
+        dateGenerated,
+        totalIncome,
+        totalExpense,
+        balance,
+        includedWalletBalance: getIncludedWalletBalance(),
+        walletRows,
+        transactionRows,
+        recurringRows,
+        categoryRows,
+        categoryBreakdown,
+        needsVsWantsVsSavings: { needs: needsAmount, wants: wantsAmount, savings: savingsAmount },
+        trend,
+        walletBreakdown,
+      };
+    },
+    [getBalance, getCategoryBudgetRemaining, getCategoryBudgetUsage, getCategoryBudgetsForCurrentMonth, getIncludedWalletBalance, getTotalExpenses, getTotalIncome, recurringExpenses, transactions, wallets],
+  );
+
+  const generateMoneyManagerCsv = useCallback(
+    (studentName: string = "Student Name", degree: string = "Degree") => {
+      const data = buildMoneyManagerReportData(studentName, degree);
+
       const rows: string[][] = [
-        ["Student Name", studentName],
-        ["Degree", degree],
+        ["Student Name", data.studentName],
+        ["Degree", data.degree],
         ["Report Title", "Money Manager Report"],
-        ["Date Generated", dateGenerated],
+        ["Date Generated", data.dateGenerated],
         [],
         ["Summary"],
-        ["Total Income", totalIncome],
-        ["Total Expenses", totalExpense],
-        ["Balance", balance],
-        ["Included Wallet Balance", getIncludedWalletBalance()],
+        ["Total Income", data.totalIncome],
+        ["Total Expenses", data.totalExpense],
+        ["Balance", data.balance],
+        ["Included Wallet Balance", data.includedWalletBalance],
         [],
         ["Wallets"],
         ["Name", "Balance", "Included in Total"],
-        ...walletRows,
+        ...data.walletRows,
         [],
         ["Transactions"],
         ["Date", "Title", "Category", "Amount", "Wallet", "Type", "Recurring", "Recurring Id"],
-        ...transactionRows,
+        ...data.transactionRows,
         [],
         ["Recurring Expenses"],
         ["Title", "Monthly Amount", "Category", "Wallet", "Duration", "Total"],
-        ...recurringRows,
+        ...data.recurringRows,
         [],
         ["Category Budgets"],
         ["Category", "Limit", "Used", "Remaining"],
-        ...categoryRows,
+        ...data.categoryRows,
       ];
 
       return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
     },
-    [getBalance, getCategoryBudgetRemaining, getCategoryBudgetUsage, getCategoryBudgetsForCurrentMonth, getIncludedWalletBalance, getTotalExpenses, getTotalIncome, recurringExpenses, settings, transactions, wallets],
+    [buildMoneyManagerReportData],
+  );
+
+  const generateMoneyManagerPdf = useCallback(
+    (studentName: string = "Student Name", degree: string = "Degree") => {
+      const data = buildMoneyManagerReportData(studentName, degree);
+
+      const pdfData: MoneyManagerPdfData = {
+        studentName: data.studentName,
+        degree: data.degree,
+        dateGenerated: data.dateGenerated,
+        summary: [
+          { label: "Total Income", value: String(data.totalIncome) },
+          { label: "Total Expenses", value: String(data.totalExpense) },
+          { label: "Balance", value: String(data.balance) },
+          { label: "Included Wallet Balance", value: String(data.includedWalletBalance) },
+        ],
+        sections: [
+          {
+            title: "Wallets",
+            head: ["Name", "Balance", "Included in Total"],
+            rows: data.walletRows,
+          },
+          {
+            title: "Transactions",
+            head: ["Date", "Title", "Category", "Amount", "Wallet", "Type", "Recurring", "Recurring Id"],
+            rows: data.transactionRows,
+          },
+          {
+            title: "Recurring Expenses",
+            head: ["Title", "Monthly Amount", "Category", "Wallet", "Duration", "Total"],
+            rows: data.recurringRows,
+          },
+          {
+            title: "Category Budgets",
+            head: ["Category", "Limit", "Used", "Remaining"],
+            rows: data.categoryRows,
+          },
+        ],
+        charts: {
+          categoryBreakdown: data.categoryBreakdown,
+          needsVsWantsVsSavings: data.needsVsWantsVsSavings,
+          trend: data.trend,
+          walletBreakdown: data.walletBreakdown,
+        },
+      };
+
+      return buildMoneyManagerPdf(pdfData).output("blob") as Blob;
+    },
+    [buildMoneyManagerReportData],
   );
 
   // Insights Engine
@@ -1457,6 +1580,7 @@ function useMoneyManagerState() {
     // Reporting
     generateReport,
     generateMoneyManagerCsv,
+    generateMoneyManagerPdf,
 
     // Insights
     generateInsights,
