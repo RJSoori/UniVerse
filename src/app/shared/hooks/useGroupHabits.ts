@@ -6,6 +6,7 @@ import {
   updateGroupHabit,
   deleteGroupHabit,
   joinGroupHabit,
+  sendGroupHabitInvite,
 } from "../api/habitsApi";
 import type { HabitGroup } from "../../features/habits/types";
 
@@ -125,6 +126,18 @@ export function useGroupHabits() {
     [user?.id]
   );
 
+  // Email a group invite to someone by address
+  // Asks the backend to generate and send the invite email; the caller supplies only the recipient.
+  const sendInvite = useCallback(
+    async (groupId: string, email: string) => {
+      if (!user?.id) return;
+
+      setError(null);
+      await sendGroupHabitInvite(user.id, groupId, email);
+    },
+    [user?.id]
+  );
+
   // Refetch group habits from backend
   // Reload group habits from the backend.
   const refetch = useCallback(async () => {
@@ -142,5 +155,5 @@ export function useGroupHabits() {
     }
   }, [user?.id]);
 
-  return { groups, updateGroup, addGroup, removeGroup, joinGroup, loading, error, refetch };
+  return { groups, updateGroup, addGroup, removeGroup, joinGroup, sendInvite, loading, error, refetch };
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSchedule, type ScheduleEvent } from "../../shared/hooks/useSchedule";
+import { getTodayIsoDate, isTodayOrFuture } from "../../shared/validation/dateValidation";
 import { Card, CardContent } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
@@ -56,6 +57,10 @@ export function Scheduler() {
       setFeedbackMsg({ type: 'error', text: 'Title and date are required' });
       return;
     }
+    if (!isTodayOrFuture(newEvent.date)) {
+      setFeedbackMsg({ type: 'error', text: 'Events can only be scheduled for today or a future date.' });
+      return;
+    }
     try {
       const result = await createEvent(newEvent);
       if (!result) {
@@ -97,6 +102,10 @@ export function Scheduler() {
   };
 
   const handleDateClick = (dateStr: string) => {
+    if (!isTodayOrFuture(dateStr)) {
+      setFeedbackMsg({ type: 'error', text: 'Events can only be scheduled for today or a future date.' });
+      return;
+    }
     setNewEvent({ ...newEvent, date: dateStr });
     setShowAddForm(true);
   };
@@ -230,7 +239,12 @@ export function Scheduler() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Input type="date" value={newEvent.date} onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })} />
+                <Input
+                  type="date"
+                  min={getTodayIsoDate()}
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Start Time</Label>

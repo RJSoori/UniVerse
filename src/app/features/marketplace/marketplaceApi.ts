@@ -7,22 +7,6 @@ function getBackendUrl(): string {
 }
 
 /**
- * Like apiFetch, but for seller endpoints reachable before the seller is logged in
- * (login, register, email verification, forgot-password). apiFetch treats any 401 as
- * "your existing session expired" and force-redirects to the student sign-in page —
- * correct for authenticated calls, but wrong here: a 401 from these endpoints just means
- * the submitted credentials/code were rejected, and should surface as a form error on
- * whichever seller screen the user is already on, not bounce them to an unrelated page.
- */
-async function publicFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
-  return fetch(`${getBackendUrl()}${path}`, { ...init, credentials: "include", headers });
-}
-
-/**
  * API layer for marketplace operations including seller authentication,
  * item management, and seller profile handling
  */
@@ -184,9 +168,10 @@ async function sellerFetch(path: string, init: RequestInit = {}): Promise<Respon
  */
 // Creates a new seller account (with optional verification documents) and returns an auth token
 export async function registerSellerAuth(formData: FormData): Promise<SellerAuthResponse> {
-  const response = await publicFetch("/api/marketplace/sellers/register", {
+  const response = await apiFetch("/api/marketplace/sellers/register", {
     method: "POST",
     body: formData,
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
   return response.json();
@@ -194,9 +179,10 @@ export async function registerSellerAuth(formData: FormData): Promise<SellerAuth
 
 // Authenticates seller with username and password credentials
 export async function loginSellerAuth(request: SellerLoginRequest): Promise<SellerAuthResponse> {
-  const response = await publicFetch("/api/marketplace/sellers/login", {
+  const response = await apiFetch("/api/marketplace/sellers/login", {
     method: "POST",
     body: JSON.stringify(request),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
   return response.json();
@@ -208,17 +194,19 @@ export async function loginSellerAuth(request: SellerLoginRequest): Promise<Sell
  * flow in job-hub/JobRegistration.tsx and job-hub/AccessRecovery.tsx.
  */
 export async function sendSellerEmailCode(email: string): Promise<void> {
-  const response = await publicFetch("/api/marketplace/sellers/email/send-code", {
+  const response = await apiFetch("/api/marketplace/sellers/email/send-code", {
     method: "POST",
     body: JSON.stringify({ email }),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
 }
 
 export async function verifySellerEmailCode(email: string, code: string): Promise<string> {
-  const response = await publicFetch("/api/marketplace/sellers/email/verify-code", {
+  const response = await apiFetch("/api/marketplace/sellers/email/verify-code", {
     method: "POST",
     body: JSON.stringify({ email, code }),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
   const data = await response.json();
@@ -226,17 +214,19 @@ export async function verifySellerEmailCode(email: string, code: string): Promis
 }
 
 export async function sellerForgotPassword(email: string): Promise<void> {
-  const response = await publicFetch("/api/marketplace/sellers/forgot-password", {
+  const response = await apiFetch("/api/marketplace/sellers/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
 }
 
 export async function verifySellerResetCode(email: string, code: string): Promise<string> {
-  const response = await publicFetch("/api/marketplace/sellers/verify-reset-code", {
+  const response = await apiFetch("/api/marketplace/sellers/verify-reset-code", {
     method: "POST",
     body: JSON.stringify({ email, code }),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
   const data = await response.json();
@@ -244,9 +234,10 @@ export async function verifySellerResetCode(email: string, code: string): Promis
 }
 
 export async function resetSellerPassword(email: string, resetToken: string, newPassword: string): Promise<void> {
-  const response = await publicFetch("/api/marketplace/sellers/reset-password", {
+  const response = await apiFetch("/api/marketplace/sellers/reset-password", {
     method: "POST",
     body: JSON.stringify({ email, resetToken, newPassword }),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error(await parseApiError(response));
 }

@@ -13,16 +13,7 @@ import { InsightsEngine } from "./InsightsEngine";
 import { ReportsDashboard } from "./ReportsDashboard";
 import { QuickAddTransaction } from "./QuickAddTransaction";
 import { RecurringExpenses } from "./RecurringExpenses";
-import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  PieChart,
-  BarChart3,
-  AlertCircle,
-  Plus,
-  RefreshCw,
-} from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, Plus } from "lucide-react";
 
 export function MoneyManager() {
   const {
@@ -174,25 +165,25 @@ export function MoneyManager() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="text-xs sm:text-sm">
-            <Wallet className="h-4 w-4 mr-1" /> Overview
+            Overview
           </TabsTrigger>
           <TabsTrigger value="wallets" className="text-xs sm:text-sm">
-            <Wallet className="h-4 w-4 mr-1" /> Wallets
+            Wallets
           </TabsTrigger>
           <TabsTrigger value="budget" className="text-xs sm:text-sm">
-            <AlertCircle className="h-4 w-4 mr-1" /> Budget
+            Budget
           </TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm">
-            <BarChart3 className="h-4 w-4 mr-1" /> Transactions
+            Transactions
           </TabsTrigger>
           <TabsTrigger value="recurring" className="text-xs sm:text-sm">
-            <RefreshCw className="h-4 w-4 mr-1" /> Recurring
+            Recurring
           </TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm">
-            <PieChart className="h-4 w-4 mr-1" /> Reports
+            Reports
           </TabsTrigger>
           <TabsTrigger value="search" className="text-xs sm:text-sm">
-            🔍 Search
+            Search
           </TabsTrigger>
         </TabsList>
 

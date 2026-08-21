@@ -2,25 +2,16 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
+import { redeemPendingGroupInvite } from "../../shared/invites/pendingInvite";
 import { Button } from "../../shared/ui/button";
 import { apiFetch, parseApiError } from "../../shared/api/client";
+import { DEGREES } from "../../shared/constants/degrees";
 import { CheckCircle } from "lucide-react";
 
 //Multi-step student registration process
 export default function StudentRegistration() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const degrees = [
-    "Engineering",
-    "IT & Computing",
-    "Medicine & Health Sciences",
-    "Management & Business",
-    "Architecture & Design",
-    "Natural & Physical Sciences",
-    "Social Sciences & Humanities",
-    "Education & Teaching",
-    "Agriculture & Veterinary",
-  ];
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -171,8 +162,20 @@ export default function StudentRegistration() {
     setSubmitError("");
 
     try {
-      await auth.register({ ...formData, emailVerificationToken });
+      const registeredUser = await auth.register({ ...formData, emailVerificationToken });
       toast.success("Registration successful");
+
+      // If they arrived here via a group invite link, finish that join now.
+      const { group, error: inviteError } = await redeemPendingGroupInvite(registeredUser.id);
+      if (group) {
+        toast.success(`Joined ${group.name}`);
+        navigate("/habits");
+        return;
+      }
+      if (inviteError) {
+        toast.error(inviteError);
+      }
+
       navigate("/dashboard");
     } catch (error) {
       console.error("Registration error:", error);
@@ -232,7 +235,7 @@ export default function StudentRegistration() {
                   required
                 >
                   <option value="">Choose your degree</option>
-                  {degrees.map((deg) => (
+                  {DEGREES.map((deg) => (
                     <option key={deg} value={deg}>
                       {deg}
                     </option>

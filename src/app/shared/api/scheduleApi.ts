@@ -8,6 +8,7 @@ export interface ScheduleEventDto {
   startTime?: string;
   endTime?: string;
   description?: string;
+  type?: string;
 }
 
 /**
