@@ -41,7 +41,7 @@ export default function SignUpChoice() {
           </div>
           <Button
             className="bg-primary w-full py-3 text-lg shadow-md hover:scale-105 transition-transform"
-            onClick={() => navigate("/seller/register")}
+            onClick={() => navigate("/seller/register?mode=register")}
           >
             Seller
           </Button>

@@ -95,9 +95,15 @@ export function SellerProfile({ sellerId, onBack, onViewListing }: SellerProfile
                   {seller.storeName}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge className="bg-green-100 text-green-700 border-none text-[10px]">
-                    <ShieldCheck className="size-3 mr-1" /> Verified Seller
-                  </Badge>
+                  {seller.status === "VERIFIED" ? (
+                    <Badge className="bg-green-100 text-green-700 border-none text-[10px]">
+                      <ShieldCheck className="size-3 mr-1" /> Verified Seller
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                      <ShieldCheck className="size-3 mr-1" /> Unverified Seller
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="text-[10px]">
                     <Store className="size-3 mr-1" /> UniVerse Seller
                   </Badge>
