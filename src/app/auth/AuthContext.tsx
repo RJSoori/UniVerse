@@ -23,7 +23,6 @@ interface RegisterCredentials extends LoginCredentials {
 
 interface UpdateProfilePayload {
   name?: string;
-  email?: string;
   degree?: string | null;
 }
 
@@ -55,6 +54,7 @@ interface AuthContextValue {
   register: (credentials: RegisterCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (patch: UpdateProfilePayload) => Promise<AuthUser>;
+  changeEmail: (email: string, emailVerificationToken: string) => Promise<AuthUser>;
   refreshSession: () => Promise<AuthUser | null>;
 }
 
@@ -163,6 +163,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const changeEmail = useCallback(
+    async (email: string, emailVerificationToken: string) => {
+      const response = await apiFetch("/api/auth/me/email", {
+        method: "PUT",
+        body: JSON.stringify({ email, emailVerificationToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+
+      const updatedUser = normalizeAuthUser((await response.json()) as AuthUser);
+      setUser(updatedUser);
+      setUserState(updatedUser);
+      return updatedUser;
+    },
+    [],
+  );
+
   useEffect(() => {
     onUnauthorized(() => {
       clearSession();
@@ -182,9 +201,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updateProfile,
+      changeEmail,
       refreshSession,
     }),
-    [loading, login, logout, refreshSession, register, updateProfile, userState],
+    [loading, login, logout, refreshSession, register, updateProfile, changeEmail, userState],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
