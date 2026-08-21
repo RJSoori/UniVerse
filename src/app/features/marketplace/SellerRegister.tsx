@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
@@ -29,6 +29,10 @@ import {
  */
 export default function SellerRegister() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Deep-links here can request the Register tab open by default (?mode=register) —
+  // otherwise Login is the default, e.g. for a returning seller.
+  const [authTab, setAuthTab] = useState(searchParams.get("mode") === "register" ? "register" : "login");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
@@ -70,6 +74,11 @@ export default function SellerRegister() {
   const [verifCategory, setVerifCategory] = useState("");
   const [verifDescription, setVerifDescription] = useState("");
   const [verifyError, setVerifyError] = useState("");
+
+  // Verification documents (optional uploads, stored in Azure Blob Storage on submit)
+  const [identityDocument, setIdentityDocument] = useState<File | null>(null);
+  const [shopLogo, setShopLogo] = useState<File | null>(null);
+  const [proofOfItems, setProofOfItems] = useState<File | null>(null);
 
   // Automatically redirects to dashboard after completion
   const shouldRedirectToDashboard = isAuthenticated && isRegistered && step === 3;
@@ -179,7 +188,9 @@ export default function SellerRegister() {
       setStep(3);
       if (!sellerType) setSellerType("shop");
     } catch (error) {
-      setLoginError("Invalid username or password. Please try again.");
+      setLoginError(
+        error instanceof Error ? error.message : "Invalid username or password. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -227,18 +238,34 @@ export default function SellerRegister() {
       setVerifyError("Please enter a valid contact number.");
       return;
     }
+    if (!identityDocument) {
+      setVerifyError(`Please upload your ${sellerType === "shop" ? "BR Certificate" : "NIC / Student ID"}.`);
+      return;
+    }
+    if (sellerType === "shop" && !shopLogo) {
+      setVerifyError("Please upload your shop logo.");
+      return;
+    }
+    if (!proofOfItems) {
+      setVerifyError("Please upload proof of items.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const auth = await registerSellerAuth({
-        storeName: verifBusinessName,
-        email: regEmail,
-        username: regUsername,
-        password: regPassword,
-        phone: verifContact,
-        description: verifDescription,
-        emailVerificationToken,
-      });
+      const formData = new FormData();
+      formData.append("storeName", verifBusinessName);
+      formData.append("email", regEmail);
+      formData.append("username", regUsername);
+      formData.append("password", regPassword);
+      formData.append("phone", verifContact);
+      formData.append("description", verifDescription);
+      formData.append("emailVerificationToken", emailVerificationToken);
+      if (identityDocument) formData.append("identityDocument", identityDocument);
+      if (sellerType === "shop" && shopLogo) formData.append("shopLogo", shopLogo);
+      if (proofOfItems) formData.append("proofOfItems", proofOfItems);
+
+      const auth = await registerSellerAuth(formData);
 
       // ✅ Store seller token and data
       setSellerToken(auth.token);
@@ -248,7 +275,7 @@ export default function SellerRegister() {
       setIsRegistered(true);
       setStep(3);
     } catch (error) {
-      setVerifyError("Failed to create seller account. Please try again.");
+      setVerifyError(error instanceof Error ? error.message : "Failed to create seller account. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -278,7 +305,7 @@ export default function SellerRegister() {
             <CardDescription>Login or register to manage your listings</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs value={authTab} onValueChange={setAuthTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login" className="flex items-center gap-2">
                   <Key className="size-3" /> Login
@@ -554,8 +581,10 @@ export default function SellerRegister() {
                       <Input
                         className="pl-10 h-11 bg-muted/20 border-none"
                         placeholder="e.g. 0771234567"
+                        type="tel"
+                        inputMode="numeric"
                         value={verifContact}
-                        onChange={(e) => { setVerifContact(e.target.value); setVerifyError(""); }}
+                        onChange={(e) => { setVerifContact(e.target.value.replace(/\D/g, "")); setVerifyError(""); }}
                       />
                     </div>
                   </div>
@@ -598,28 +627,63 @@ export default function SellerRegister() {
                   />
                 </div>
                 <div className="md:col-span-2 pt-6">
-                  <Label className="text-xs font-bold uppercase tracking-widest opacity-70 mb-4 block text-primary">Verification Documents</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-70 mb-4 block text-primary">
+                    Verification Documents <span className="text-destructive">*</span>
+                  </Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                    <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => setIdentityDocument(e.target.files?.[0] || null)}
+                      />
                       <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                        <Upload className="size-6 text-muted-foreground group-hover:text-primary" />
+                        {identityDocument ? (
+                          <CheckCircle className="size-6 text-green-600" />
+                        ) : (
+                          <Upload className="size-6 text-muted-foreground group-hover:text-primary" />
+                        )}
                       </div>
                       <span className="text-xs font-bold mt-1">{sellerType === "shop" ? "BR Certificate" : "NIC / Student ID"}</span>
-                    </div>
+                      {identityDocument && <span className="text-[10px] text-muted-foreground truncate max-w-full">{identityDocument.name}</span>}
+                    </label>
                     {sellerType === "shop" && (
-                      <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                      <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => setShopLogo(e.target.files?.[0] || null)}
+                        />
                         <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                          <ShoppingBag className="size-6 text-muted-foreground group-hover:text-primary" />
+                          {shopLogo ? (
+                            <CheckCircle className="size-6 text-green-600" />
+                          ) : (
+                            <ShoppingBag className="size-6 text-muted-foreground group-hover:text-primary" />
+                          )}
                         </div>
                         <span className="text-xs font-bold mt-1">Shop Logo</span>
-                      </div>
+                        {shopLogo && <span className="text-[10px] text-muted-foreground truncate max-w-full">{shopLogo.name}</span>}
+                      </label>
                     )}
-                    <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                    <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => setProofOfItems(e.target.files?.[0] || null)}
+                      />
                       <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                        <ShieldCheck className="size-6 text-muted-foreground group-hover:text-primary" />
+                        {proofOfItems ? (
+                          <CheckCircle className="size-6 text-green-600" />
+                        ) : (
+                          <ShieldCheck className="size-6 text-muted-foreground group-hover:text-primary" />
+                        )}
                       </div>
                       <span className="text-xs font-bold mt-1">Proof of Items</span>
-                    </div>
+                      {proofOfItems && <span className="text-[10px] text-muted-foreground truncate max-w-full">{proofOfItems.name}</span>}
+                    </label>
                   </div>
                 </div>
               </div>
