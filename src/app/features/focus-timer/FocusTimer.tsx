@@ -3,13 +3,14 @@ import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Progress } from "../../shared/ui/progress";
-import { Play, Pause, RotateCcw, Maximize, Minimize, BarChart2, Target, TrendingUp } from "lucide-react";
+import { Play, Pause, RotateCcw, Maximize, Minimize, BarChart2, Target, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../shared/ui/select";
 import { Label } from "../../shared/ui/label";
 import FocusTrendChart from "./FocusTrendChart";
 import { useGpaCalculator } from "../gpa-calculator/hooks/useGpaCalculator";
 import { focusApi } from "./focusApi";
 import { useAuth } from "../../auth/AuthContext";
+import { STUDY_TARGET_GPA, getSuggestedStudyMinutes, formatStudyMinutes } from "./studyGoal";
 
 export function FocusTimer() {
   //Retrieve Data from GPA module
@@ -33,9 +34,10 @@ export function FocusTimer() {
 
   //GPA Analysis Logic
   const currentCgpa = getCgpa();
-  const targetGpa = 3.80;
-  const gpaGap = Math.max(0, targetGpa - currentCgpa);
-  const suggestedHours = gpaGap > 0 ? (2 + gpaGap * 4).toFixed(1) : "2.0";
+  const targetGpa = STUDY_TARGET_GPA;
+  const suggestedMinutes = Math.round(getSuggestedStudyMinutes(currentCgpa, targetGpa));
+  const suggestedHours = (suggestedMinutes / 60).toFixed(1);
+  const minutesLeftToday = Math.max(0, suggestedMinutes - todayMinutes);
 
   //Data loading function for analytics
   const loadData = async () => {
@@ -164,7 +166,7 @@ export function FocusTimer() {
               {user?.username ?? ""}
             </span>
           </div>
-          <p className="text-slate-500">Track study sessions for your IT degree goals</p>
+          <p className="text-slate-500">Track study sessions to achieve your academic goals</p>
         </div>
       </div>
 
@@ -188,11 +190,37 @@ export function FocusTimer() {
               </div>
               <p className="text-xs text-slate-600 mt-2">Targeting <span className="text-blue-600 font-semibold">{targetGpa.toFixed(2)}</span></p>
             </div>
-            <div className="bg-white/60 p-4 rounded-xl flex gap-3 items-start border border-blue-100/50">
-              <TrendingUp className="size-5 text-emerald-500 mt-0.5" />
-              <p className="text-sm text-slate-700">
-                <span className="font-semibold text-slate-900">Recommended:</span> Dedicate <span className="font-bold text-blue-600">{suggestedHours} hours</span> today.
-              </p>
+            <div className="bg-white/60 p-4 rounded-xl border border-blue-100/50 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg shrink-0 ${minutesLeftToday > 0 ? "bg-blue-500/10" : "bg-emerald-500/10"}`}>
+                  {minutesLeftToday > 0 ? (
+                    <TrendingUp className="size-4 text-blue-600" />
+                  ) : (
+                    <CheckCircle2 className="size-4 text-emerald-600" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  {minutesLeftToday > 0 ? (
+                    <>
+                      <p className="text-sm font-bold text-slate-900 leading-tight">
+                        {formatStudyMinutes(minutesLeftToday)} left today
+                      </p>
+                      <p className="text-xs text-slate-500">of your {suggestedHours}h goal</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold text-emerald-600 leading-tight">Goal reached!</p>
+                      <p className="text-xs text-slate-500">Nice work today</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Progress value={Math.min(100, (todayMinutes / suggestedMinutes) * 100)} className="h-1.5" />
+                <p className="text-[11px] font-medium text-slate-500">
+                  {formatStudyMinutes(todayMinutes)} studied so far
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>

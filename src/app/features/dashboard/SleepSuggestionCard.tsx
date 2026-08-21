@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "../../shared/ui/card";
 import { Moon, Sparkles, AlertTriangle } from "lucide-react";
-import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { useSchedule } from "../../shared/hooks/useSchedule";
+import { useTodos } from "../../shared/hooks/useTodos";
 
 export default function SleepSuggestionCard() {
-  const [events] = useUniStorage<any[]>("schedule-events", []);
-  const [todos] = useUniStorage<any[]>("todos", []);
+  const { events } = useSchedule();
+  const { todos } = useTodos();
 
   const analysis = useMemo(() => {
     // Analyze today's schedule and todos to determine sleep suggestions

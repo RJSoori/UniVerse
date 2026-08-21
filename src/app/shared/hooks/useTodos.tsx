@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { fetchTodos, saveTodos, createTodo, updateTodo, deleteTodo, type TodoItem } from "../api/todosApi";
 
@@ -6,7 +6,7 @@ import { fetchTodos, saveTodos, createTodo, updateTodo, deleteTodo, type TodoIte
  * Custom hook for managing todos with backend synchronization.
  * Automatically syncs with the database when todos change.
  */
-export function useTodos() {
+function useTodosImpl() {
   const { user } = useAuth();
   const [todos, setTodosState] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,10 @@ export function useTodos() {
 
       try {
         setError(null);
-        await updateTodo(id, { completed: updated.completed });
+        // Send the full merged todo, not just the changed field — the update payload defaults
+        // every omitted field (priority, description, reminderEnabled, ...), so a partial
+        // object here would silently reset those fields back to defaults on the server.
+        await updateTodo(id, updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update todo");
         await refetch();
@@ -131,7 +134,9 @@ export function useTodos() {
 
       try {
         setError(null);
-        await updateTodo(id, { reminderEnabled: updated.reminderEnabled });
+        // Same reasoning as toggleCompletion above: send the full object so unrelated fields
+        // (completed, priority, description, ...) don't get reset to their defaults.
+        await updateTodo(id, updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update todo");
         await refetch();
@@ -158,4 +163,30 @@ export function useTodos() {
   }, [user?.id]);
 
   return { todos, setTodos, addTodo, toggleCompletion, removeTodo, toggleReminder, loading, error, refetch };
+}
+
+type TodosApi = ReturnType<typeof useTodosImpl>;
+
+const TodosContext = createContext<TodosApi | null>(null);
+
+/**
+ * Provider that holds a single shared instance of the todos hook.
+ *
+ * Wrap any subtree that contains multiple todo-aware components (e.g. the
+ * authenticated app layout). Without this, every component that calls
+ * `useTodos()` would get its own independent `useState`, so a mutation in
+ * one component (like ticking a todo done in the To-Do List widget) would
+ * not be visible to siblings (like the Productivity Gap card).
+ */
+export function TodosProvider({ children }: { children: ReactNode }) {
+  const value = useTodosImpl();
+  return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;
+}
+
+export function useTodos(): TodosApi {
+  const ctx = useContext(TodosContext);
+  if (!ctx) {
+    throw new Error("useTodos must be used within a <TodosProvider>");
+  }
+  return ctx;
 }

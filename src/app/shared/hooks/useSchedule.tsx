@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import {
   fetchScheduleEvents,
@@ -19,7 +19,7 @@ export type ScheduleEvent = {
 };
 
 // Hook to manage schedule events for the authenticated user.
-export function useSchedule() {
+function useScheduleImpl() {
   const { user } = useAuth();
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export function useSchedule() {
           startTime: d.startTime || "",
           endTime: d.endTime || "",
           description: d.description || "",
-          type: "other" as const,
+          type: (d.type as ScheduleEvent["type"]) || "other",
         }));
         setEvents(mapped);
       } catch (err) {
@@ -79,6 +79,7 @@ export function useSchedule() {
           startTime: payload.startTime,
           endTime: payload.endTime,
           description: payload.description,
+          type: payload.type,
         });
         console.log(`[useSchedule] createEvent: saved event with id=${saved.id}`);
         setEvents((prev) => prev.map((ev) => (ev.id === optimisticId ? { ...payload, id: String(saved.id) } : ev)));
@@ -108,7 +109,7 @@ export function useSchedule() {
         // reload on error
         try {
           const data = await fetchScheduleEvents(user.id.toString());
-          setEvents(data.map((d) => ({ id: String(d.id), title: d.title, date: d.date, startTime: d.startTime || "", endTime: d.endTime || "", description: d.description || "", type: "other" as const })));
+          setEvents(data.map((d) => ({ id: String(d.id), title: d.title, date: d.date, startTime: d.startTime || "", endTime: d.endTime || "", description: d.description || "", type: (d.type as ScheduleEvent["type"]) || "other" })));
         } catch {
           // ignore
         }
@@ -138,4 +139,29 @@ export function useSchedule() {
   );
 
   return { events, loading, error, createEvent, updateEvent, removeEvent };
+}
+
+type ScheduleApi = ReturnType<typeof useScheduleImpl>;
+
+const ScheduleContext = createContext<ScheduleApi | null>(null);
+
+/**
+ * Provider that holds a single shared instance of the schedule hook.
+ *
+ * Wrap any subtree that contains multiple schedule-aware components (e.g. the
+ * authenticated app layout). Without this, every component that calls
+ * `useSchedule()` would get its own independent `useState`, so a mutation in
+ * one component would not be visible to siblings (like dashboard widgets).
+ */
+export function ScheduleProvider({ children }: { children: ReactNode }) {
+  const value = useScheduleImpl();
+  return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
+}
+
+export function useSchedule(): ScheduleApi {
+  const ctx = useContext(ScheduleContext);
+  if (!ctx) {
+    throw new Error("useSchedule must be used within a <ScheduleProvider>");
+  }
+  return ctx;
 }

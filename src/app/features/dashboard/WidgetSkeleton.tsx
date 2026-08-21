@@ -93,3 +93,35 @@ export function MoneyWidgetSkeleton({ compact = false }: { compact?: boolean }) 
     </Card>
   );
 }
+
+export function SleepSuggestionCardSkeleton() {
+  return (
+    <Card className="h-full min-h-[180px] rounded-2xl border-none bg-[#0f172a]">
+      <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+        <div className="h-5 w-32 rounded-full bg-white/10 animate-pulse" />
+        <div className="h-5 w-4/5 rounded bg-white/10 animate-pulse" />
+        <div className="flex gap-6 border-t border-white/5 pt-3">
+          <div className="h-8 w-16 rounded bg-white/10 animate-pulse" />
+          <div className="h-8 w-16 rounded bg-white/10 animate-pulse" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function ProductivityGapCardSkeleton() {
+  return (
+    <Card className="h-full min-h-[180px] rounded-2xl border-none bg-slate-800">
+      <CardContent className="p-6 flex flex-col h-full space-y-6">
+        <div className="h-6 w-28 rounded-full bg-white/10 animate-pulse" />
+        <div className="flex items-start gap-4">
+          <div className="size-12 rounded-xl bg-white/10 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-2/3 rounded bg-white/10 animate-pulse" />
+            <div className="h-3 w-full rounded bg-white/10 animate-pulse" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
