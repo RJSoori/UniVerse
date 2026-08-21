@@ -2,40 +2,58 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Badge } from "../../shared/ui/badge";
+import { Switch } from "../../shared/ui/switch";
 import {
   Plus,
-  Trash2,
   Briefcase,
-  Users,
-  BarChart3,
   Clock,
-  ExternalLink,
+  Eye,
+  EyeOff,
+  Pencil,
   LogOut,
+  RefreshCw,
   Settings,
   UserRoundCheck,
+  ShieldAlert,
+  Ban,
 } from "lucide-react";
 
 interface RecruiterDashboardProps {
   type: "company" | "individual" | null;
+  status?: string;
   accessKey: string;
   jobs: any[];
   onPostNew: () => void;
+  onEditJob: (job: any) => void;
   onSignOut: () => void;
-  onDeleteJob: (id: string) => void;
+  onToggleActive: (id: string, active: boolean) => void;
   onOpenSettings: () => void;
 }
 
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  VERIFIED: { label: "Verified", className: "bg-primary/5" },
+  RE_VERIFICATION: { label: "Re-verification Pending", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  PENDING: { label: "Pending Verification", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  REJECTED: { label: "Rejected", className: "bg-red-100 text-red-700 border-red-200" },
+};
+
 export function RecruiterDashboard({
   type,
+  status,
   accessKey,
   jobs,
   onPostNew,
+  onEditJob,
   onSignOut,
-  onDeleteJob,
+  onToggleActive,
   onOpenSettings,
 }: RecruiterDashboardProps) {
   // Jobs are already loaded for the current recruiter, so render them directly.
   const myJobs = jobs;
+  const activeCount = myJobs.filter((j) => j.active ?? true).length;
+  const inactiveCount = myJobs.length - activeCount;
+  const badgeInfo = STATUS_BADGE[status ?? ""] ?? { label: status ?? "Unknown", className: "bg-muted" };
+  const postingBlocked = status === "RE_VERIFICATION";
 
   return (
     <div className="min-h-screen bg-background p-6 animate-in fade-in duration-500">
@@ -52,9 +70,9 @@ export function RecruiterDashboard({
               <div className="flex items-center gap-2">
                 <Badge
                   variant="outline"
-                  className="text-[10px] font-bold uppercase tracking-widest bg-primary/5"
+                  className={`text-[10px] font-bold uppercase tracking-widest ${badgeInfo.className}`}
                 >
-                  Verified {type}
+                  {badgeInfo.label} · {type}
                 </Badge>
                 <span className="text-xs text-muted-foreground font-medium italic">
                   {accessKey}
@@ -67,6 +85,8 @@ export function RecruiterDashboard({
             <Button
               className="flex-1 md:flex-none shadow-lg shadow-primary/20"
               onClick={onPostNew}
+              disabled={postingBlocked}
+              title={postingBlocked ? "Blocked until an admin re-verifies your account" : undefined}
             >
               <Plus className="mr-2 size-4" /> Create Posting
             </Button>
@@ -89,6 +109,13 @@ export function RecruiterDashboard({
           </div>
         </header>
 
+        {postingBlocked && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium px-4 py-3 rounded-xl">
+            <RefreshCw className="size-4 shrink-0" />
+            Your account needs re-verification - new job postings are paused until an admin reviews your recent changes.
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-none bg-primary/5 shadow-none">
             <CardContent className="p-6 flex items-center gap-4">
@@ -97,36 +124,35 @@ export function RecruiterDashboard({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground font-medium">
-                  Active Posts
+                  Total Posts
                 </p>
-                {/* ✅ Stat now reflects only personal jobs */}
                 <p className="text-2xl font-bold">{myJobs.length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-none bg-blue-50/50 shadow-none">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 bg-background rounded-xl">
-                <Users className="size-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">
-                  Total Reach
-                </p>
-                <p className="text-2xl font-bold">--</p>
               </div>
             </CardContent>
           </Card>
           <Card className="border-none bg-green-50/50 shadow-none">
             <CardContent className="p-6 flex items-center gap-4">
               <div className="p-3 bg-background rounded-xl">
-                <BarChart3 className="size-5 text-green-600" />
+                <Eye className="size-5 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground font-medium">
-                  Engagements
+                  Active
                 </p>
-                <p className="text-2xl font-bold">--</p>
+                <p className="text-2xl font-bold">{activeCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-none bg-muted/40 shadow-none">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="p-3 bg-background rounded-xl">
+                <EyeOff className="size-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground font-medium">
+                  Inactive
+                </p>
+                <p className="text-2xl font-bold">{inactiveCount}</p>
               </div>
             </CardContent>
           </Card>
@@ -151,10 +177,15 @@ export function RecruiterDashboard({
                 </p>
               </div>
             ) : (
-              myJobs.map((job) => (
+              myJobs.map((job) => {
+                const isActive = job.active ?? true;
+                const isUnderReview = !!job.underReview;
+                const isBlocked = !!job.blocked;
+                const switchLocked = isUnderReview || isBlocked;
+                return (
                 <Card
                   key={job.id}
-                  className="group hover:border-primary/40 transition-all border-border/60 shadow-sm bg-card/50 backdrop-blur-sm"
+                  className={`group hover:border-primary/40 transition-all border-border/60 shadow-sm bg-card/50 backdrop-blur-sm ${isActive ? "" : "opacity-60"}`}
                 >
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
@@ -179,42 +210,73 @@ export function RecruiterDashboard({
                             >
                               {job.salaryInfo}
                             </Badge>
+                            {isBlocked ? (
+                              <Badge className="text-[10px] font-bold bg-red-100 text-red-700 border-none flex items-center gap-1">
+                                <Ban className="size-3" /> Blocked by admin
+                              </Badge>
+                            ) : isUnderReview ? (
+                              <Badge className="text-[10px] font-bold bg-amber-100 text-amber-700 border-none flex items-center gap-1">
+                                <ShieldAlert className="size-3" /> Under investigation
+                              </Badge>
+                            ) : (
+                              !isActive && (
+                                <Badge className="text-[10px] font-bold bg-muted text-muted-foreground border-none">
+                                  Hidden from students
+                                </Badge>
+                              )
+                            )}
                             <span className="text-[11px] text-muted-foreground flex items-center gap-1 ml-2">
                               <Clock className="size-3" /> Posted {job.postedAt}
                             </span>
                           </div>
+                          {isUnderReview && !isBlocked && (
+                            <p className="text-[11px] text-amber-700 mt-2 max-w-md">
+                              A student reported this posting. It's hidden from students while our team investigates.
+                            </p>
+                          )}
+                          {isBlocked && (
+                            <p className="text-[11px] text-red-700 mt-2 max-w-md">
+                              An admin blocked this posting after reviewing a report. It can no longer be reactivated.
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-4">
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-10 rounded-xl"
+                          onClick={() => onEditJob(job)}
                         >
-                          <ExternalLink className="mr-2 size-4" /> View
-                          Applicants
+                          <Pencil className="mr-2 size-4" /> Edit Job
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-xl"
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Are you sure you want to delete this posting?",
-                              )
-                            ) {
-                              onDeleteJob(job.id);
+                        <div className="flex items-center gap-2 pl-4 border-l border-border/60">
+                          <span
+                            className={`text-xs font-bold ${isActive ? "text-green-600" : "text-muted-foreground"}`}
+                          >
+                            {isActive ? "Active" : "Inactive"}
+                          </span>
+                          <Switch
+                            checked={isActive}
+                            disabled={switchLocked}
+                            title={
+                              isBlocked
+                                ? "Blocked by admin - cannot be reactivated"
+                                : isUnderReview
+                                  ? "Under investigation - cannot be reactivated until reviewed"
+                                  : undefined
                             }
-                          }}
-                        >
-                          <Trash2 className="size-5" />
-                        </Button>
+                            onCheckedChange={(checked) =>
+                              onToggleActive(job.id, checked)
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
+                );
+              })
             )}
           </div>
         </div>

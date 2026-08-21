@@ -141,6 +141,7 @@ export async function loginSellerAuth(request: SellerLoginRequest): Promise<Sell
   const response = await apiFetch("/api/marketplace/sellers/login", {
     method: "POST",
     body: JSON.stringify(request),
+    skipAuthRedirect: true,
   });
   if (!response.ok) throw new Error("Invalid username or password");
   return response.json();
