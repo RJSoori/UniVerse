@@ -9,8 +9,8 @@ import {
   Briefcase,
   Mail,
   Sparkles,
+  ListChecks,
   CheckCircle,
-  Send,
   Flag,
 } from "lucide-react";
 
@@ -22,14 +22,20 @@ interface JobDetailsProps {
 }
 
 export function JobDetails({ job, matchPercentage, onBack, onReport }: JobDetailsProps) {
+  const skillList: string[] = (job.skills || "")
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+
   const handleEmailCV = () => {
+    const recruiterEmail = job.recruiter?.email || "";
     const subject = encodeURIComponent(
       `Application for ${job.title} - UniVerse Portal`,
     );
     const body = encodeURIComponent(
       `Hello ${job.company || "Recruitment Team"},\n\nI am interested in the ${job.title} position posted on UniVerse. Please find my CV attached.\n\nBest regards.`,
     );
-    window.location.href = `mailto:recruitment@example.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${recruiterEmail}?subject=${subject}&body=${body}`;
   };
 
   return (
@@ -102,6 +108,33 @@ export function JobDetails({ job, matchPercentage, onBack, onReport }: JobDetail
               </p>
             </CardContent>
           </Card>
+
+          <Card className="border-none bg-muted/20 shadow-none">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ListChecks className="size-4 text-primary" /> Skills Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {skillList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No specific skills listed for this role.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {skillList.map((skill) => (
+                    <Badge
+                      key={skill}
+                      variant="secondary"
+                      className="px-3 py-1 text-xs font-semibold"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
         {/* Sidebar */}
         <div className="md:col-span-1 space-y-6">
@@ -141,14 +174,7 @@ export function JobDetails({ job, matchPercentage, onBack, onReport }: JobDetail
                 onClick={handleEmailCV}
                 className="w-full h-12 bg-primary shadow-lg shadow-primary/20 font-bold"
               >
-                <Mail className="mr-2 size-4" /> Email CV to Company
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full h-12 border-primary/20 text-primary font-bold"
-              >
-                <Send className="mr-2 size-4" /> Submit via UniVerse
+                <Mail className="mr-2 size-4" /> Apply via Email
               </Button>
 
               <Button

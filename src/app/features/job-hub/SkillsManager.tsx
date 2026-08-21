@@ -6,6 +6,14 @@ import { Input } from "../../shared/ui/input";
 import { Label } from "../../shared/ui/label";
 import { Badge } from "../../shared/ui/badge";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "../../shared/ui/dialog";
+import {
     ArrowLeft,
     Upload,
     Plus,
@@ -14,7 +22,8 @@ import {
     Sparkles,
     CheckCircle2,
     BrainCircuit,
-    Wand2
+    Wand2,
+    ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, parseApiError } from "../../shared/api/client";
@@ -36,6 +45,15 @@ export function SkillsManager() {
     const [uploadComplete, setUploadComplete] = useState(false);
     const [newlyExtracted, setNewlyExtracted] = useState<string[]>([]);
 
+    // ===== CV PRIVACY NOTICE =====
+    // The Smart Upload feature sends the student's CV text to Google's Gemini API to extract
+    // skills - a third-party AI service, hence the explicit, one-time, backend-enforced consent
+    // gate below. null while still loading (so we don't flash the dialog before we know),
+    // then true/false from the student's actual profile.
+    const [hasAcceptedCvPolicy, setHasAcceptedCvPolicy] = useState<boolean | null>(null);
+    const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
+    const [isAcceptingPolicy, setIsAcceptingPolicy] = useState(false);
+
     useEffect(() => {
         const loadSkills = async () => {
             try {
@@ -45,6 +63,7 @@ export function SkillsManager() {
                 }
                 const data = await response.json();
                 setMySkills(data.skills ?? []);
+                setHasAcceptedCvPolicy(!!data.cvPrivacyPolicyAccepted);
             } catch (error) {
                 console.error("Failed to load skills:", error);
                 toast.error("Unable to load your skills. Please try again.");
@@ -135,6 +154,42 @@ export function SkillsManager() {
         }
     };
 
+    // Every attempt to upload goes through here first - if the privacy notice hasn't been
+    // accepted yet, show it instead of the file picker. Once accepted (ever), go straight to
+    // the file picker from then on.
+    const handleUploadClick = () => {
+        // isLoading guards against a click landing before we've fetched the student's actual
+        // acceptance state - without it, a fast click on page load could show the dialog even
+        // for a student who already accepted it previously.
+        if (isUploading || isLoading) return;
+        if (!hasAcceptedCvPolicy) {
+            setShowPrivacyDialog(true);
+            return;
+        }
+        fileInputRef.current?.click();
+    };
+
+    const handleAcceptPrivacyPolicy = async () => {
+        setIsAcceptingPolicy(true);
+        try {
+            const response = await apiFetch("/api/skills/cv-privacy-policy/accept", {
+                method: "POST",
+            });
+            if (!response.ok) {
+                throw new Error(await parseApiError(response));
+            }
+            setHasAcceptedCvPolicy(true);
+            setShowPrivacyDialog(false);
+            // Continue straight into the file picker so accepting doesn't cost them a second click.
+            fileInputRef.current?.click();
+        } catch (error) {
+            console.error("Failed to record CV privacy policy acceptance:", error);
+            toast.error(error instanceof Error ? error.message : "Unable to save your response. Please try again.");
+        } finally {
+            setIsAcceptingPolicy(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <Button variant="ghost" size="sm" onClick={() => navigate("/jobs")} className="mb-6 hover:bg-primary/5">
@@ -170,7 +225,7 @@ export function SkillsManager() {
                         />
                         <div
                             className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${isUploading ? 'bg-background animate-pulse pointer-events-none' : 'bg-background/50 hover:bg-background'}`}
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={handleUploadClick}
                         >
                             {isUploading ? (
                                 <Wand2 className="size-8 text-primary animate-spin" />
@@ -261,6 +316,48 @@ export function SkillsManager() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ShieldCheck className="size-5 text-primary" /> CV Privacy Notice
+                        </DialogTitle>
+                        <DialogDescription>
+                            Please read this before uploading your CV.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="text-sm text-muted-foreground space-y-3">
+                        <p>
+                            Smart Upload uses <strong className="text-foreground">Google's Gemini API</strong> to
+                            read your CV and automatically identify your skills. This means the text content of
+                            your CV (which may include your name, contact details, education, and work history)
+                            is sent to Google's servers for processing.
+                        </p>
+                        <p>
+                            Your CV file itself is stored securely and is only used to populate your Skills
+                            Inventory - it is never shared with recruiters directly, and is not used to train
+                            any AI model.
+                        </p>
+                        <p>
+                            You only need to accept this once. If you'd rather not use this feature, you can
+                            always add skills manually instead using the form on the right.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowPrivacyDialog(false)}
+                            disabled={isAcceptingPolicy}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleAcceptPrivacyPolicy} disabled={isAcceptingPolicy}>
+                            {isAcceptingPolicy ? "Saving..." : "Accept & Continue"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

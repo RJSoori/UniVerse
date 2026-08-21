@@ -14,6 +14,8 @@ import {
   RefreshCw,
   Settings,
   UserRoundCheck,
+  ShieldAlert,
+  Ban,
 } from "lucide-react";
 
 interface RecruiterDashboardProps {
@@ -177,6 +179,9 @@ export function RecruiterDashboard({
             ) : (
               myJobs.map((job) => {
                 const isActive = job.active ?? true;
+                const isUnderReview = !!job.underReview;
+                const isBlocked = !!job.blocked;
+                const switchLocked = isUnderReview || isBlocked;
                 return (
                 <Card
                   key={job.id}
@@ -205,15 +210,35 @@ export function RecruiterDashboard({
                             >
                               {job.salaryInfo}
                             </Badge>
-                            {!isActive && (
-                              <Badge className="text-[10px] font-bold bg-muted text-muted-foreground border-none">
-                                Hidden from students
+                            {isBlocked ? (
+                              <Badge className="text-[10px] font-bold bg-red-100 text-red-700 border-none flex items-center gap-1">
+                                <Ban className="size-3" /> Blocked by admin
                               </Badge>
+                            ) : isUnderReview ? (
+                              <Badge className="text-[10px] font-bold bg-amber-100 text-amber-700 border-none flex items-center gap-1">
+                                <ShieldAlert className="size-3" /> Under investigation
+                              </Badge>
+                            ) : (
+                              !isActive && (
+                                <Badge className="text-[10px] font-bold bg-muted text-muted-foreground border-none">
+                                  Hidden from students
+                                </Badge>
+                              )
                             )}
                             <span className="text-[11px] text-muted-foreground flex items-center gap-1 ml-2">
                               <Clock className="size-3" /> Posted {job.postedAt}
                             </span>
                           </div>
+                          {isUnderReview && !isBlocked && (
+                            <p className="text-[11px] text-amber-700 mt-2 max-w-md">
+                              A student reported this posting. It's hidden from students while our team investigates.
+                            </p>
+                          )}
+                          {isBlocked && (
+                            <p className="text-[11px] text-red-700 mt-2 max-w-md">
+                              An admin blocked this posting after reviewing a report. It can no longer be reactivated.
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -233,6 +258,14 @@ export function RecruiterDashboard({
                           </span>
                           <Switch
                             checked={isActive}
+                            disabled={switchLocked}
+                            title={
+                              isBlocked
+                                ? "Blocked by admin - cannot be reactivated"
+                                : isUnderReview
+                                  ? "Under investigation - cannot be reactivated until reviewed"
+                                  : undefined
+                            }
                             onCheckedChange={(checked) =>
                               onToggleActive(job.id, checked)
                             }
