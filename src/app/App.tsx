@@ -15,6 +15,8 @@ import { useAuth } from "./auth/AuthContext";
 import { ThemeToggle } from "./shared/components/ThemeToggle";
 import { GpaCalculatorProvider } from "./features/gpa-calculator/hooks/useGpaCalculator";
 import { MoneyManagerProvider } from "./features/money-manager/hooks/useMoneyManager";
+import { TodosProvider } from "./shared/hooks/useTodos";
+import { ScheduleProvider } from "./shared/hooks/useSchedule";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -393,7 +395,11 @@ function AppLayout() {
           >
             <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border/70 bg-background/80 p-3 backdrop-blur-[1px] duration-500 md:p-4">
               <GpaCalculatorProvider>
-                <Outlet />
+                <TodosProvider>
+                  <ScheduleProvider>
+                    <Outlet />
+                  </ScheduleProvider>
+                </TodosProvider>
               </GpaCalculatorProvider>
             </div>
           </main>

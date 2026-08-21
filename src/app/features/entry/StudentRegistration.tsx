@@ -4,23 +4,13 @@ import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
 import { Button } from "../../shared/ui/button";
 import { apiFetch, parseApiError } from "../../shared/api/client";
+import { DEGREES } from "../../shared/constants/degrees";
 import { CheckCircle } from "lucide-react";
 
 //Multi-step student registration process
 export default function StudentRegistration() {
   const navigate = useNavigate();
   const auth = useAuth();
-  const degrees = [
-    "Engineering",
-    "IT & Computing",
-    "Medicine & Health Sciences",
-    "Management & Business",
-    "Architecture & Design",
-    "Natural & Physical Sciences",
-    "Social Sciences & Humanities",
-    "Education & Teaching",
-    "Agriculture & Veterinary",
-  ];
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -232,7 +222,7 @@ export default function StudentRegistration() {
                   required
                 >
                   <option value="">Choose your degree</option>
-                  {degrees.map((deg) => (
+                  {DEGREES.map((deg) => (
                     <option key={deg} value={deg}>
                       {deg}
                     </option>
