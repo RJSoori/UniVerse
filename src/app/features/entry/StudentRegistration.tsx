@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
+import { redeemPendingGroupInvite } from "../../shared/invites/pendingInvite";
 import { Button } from "../../shared/ui/button";
 import { apiFetch, parseApiError } from "../../shared/api/client";
 import { CheckCircle } from "lucide-react";
@@ -171,8 +172,20 @@ export default function StudentRegistration() {
     setSubmitError("");
 
     try {
-      await auth.register({ ...formData, emailVerificationToken });
+      const registeredUser = await auth.register({ ...formData, emailVerificationToken });
       toast.success("Registration successful");
+
+      // If they arrived here via a group invite link, finish that join now.
+      const { group, error: inviteError } = await redeemPendingGroupInvite(registeredUser.id);
+      if (group) {
+        toast.success(`Joined ${group.name}`);
+        navigate("/habits");
+        return;
+      }
+      if (inviteError) {
+        toast.error(inviteError);
+      }
+
       navigate("/dashboard");
     } catch (error) {
       console.error("Registration error:", error);

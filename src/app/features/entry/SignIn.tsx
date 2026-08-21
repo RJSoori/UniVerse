@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "../../auth/AuthContext";
+import { redeemPendingGroupInvite } from "../../shared/invites/pendingInvite";
 import { Button } from "../../shared/ui/button";
 
 export default function SignIn() {
@@ -24,7 +26,19 @@ export default function SignIn() {
 
     try {
       //Attempt login and navigate on success
-      await auth.login(formData);
+      const loggedInUser = await auth.login(formData);
+
+      // If they arrived here via a group invite link, finish that join now.
+      const { group, error: inviteError } = await redeemPendingGroupInvite(loggedInUser.id);
+      if (group) {
+        toast.success(`Joined ${group.name}`);
+        navigate("/habits", { replace: true });
+        return;
+      }
+      if (inviteError) {
+        toast.error(inviteError);
+      }
+
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login Error:", err);

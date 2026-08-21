@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { useGroupHabits } from "../../shared/hooks/useGroupHabits";
 import { Button } from "../../shared/ui/button";
@@ -17,7 +17,6 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  buildInviteEmail,
   buildInviteLink,
   calculateStreak,
   generateInviteCode,
@@ -40,7 +39,7 @@ type StatusMessage = {
  */
 export function GroupHabits() {
   const { user } = useAuth();
-      const { groups, addGroup, updateGroup, removeGroup, joinGroup, loading, error } = useGroupHabits();
+      const { groups, addGroup, updateGroup, removeGroup, joinGroup, sendInvite, loading, error } = useGroupHabits();
   const currentUserId = user?.id?.toString() ?? "";
   const currentUserName = user?.name ?? "You";
       const [createForm, setCreateForm] = useState({
@@ -53,29 +52,35 @@ export function GroupHabits() {
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [openCalendarId, setOpenCalendarId] = useState<string | null>(null);
-  const [highlightedGroupId, setHighlightedGroupId] = useState<string | null>(null);
-  const groupCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({});
+  const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
 
   const recentDays = useMemo(() => getRecentDays(), []);
 
-  useEffect(() => {
-    if (!highlightedGroupId) {
-      return;
-    }
+  /**
+   * Scrolls a group's card into view after it's created or joined — just enough to bring the
+   * whole card on screen (`block: "nearest"`), not a big jump to center it. State updates are
+   * async, so the card may not exist in the DOM yet; this waits for it (MutationObserver, with
+   * a timed fallback) before scrolling directly to it.
+   */
+  const focusGroupCard = (idStr: string) => {
+    const scrollWhenReady = () => {
+      const el = document.querySelector(`[data-group-id="${idStr}"]`) as HTMLElement | null;
+      if (!el) return false;
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return true;
+    };
 
-    const element = groupCardRefs.current[highlightedGroupId];
-    if (!element) {
-      return;
-    }
+    if (scrollWhenReady()) return;
 
-    element.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    const observer = new MutationObserver(() => {
+      if (scrollWhenReady()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    const timeout = window.setTimeout(() => {
-      setHighlightedGroupId(null);
-    }, 1800);
-
-    return () => window.clearTimeout(timeout);
-  }, [highlightedGroupId, groups]);
+    // Safety net: stop watching even if the card never shows up.
+    window.setTimeout(() => observer.disconnect(), 3000);
+  };
 
   // Build the list of groups the current user should see as "joined".
   // NOTE: member.id values may come from the backend as numbers or strings;
@@ -190,56 +195,7 @@ export function GroupHabits() {
       setStatus({ type: "success", message: "Group created. Share the invite link and code." });
 
       const createdId = created?.id?.toString() ?? groupId;
-
-      // Find the nearest scrollable ancestor to handle nested scroll containers.
-      const findScrollableAncestor = (el: HTMLElement | null) => {
-        let ancestor = el?.parentElement ?? null;
-        while (ancestor && ancestor !== document.body) {
-          const style = window.getComputedStyle(ancestor);
-          const overflowY = style.overflowY;
-          if ((overflowY === "auto" || overflowY === "scroll") && ancestor.scrollHeight > ancestor.clientHeight) {
-            return ancestor;
-          }
-          ancestor = ancestor.parentElement;
-        }
-        return document.scrollingElement || document.documentElement;
-      };
-
-      // Scroll helper: position the card in the scrollable ancestor so it's fully visible.
-      const scrollToCard = (idStr: string) => {
-        try {
-          const el = document.querySelector(`[data-group-id="${idStr}"]`) as HTMLElement | null;
-          if (!el) return false;
-
-          const ancestor = findScrollableAncestor(el) as HTMLElement;
-          const elRect = el.getBoundingClientRect();
-          const ancRect = ancestor.getBoundingClientRect();
-          const headerOffset = 96; // leave space for app header / padding
-
-          // Calculate the position relative to the scrollable ancestor so the whole card is visible
-          const desiredTop = ancestor.scrollTop + (elRect.top - ancRect.top) - headerOffset;
-          const maxTop = ancestor.scrollHeight - ancestor.clientHeight;
-          const finalTop = Math.max(0, Math.min(desiredTop, maxTop));
-
-          ancestor.scrollTo({ top: finalTop, behavior: "smooth" });
-          setHighlightedGroupId(idStr);
-          window.setTimeout(() => setHighlightedGroupId(null), 1800);
-          return true;
-        } catch (e) {
-          return false;
-        }
-      };
-
-      // Try immediate scroll; if the node isn't in the DOM yet, observe mutations and scroll as soon as it appears.
-      if (!scrollToCard(createdId)) {
-        const obs = new MutationObserver((mutations, observer) => {
-          if (scrollToCard(createdId)) observer.disconnect();
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-
-        // Fallback retry after a short delay
-        window.setTimeout(() => scrollToCard(createdId), 250);
-      }
+      focusGroupCard(createdId);
     } catch (error) {
       setStatus({ type: "error", message: "Failed to create group" });
     }
@@ -268,50 +224,7 @@ export function GroupHabits() {
       // Scroll to the newly-joined group if present in the DOM after state updates
       const createdId = joined?.id?.toString();
       if (createdId) {
-        const findScrollableAncestor = (el: HTMLElement | null) => {
-          let ancestor = el?.parentElement ?? null;
-          while (ancestor && ancestor !== document.body) {
-            const style = window.getComputedStyle(ancestor);
-            const overflowY = style.overflowY;
-            if ((overflowY === "auto" || overflowY === "scroll") && ancestor.scrollHeight > ancestor.clientHeight) {
-              return ancestor;
-            }
-            ancestor = ancestor.parentElement;
-          }
-          return document.scrollingElement || document.documentElement;
-        };
-
-        const scrollToCard = (idStr: string) => {
-          try {
-            const el = document.querySelector(`[data-group-id="${idStr}"]`) as HTMLElement | null;
-            if (!el) return false;
-
-            const ancestor = findScrollableAncestor(el) as HTMLElement;
-            const elRect = el.getBoundingClientRect();
-            const ancRect = ancestor.getBoundingClientRect();
-            const headerOffset = 96;
-
-            const desiredTop = ancestor.scrollTop + (elRect.top - ancRect.top) - headerOffset;
-            const maxTop = ancestor.scrollHeight - ancestor.clientHeight;
-            const finalTop = Math.max(0, Math.min(desiredTop, maxTop));
-
-            ancestor.scrollTo({ top: finalTop, behavior: "smooth" });
-            setHighlightedGroupId(idStr);
-            window.setTimeout(() => setHighlightedGroupId(null), 1800);
-            return true;
-          } catch (e) {
-            return false;
-          }
-        };
-
-        if (!scrollToCard(createdId)) {
-          const obs = new MutationObserver((mutations, observer) => {
-            if (scrollToCard(createdId)) observer.disconnect();
-          });
-          obs.observe(document.body, { childList: true, subtree: true });
-
-          window.setTimeout(() => scrollToCard(createdId), 250);
-        }
+        focusGroupCard(createdId);
       }
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "Failed to join group" });
@@ -364,6 +277,30 @@ export function GroupHabits() {
   };
 
 
+
+  /**
+   * Emails an invite to the address the owner typed in. The backend generates the actual
+   * message (group name, habit name, sender's name, invite link/code) — this just passes
+   * along the recipient's address.
+   */
+  const handleSendInvite = async (groupId: string, groupName: string) => {
+    const email = (inviteEmails[groupId] ?? "").trim();
+    if (!email) {
+      setStatus({ type: "error", message: "Enter an email address to send the invite." });
+      return;
+    }
+
+    setSendingInviteId(groupId);
+    try {
+      await sendInvite(groupId, email);
+      setStatus({ type: "success", message: `Invite sent to ${email} for ${groupName}.` });
+      setInviteEmails((prev) => ({ ...prev, [groupId]: "" }));
+    } catch (err) {
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Failed to send invite" });
+    } finally {
+      setSendingInviteId(null);
+    }
+  };
 
   // Toggle one completion date for the selected group habit.
   const toggleGroupDate = async (groupId: string, dateStr: string) => {
@@ -506,23 +443,14 @@ export function GroupHabits() {
           </Card>
         ) : (
           joinedGroups.map((group) => {
-            const ref = (element: HTMLDivElement | null) => {
-              groupCardRefs.current[group.id] = element;
-            };
             const isOwner = group.ownerId === currentUserId;
             const normalizedGroupDates = getGroupProgressDates(group);
             const myProgressDates = getCurrentUserProgressDates(group);
             const otherMembersProgressDates = getOtherMembersProgressDates(group);
             const streak = calculateStreak(normalizedGroupDates);
-            const inviteEmail = buildInviteEmail(
-              group.inviteLink,
-              group.code,
-              group.name,
-              group.habitName,
-            );
 
             return (
-              <Card key={group.id} ref={ref} data-group-id={group.id}>
+              <Card key={group.id} data-group-id={group.id}>
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
@@ -587,11 +515,32 @@ export function GroupHabits() {
                               </Button>
                             </div>
                           </div>
-                          <Button variant="secondary" size="sm" asChild>
-                            <a href={inviteEmail}>
-                              <Mail className="h-4 w-4" /> Email Invite
-                            </a>
-                          </Button>
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Mail className="h-3 w-3" /> Invite by Email
+                            </Label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="email"
+                                placeholder="friend@example.com"
+                                value={inviteEmails[group.id] ?? ""}
+                                onChange={(e) =>
+                                  setInviteEmails((prev) => ({ ...prev, [group.id]: e.target.value }))
+                                }
+                                onKeyDown={(e) => e.key === "Enter" && handleSendInvite(group.id, group.name)}
+                                className="text-xs"
+                              />
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={sendingInviteId === group.id}
+                                onClick={() => handleSendInvite(group.id, group.name)}
+                              >
+                                <Mail className="h-4 w-4" />
+                                {sendingInviteId === group.id ? "Sending..." : "Send"}
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}

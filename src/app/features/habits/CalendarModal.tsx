@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../shared/ui/dialog";
 import { Button } from "../../shared/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { toDateKey } from "./utils";
+import { isDateEditable, toDateKey } from "./utils";
 
 type CalendarModalProps = {
   open: boolean;
@@ -46,11 +46,9 @@ export function CalendarModal({
   };
   const handleDateClick = (day: number) => {
     const date = new Date(year, month, day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    // Only allow marking dates up to today
-    if (date > today) {
+    // Only allow marking dates within the past week, plus today.
+    if (!isDateEditable(date)) {
       return;
     }
 
@@ -107,9 +105,7 @@ export function CalendarModal({
               }
 
               const date = new Date(year, month, day);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const isFuture = date > today;
+              const isEditable = isDateEditable(date);
 
               const dateStr = toDateKey(date);
               const isDone = completedDates.includes(dateStr);
@@ -117,13 +113,14 @@ export function CalendarModal({
                 <button
                   key={dateStr}
                   onClick={() => handleDateClick(day)}
-                  disabled={isFuture}
+                  disabled={!isEditable}
+                  title={isEditable ? undefined : "You can only mark today or a day within the past week"}
                   className={`h-10 w-10 rounded-lg border text-sm font-medium transition-all ${
-                    isFuture ? "cursor-not-allowed opacity-30" : "hover:scale-105 cursor-pointer"
+                    !isEditable ? "cursor-not-allowed opacity-30" : "hover:scale-105 cursor-pointer"
                   }`}
                   style={{
                     backgroundColor: isDone ? color : "transparent",
-                    borderColor: isFuture
+                    borderColor: !isEditable
                       ? "hsl(var(--muted-foreground))"
                       : isDone
                         ? color
