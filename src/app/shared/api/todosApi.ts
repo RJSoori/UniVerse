@@ -105,19 +105,27 @@ export async function deleteTodo(todoId: string): Promise<void> {
 
 /**
  * Converts frontend TodoItem format to database format.
+ *
+ * Only includes a field in the output if the caller actually supplied it. `updateTodo` sends
+ * genuinely partial objects (e.g. just `{ completed: true }`); defaulting every omitted field
+ * here would hand the backend blank/default values for fields the caller never touched, which
+ * it would then dutifully save over the real ones — silently wiping unrelated data on every
+ * partial update.
  */
 function convertToDatabase(todos: Partial<TodoItem>[]): Record<string, any>[] {
-  return todos.map((todo) => ({
-    ...(todo.id && { id: todo.id }),
-    title: todo.title || "",
-    description: todo.description || "",
-    dueDate: todo.dueDate || null,
-    dueTime: todo.dueTime || null,
-    durationMinutes: todo.reservedMinutes || null,
-    priority: todo.priority || "medium",
-    completed: todo.completed ?? false,
-    reminderEnabled: todo.reminderEnabled ?? true,
-  }));
+  return todos.map((todo) => {
+    const dbTodo: Record<string, any> = {};
+    if (todo.id) dbTodo.id = todo.id;
+    if ("title" in todo) dbTodo.title = todo.title || "";
+    if ("description" in todo) dbTodo.description = todo.description || "";
+    if ("dueDate" in todo) dbTodo.dueDate = todo.dueDate || null;
+    if ("dueTime" in todo) dbTodo.dueTime = todo.dueTime || null;
+    if ("reservedMinutes" in todo) dbTodo.durationMinutes = todo.reservedMinutes || null;
+    if ("priority" in todo) dbTodo.priority = todo.priority || "medium";
+    if ("completed" in todo) dbTodo.completed = todo.completed ?? false;
+    if ("reminderEnabled" in todo) dbTodo.reminderEnabled = todo.reminderEnabled ?? true;
+    return dbTodo;
+  });
 }
 
 /**

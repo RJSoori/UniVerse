@@ -203,11 +203,33 @@ function convertFromDatabaseHabit(dbHabits: any[]): PersonalHabit[] {
     name: habit.name || "",
     completedDates: habit.completedDates || [],
     color: habit.color || "#3b82f6",
+    createdAt: habit.createdAt || undefined,
     iconId: habit.iconId || "activity",
     description: habit.description || "",
     category: (habit.category as "build" | "break") || "build",
     focusArea: habit.focusArea || "wellbeing",
   }));
+}
+
+/**
+ * Emails a group-habit invite to the given address. The invite message (group name, habit
+ * name, sender's name, invite link/code) is generated server-side — this only sends the
+ * recipient's email address.
+ */
+export async function sendGroupHabitInvite(
+  studentId: number,
+  groupId: string,
+  email: string
+): Promise<void> {
+  const response = await apiFetch(`/api/students/${studentId}/group-habits/${groupId}/invite`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error = await parseApiError(response);
+    throw new Error(`Failed to send invite: ${error}`);
+  }
 }
 
 /**
@@ -222,6 +244,10 @@ function convertToDatabaseGroup(group: Partial<HabitGroup>): Record<string, any>
     code: group.code || "",
     inviteLink: group.inviteLink || "",
     iconId: group.iconId || "activity",
+    // Only meaningful when the owner is leaving and hands off to a remaining member — the
+    // backend only honors this from the current owner, and only when they've removed
+    // themselves from `members` below.
+    ownerId: group.ownerId || "",
     members: group.members || [],
     completedDates: group.completedDates || [],
     memberProgress: group.memberProgress || {},

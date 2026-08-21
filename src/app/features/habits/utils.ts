@@ -13,6 +13,28 @@ export function toDateKey(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+/** Furthest number of days in the past a habit day may still be marked. */
+export const MAX_EDITABLE_PAST_DAYS = 7;
+
+/**
+ * Students can only mark today or a day within the past week (up to
+ * MAX_EDITABLE_PAST_DAYS days ago) — no future dates, and nothing older.
+ */
+export function isDateEditable(date: Date, referenceDate: Date = new Date()): boolean {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (target > today) return false;
+
+  const earliestEditableDate = new Date(today);
+  earliestEditableDate.setDate(today.getDate() - MAX_EDITABLE_PAST_DAYS);
+
+  return target >= earliestEditableDate;
+}
 export function calculateStreak(completedDates: string[]) {
   if (!completedDates || completedDates.length === 0) return 0;
 
@@ -73,12 +95,6 @@ export function generateInviteCode() {
 export function buildInviteLink(groupId: string, code: string) {
   const origin = typeof window === "undefined" ? "https://universe.app" : window.location.origin;
   return `${origin}/habits/join?group=${encodeURIComponent(groupId)}&code=${encodeURIComponent(code)}`;
-}
-export function buildInviteEmail(link: string, code: string, groupName: string, habitName: string) {
-  const subject = `Join my habit group: ${groupName}`;
-  const body = `You are invited to join the group \"${groupName}\" for the habit \"${habitName}\".\n\nInvite link: ${link}\nInvite code: ${code}\n\nOpen UniVerse and enter the code to join.`;
-
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 /**

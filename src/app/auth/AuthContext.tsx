@@ -50,8 +50,8 @@ function normalizeAuthUser(user: AuthUser): AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<AuthUser>;
+  register: (credentials: RegisterCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (patch: UpdateProfilePayload) => Promise<AuthUser>;
   changeEmail: (email: string, emailVerificationToken: string) => Promise<AuthUser>;
@@ -96,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const normalizedUser = normalizeAuthUser(auth.user);
     setUser(normalizedUser);
     setUserState(normalizedUser);
+    return normalizedUser;
   }, []);
 
   const login = useCallback(
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(await parseApiError(response));
       }
 
-      applyAuthResponse((await response.json()) as AuthResponse);
+      return applyAuthResponse((await response.json()) as AuthResponse);
     },
     [applyAuthResponse],
   );
@@ -127,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(await parseApiError(response));
       }
 
-      applyAuthResponse((await response.json()) as AuthResponse);
+      return applyAuthResponse((await response.json()) as AuthResponse);
     },
     [applyAuthResponse],
   );

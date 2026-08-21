@@ -90,6 +90,7 @@ const HabitTracker = lazy(() =>
     default: module.HabitTracker,
   })),
 );
+const JoinGroupInvite = lazy(() => import("./features/habits/JoinGroupInvite"));
 const JobHub = lazy(() =>
   import("./features/job-hub/JobHub").then((module) => ({
     default: module.JobHub,
@@ -500,6 +501,14 @@ export default function App() {
           element={
             <EntryLayout>
               <StudentAccessRecovery />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/habits/join"
+          element={
+            <EntryLayout>
+              <JoinGroupInvite />
             </EntryLayout>
           }
         />

@@ -45,7 +45,7 @@ function useScheduleImpl() {
           startTime: d.startTime || "",
           endTime: d.endTime || "",
           description: d.description || "",
-          type: "other" as const,
+          type: (d.type as ScheduleEvent["type"]) || "other",
         }));
         setEvents(mapped);
       } catch (err) {
@@ -79,6 +79,7 @@ function useScheduleImpl() {
           startTime: payload.startTime,
           endTime: payload.endTime,
           description: payload.description,
+          type: payload.type,
         });
         console.log(`[useSchedule] createEvent: saved event with id=${saved.id}`);
         setEvents((prev) => prev.map((ev) => (ev.id === optimisticId ? { ...payload, id: String(saved.id) } : ev)));
@@ -108,7 +109,7 @@ function useScheduleImpl() {
         // reload on error
         try {
           const data = await fetchScheduleEvents(user.id.toString());
-          setEvents(data.map((d) => ({ id: String(d.id), title: d.title, date: d.date, startTime: d.startTime || "", endTime: d.endTime || "", description: d.description || "", type: "other" as const })));
+          setEvents(data.map((d) => ({ id: String(d.id), title: d.title, date: d.date, startTime: d.startTime || "", endTime: d.endTime || "", description: d.description || "", type: (d.type as ScheduleEvent["type"]) || "other" })));
         } catch {
           // ignore
         }
