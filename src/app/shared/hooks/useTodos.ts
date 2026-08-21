@@ -95,7 +95,10 @@ export function useTodos() {
 
       try {
         setError(null);
-        await updateTodo(id, { completed: updated.completed });
+        // Send the full merged todo, not just the changed field — the update payload defaults
+        // every omitted field (priority, description, reminderEnabled, ...), so a partial
+        // object here would silently reset those fields back to defaults on the server.
+        await updateTodo(id, updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update todo");
         await refetch();
@@ -131,7 +134,9 @@ export function useTodos() {
 
       try {
         setError(null);
-        await updateTodo(id, { reminderEnabled: updated.reminderEnabled });
+        // Same reasoning as toggleCompletion above: send the full object so unrelated fields
+        // (completed, priority, description, ...) don't get reset to their defaults.
+        await updateTodo(id, updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to update todo");
         await refetch();

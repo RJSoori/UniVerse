@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useTodos } from "../../shared/hooks/useTodos";
+import { isOverdue, isTodayOrFuture } from "../../shared/validation/dateValidation";
+import { sortTodos } from "../../shared/validation/todoSorting";
 import { type TodoItem } from "../../shared/api/todosApi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
@@ -45,6 +47,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     reminderEnabled: true,
   });
   const [dueDateInput, setDueDateInput] = useState("");
+  const [dateError, setDateError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
   /**
@@ -85,8 +88,14 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
 
     const parsedDueDate = parseDmyToIsoDate(dueDateInput);
     if (dueDateInput.trim() && !parsedDueDate) {
+      setDateError("Enter a valid date in dd/mm/yyyy format.");
       return;
     }
+    if (parsedDueDate && !isTodayOrFuture(parsedDueDate)) {
+      setDateError("Tasks can only be scheduled for today or a future date.");
+      return;
+    }
+    setDateError("");
 
     // Call the hook's addTodo to create in database
     const created = await addTodo({
@@ -115,6 +124,7 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
       reminderEnabled: true,
     });
     setDueDateInput("");
+    setDateError("");
 
     // Browser notifications 
     if ("Notification" in window && Notification.permission === "default") {
@@ -146,17 +156,20 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
     await toggleReminder(id);
   };
 
-  const displayedTodos = maxItems ? todos.slice(0, maxItems) : todos;
+  const sortedTodos = sortTodos(todos);
+  const displayedTodos = maxItems ? sortedTodos.slice(0, maxItems) : sortedTodos;
 
   /** 
    * UI variant 
    */
-  const getPriorityColor = (priority: string) => {
+  // All three priority levels share one badge style (outline + tinted background);
+  // only the color changes so they read as siblings, not different kinds of thing.
+  const getPriorityBadgeClass = (priority: string) => {
     switch (priority) {
-      case "high": return "destructive";
-      case "medium": return "default";
-      case "low": return "secondary";
-      default: return "default";
+      case "high": return "border-amber-200 bg-amber-500/10 text-amber-600";
+      case "medium": return "border-emerald-200 bg-emerald-500/10 text-emerald-600";
+      case "low": return "border-blue-200 bg-blue-500/10 text-blue-600";
+      default: return "border-slate-200 bg-slate-500/10 text-slate-600";
     }
   };
 
@@ -209,9 +222,12 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                             checked={todo.completed}
                             onCheckedChange={() => toggleTodo(todo.id)}
                         />
-                        <span className={`text-xs flex-1 truncate ${todo.completed ? "line-through text-muted-foreground" : ""}`}>
+                        <span className={`text-xs flex-1 truncate ${todo.completed ? "line-through text-muted-foreground" : !todo.completed && isOverdue(todo.dueDate) ? "text-destructive" : ""}`}>
                     {todo.title}
                   </span>
+                        {!todo.completed && isOverdue(todo.dueDate) && (
+                            <Badge variant="destructive" className="text-[9px] h-4 shrink-0">Overdue</Badge>
+                        )}
                       </div>
                   ))
               )}
@@ -276,10 +292,12 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
                     onChange={(e) => {
                       const value = e.target.value;
                       setDueDateInput(value);
+                      setDateError("");
                       const parsed = parseDmyToIsoDate(value);
                       setNewTodo({ ...newTodo, dueDate: parsed ?? "" });
                     }}
                   />
+                  {dateError && <p className="text-xs text-destructive">{dateError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Due Time</Label>
@@ -324,19 +342,22 @@ export function TodoList({ compact = false, maxItems }: TodoListProps) {
           ) : todos.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-muted-foreground">No tasks yet</CardContent></Card>
           ) : (
-              todos.map((todo) => (
+              displayedTodos.map((todo) => (
                   <Card key={todo.id} className="hover:bg-accent/5 transition-colors">
                     <CardContent className="p-4 flex items-start gap-3">
                       <Checkbox checked={todo.completed} onCheckedChange={() => toggleTodo(todo.id)} className="mt-1" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className={`font-medium ${todo.completed ? "line-through text-muted-foreground" : ""}`}>{todo.title}</h4>
-                          <Badge variant={getPriorityColor(todo.priority)} className="text-[10px] h-4 uppercase">{todo.priority}</Badge>
+                          <Badge variant="outline" className={`text-[10px] h-4 uppercase ${getPriorityBadgeClass(todo.priority)}`}>{todo.priority}</Badge>
+                          {!todo.completed && isOverdue(todo.dueDate) && (
+                              <Badge variant="destructive" className="text-[10px] h-4 uppercase">Overdue</Badge>
+                          )}
                         </div>
                         {(todo.dueDate || todo.dueTime || todo.reservedMinutes) && (
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                               {todo.dueDate && (
-                                  <div className="flex items-center gap-1">
+                                  <div className={`flex items-center gap-1 ${!todo.completed && isOverdue(todo.dueDate) ? "text-destructive font-medium" : ""}`}>
                                     <CalendarIcon className="size-3" />
                                     {formatDate(todo.dueDate)}
                                   </div>
