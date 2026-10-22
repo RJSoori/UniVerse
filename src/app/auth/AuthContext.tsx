@@ -4,10 +4,8 @@ import { apiFetch, parseApiError } from "../shared/api/client";
 import type { AuthUser } from "./tokenStore";
 import {
   clearAuthStorage,
-  getToken,
   getUser,
   onUnauthorized,
-  setToken,
   setUser,
 } from "./tokenStore";
 
@@ -20,27 +18,43 @@ interface RegisterCredentials extends LoginCredentials {
   name: string;
   degree: string;
   email: string;
+  emailVerificationToken: string;
 }
 
 interface UpdateProfilePayload {
   name?: string;
-  email?: string;
   degree?: string | null;
 }
 
 interface AuthResponse {
+  //JWT token for authenticated session
   token: string;
   user: AuthUser;
 }
 
+function normalizeAuthUser(user: AuthUser): AuthUser {
+  // Ensure the auth user has at least one timestamp the UI can use for onboarding
+  // or sorting purposes. The backend may return `createdAt`; for older records
+  // we set `firstSeenAt` on the client so components like HabitTracker can
+  // determine account age reliably.
+  if (user.createdAt || user.firstSeenAt) {
+    return user;
+  }
+
+  return {
+    ...user,
+    firstSeenAt: new Date().toISOString(),
+  };
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
-  token: string | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<AuthUser>;
+  register: (credentials: RegisterCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (patch: UpdateProfilePayload) => Promise<AuthUser>;
+  changeEmail: (email: string, emailVerificationToken: string) => Promise<AuthUser>;
   refreshSession: () => Promise<AuthUser | null>;
 }
 
@@ -48,24 +62,16 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  //Initialize auth state from localStorage and manage session lifecycle
   const [userState, setUserState] = useState<AuthUser | null>(() => getUser());
-  const [tokenState, setTokenState] = useState<string | null>(() => getToken());
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
     clearAuthStorage();
     setUserState(null);
-    setTokenState(null);
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      clearSession();
-      setLoading(false);
-      return null;
-    }
-
     try {
       const response = await apiFetch("/api/auth/me");
       if (!response.ok) {
@@ -73,11 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return null;
       }
-
       const refreshedUser = (await response.json()) as AuthUser;
       setUser(refreshedUser);
       setUserState(refreshedUser);
-      setTokenState(token);
       setLoading(false);
       return refreshedUser;
     } catch (error) {
@@ -89,29 +93,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const applyAuthResponse = useCallback((auth: AuthResponse) => {
-    setToken(auth.token);
-    setUser(auth.user);
-    setTokenState(auth.token);
-    setUserState(auth.user);
+    const normalizedUser = normalizeAuthUser(auth.user);
+    setUser(normalizedUser);
+    setUserState(normalizedUser);
+    return normalizedUser;
   }, []);
 
   const login = useCallback(
+    //Perform login by sending credentials to backend and handling response
     async (credentials: LoginCredentials) => {
       const response = await apiFetch("/api/auth/login", {
         method: "POST",
         body: JSON.stringify(credentials),
+        skipAuthRedirect: true,
       });
 
       if (!response.ok) {
         throw new Error(await parseApiError(response));
       }
 
-      applyAuthResponse((await response.json()) as AuthResponse);
+      return applyAuthResponse((await response.json()) as AuthResponse);
     },
     [applyAuthResponse],
   );
 
   const register = useCallback(
+    //Perform registration by sending user details to backend and handling response
     async (credentials: RegisterCredentials) => {
       const response = await apiFetch("/api/auth/register", {
         method: "POST",
@@ -122,16 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(await parseApiError(response));
       }
 
-      applyAuthResponse((await response.json()) as AuthResponse);
+      return applyAuthResponse((await response.json()) as AuthResponse);
     },
     [applyAuthResponse],
   );
 
   const logout = useCallback(async () => {
     try {
-      if (getToken()) {
-        await apiFetch("/api/auth/logout", { method: "POST" });
-      }
+      await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
       // Local logout should still complete even if the backend is unavailable.
     } finally {
@@ -151,7 +156,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(await parseApiError(response));
       }
 
-      const updatedUser = (await response.json()) as AuthUser;
+      const updatedUser = normalizeAuthUser((await response.json()) as AuthUser);
+      setUser(updatedUser);
+      setUserState(updatedUser);
+      return updatedUser;
+    },
+    [],
+  );
+
+  const changeEmail = useCallback(
+    async (email: string, emailVerificationToken: string) => {
+      const response = await apiFetch("/api/auth/me/email", {
+        method: "PUT",
+        body: JSON.stringify({ email, emailVerificationToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+
+      const updatedUser = normalizeAuthUser((await response.json()) as AuthUser);
       setUser(updatedUser);
       setUserState(updatedUser);
       return updatedUser;
@@ -173,15 +197,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user: userState,
-      token: tokenState,
       loading,
       login,
       register,
       logout,
       updateProfile,
+      changeEmail,
       refreshSession,
     }),
-    [loading, login, logout, refreshSession, register, tokenState, updateProfile, userState],
+    [loading, login, logout, refreshSession, register, updateProfile, changeEmail, userState],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

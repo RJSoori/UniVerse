@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
@@ -10,53 +10,63 @@ import { SellerAccessRecovery } from "./SellerAccessRecovery";
 import {
   ShoppingBag, GraduationCap, Lock, UserPlus, Key,
   ArrowLeft, Eye, EyeOff, Store, User, Upload,
-  MapPin, FileText, Tag, ShieldCheck, Phone,
+  MapPin, FileText, Tag, ShieldCheck, Phone, CheckCircle,
 } from "lucide-react";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
+import { toast } from "sonner";
+import {
+  registerSellerAuth,
+  loginSellerAuth,
+  setSellerToken,
+  setSellerData,
+  sendSellerEmailCode,
+  verifySellerEmailCode,
+} from "./marketplaceApi";
 
-// ── Account storage ───────────────────────────────────────────────────────────
-interface SellerAccount {
-  password: string;
-  sellerType?: string;
-  businessName?: string;
-  idNumber?: string;
-  contactNumber?: string;
-  location?: string;
-  categoryFocus?: string;
-  storeDescription?: string;
-}
-
-function getAccounts(): Record<string, SellerAccount> {
-  return readJsonFromLocalStorage<Record<string, SellerAccount>>("universe-seller-accounts", {});
-}
-
-function saveAccounts(accounts: Record<string, SellerAccount>) {
-  localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Seller registration and authentication component
+ * Handles: seller login, new account creation, seller type selection,
+ * business verification, and session management
+ */
 export default function SellerRegister() {
   const navigate = useNavigate();
-  // Auth state
+  const [searchParams] = useSearchParams();
+  // Deep-links here can request the Register tab open by default (?mode=register) —
+  // otherwise Login is the default, e.g. for a returning seller.
+  const [authTab, setAuthTab] = useState(searchParams.get("mode") === "register" ? "register" : "login");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
   const [sellerType, setSellerType] = useState<"shop" | "individual" | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [showRecovery, setShowRecovery] = useState(false);   // ✅ recovery state
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Login state
-  const [loginEmail, setLoginEmail] = useState("");
+  // Manages seller login form data and validation
+  const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Register state
+  // Manages seller registration form data for new account creation
   const [regEmail, setRegEmail] = useState("");
+  const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
   const [registerError, setRegisterError] = useState("");
 
-  // Verification state
+  // WORK EMAIL VERIFICATION STATE
+  // Sellers must verify ownership of their email (6-digit code) before the account can be
+  // created. Mirrors the recruiter signup flow in job-hub/JobRegistration.tsx.
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [emailCodeError, setEmailCodeError] = useState("");
+  const [emailResendCooldown, setEmailResendCooldown] = useState(0);
+
+  // Manages business verification form data for store details submission
   const [verifBusinessName, setVerifBusinessName] = useState("");
   const [verifIdNumber, setVerifIdNumber] = useState("");
   const [verifContact, setVerifContact] = useState("");
@@ -64,6 +74,13 @@ export default function SellerRegister() {
   const [verifCategory, setVerifCategory] = useState("");
   const [verifDescription, setVerifDescription] = useState("");
   const [verifyError, setVerifyError] = useState("");
+
+  // Verification documents (optional uploads, stored in Azure Blob Storage on submit)
+  const [identityDocument, setIdentityDocument] = useState<File | null>(null);
+  const [shopLogo, setShopLogo] = useState<File | null>(null);
+  const [proofOfItems, setProofOfItems] = useState<File | null>(null);
+
+  // Automatically redirects to dashboard after completion
   const shouldRedirectToDashboard = isAuthenticated && isRegistered && step === 3;
 
   useEffect(() => {
@@ -72,52 +89,126 @@ export default function SellerRegister() {
     }
   }, [navigate, shouldRedirectToDashboard]);
 
-  // ✅ Show recovery screen
+  // Any edit to the email after verification invalidates it - the verified token is only
+  // valid for the exact address it was issued for.
+  useEffect(() => {
+    if (regEmail.trim().toLowerCase() !== verifiedEmail) {
+      setEmailVerified(false);
+      setEmailVerificationToken("");
+    }
+  }, [regEmail, verifiedEmail]);
+
+  useEffect(() => {
+    if (emailResendCooldown <= 0) return;
+    const timer = setInterval(
+      () => setEmailResendCooldown((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [emailResendCooldown]);
+
+  const handleSendEmailCode = async () => {
+    const normalizedEmail = regEmail.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      toast.error("Please enter a valid email first.");
+      return;
+    }
+    setIsSendingEmailCode(true);
+    try {
+      await sendSellerEmailCode(normalizedEmail);
+      toast.success("Verification code sent to your email.");
+      setShowEmailCodeInput(true);
+      setEmailCode("");
+      setEmailCodeError("");
+      setEmailResendCooldown(30);
+    } catch (error) {
+      console.error("Failed to send email verification code:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to send code. Please try again.",
+      );
+    } finally {
+      setIsSendingEmailCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    setEmailCodeError("");
+    if (!/^\d{6}$/.test(emailCode)) {
+      setEmailCodeError("Enter the 6-digit code from your email.");
+      return;
+    }
+    const normalizedEmail = regEmail.trim().toLowerCase();
+    setIsVerifyingEmailCode(true);
+    try {
+      const token = await verifySellerEmailCode(normalizedEmail, emailCode);
+      setEmailVerificationToken(token);
+      setVerifiedEmail(normalizedEmail);
+      setEmailVerified(true);
+      setShowEmailCodeInput(false);
+      toast.success("Email verified!");
+    } catch (error) {
+      console.error("Email code verification failed:", error);
+      setEmailCodeError(
+        error instanceof Error ? error.message : "Invalid or expired code.",
+      );
+    } finally {
+      setIsVerifyingEmailCode(false);
+    }
+  };
+
+  // Displays account recovery interface for password reset
   if (showRecovery) {
     return <SellerAccessRecovery onBack={() => setShowRecovery(false)} />;
   }
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setLoginError("");
-    if (!loginEmail || !loginPassword) {
+    if (!loginUsername || !loginPassword) {
       setLoginError("Please fill in all fields.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
-      setLoginError("Please enter a valid email address.");
       return;
     }
     if (loginPassword.length < 8) {
       setLoginError("Password must be at least 8 characters.");
       return;
     }
-    const accounts = getAccounts();
-    const account = accounts[loginEmail.toLowerCase()];
-    if (!account) {
-      setLoginError("No seller account found with this email. Please register first.");
-      return;
+    setIsSubmitting(true);
+    try {
+      const auth = await loginSellerAuth({
+          username: loginUsername,
+          password: loginPassword,
+     });
+      setSellerToken(auth.token);
+      setSellerData(auth.seller);
+      localStorage.setItem("universe-active-seller", auth.seller.email.toLowerCase());
+      setIsAuthenticated(true);
+      setIsRegistered(true);
+      setStep(3);
+      if (!sellerType) setSellerType("shop");
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : "Invalid username or password. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    if (account.password !== loginPassword) {
-      setLoginError("Incorrect password. Please try again.");
-      return;
-    }
-    localStorage.setItem("universe-active-seller", loginEmail.toLowerCase());
-    setIsAuthenticated(true);
-    setIsRegistered(true);
-    setStep(3);
-    if (!sellerType) setSellerType("shop");
   };
 
   // ── Register ───────────────────────────────────────────────────────────────
   const handleRegister = () => {
     setRegisterError("");
-    if (!regEmail || !regPassword || !regConfirm) {
+    if (!regEmail || !regUsername || !regPassword || !regConfirm) {
       setRegisterError("Please fill in all fields.");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
       setRegisterError("Please enter a valid email address.");
+      return;
+    }
+    if (regUsername.length < 3) {
+      setRegisterError("Username must be at least 3 characters.");
       return;
     }
     if (regPassword.length < 8) {
@@ -128,21 +219,16 @@ export default function SellerRegister() {
       setRegisterError("Passwords do not match.");
       return;
     }
-    const accounts = getAccounts();
-    if (accounts[regEmail.toLowerCase()]) {
-      setRegisterError("An account with this email already exists. Please log in.");
+    if (!emailVerified || regEmail.trim().toLowerCase() !== verifiedEmail) {
+      setRegisterError("Please verify your email before continuing.");
       return;
     }
-    accounts[regEmail.toLowerCase()] = { password: regPassword };
-    saveAccounts(accounts);
-    localStorage.setItem("universe-active-seller", regEmail.toLowerCase());
-    setLoginEmail(regEmail);
     setIsAuthenticated(true);
     setStep(1);
   };
 
   // ── Verification ───────────────────────────────────────────────────────────
-  const handleVerificationSubmit = () => {
+  const handleVerificationSubmit = async () => {
     setVerifyError("");
     if (!verifBusinessName || !verifIdNumber || !verifContact || !verifLocation) {
       setVerifyError("Please fill in all required fields.");
@@ -152,26 +238,49 @@ export default function SellerRegister() {
       setVerifyError("Please enter a valid contact number.");
       return;
     }
-    const accounts = getAccounts();
-    const email = regEmail || loginEmail;
-    if (accounts[email.toLowerCase()]) {
-      accounts[email.toLowerCase()] = {
-        ...accounts[email.toLowerCase()],
-        sellerType: sellerType ?? undefined,
-        businessName: verifBusinessName,
-        idNumber: verifIdNumber,
-        contactNumber: verifContact,
-        location: verifLocation,
-        categoryFocus: verifCategory,
-        storeDescription: verifDescription,
-      };
-      saveAccounts(accounts);
+    if (!identityDocument) {
+      setVerifyError(`Please upload your ${sellerType === "shop" ? "BR Certificate" : "NIC / Student ID"}.`);
+      return;
     }
-    setIsRegistered(true);
-    setStep(3);
+    if (sellerType === "shop" && !shopLogo) {
+      setVerifyError("Please upload your shop logo.");
+      return;
+    }
+    if (!proofOfItems) {
+      setVerifyError("Please upload proof of items.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("storeName", verifBusinessName);
+      formData.append("email", regEmail);
+      formData.append("username", regUsername);
+      formData.append("password", regPassword);
+      formData.append("phone", verifContact);
+      formData.append("description", verifDescription);
+      formData.append("emailVerificationToken", emailVerificationToken);
+      if (identityDocument) formData.append("identityDocument", identityDocument);
+      if (sellerType === "shop" && shopLogo) formData.append("shopLogo", shopLogo);
+      if (proofOfItems) formData.append("proofOfItems", proofOfItems);
+
+      const auth = await registerSellerAuth(formData);
+
+      // ✅ Store seller token and data
+      setSellerToken(auth.token);
+      setSellerData(auth.seller);
+      localStorage.setItem("universe-active-seller", auth.seller.email.toLowerCase());
+
+      setIsRegistered(true);
+      setStep(3);
+    } catch (error) {
+      setVerifyError(error instanceof Error ? error.message : "Failed to create seller account. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // ── Step 3: navigate to dashboard ─────────────────────────────────────────
   if (shouldRedirectToDashboard) {
     return null;
   }
@@ -196,7 +305,7 @@ export default function SellerRegister() {
             <CardDescription>Login or register to manage your listings</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs value={authTab} onValueChange={setAuthTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login" className="flex items-center gap-2">
                   <Key className="size-3" /> Login
@@ -209,12 +318,12 @@ export default function SellerRegister() {
               {/* ── Login Tab ── */}
               <TabsContent value="login" className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Email Address</Label>
+                  <Label>Username</Label>
                   <Input
-                    type="email"
-                    placeholder="jane@example.com"
-                    value={loginEmail}
-                    onChange={(e) => { setLoginEmail(e.target.value); setLoginError(""); }}
+                    type="text"
+                    placeholder="Your username"
+                    value={loginUsername}
+                    onChange={(e) => { setLoginUsername(e.target.value); setLoginError(""); }}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                   />
                 </div>
@@ -238,8 +347,9 @@ export default function SellerRegister() {
                   </div>
                 </div>
                 {loginError && <p className="text-xs text-destructive">{loginError}</p>}
-                <Button className="w-full" onClick={handleLogin}>Sign In</Button>
-                {/* ✅ Forgot Password link */}
+                <Button className="w-full" onClick={handleLogin} disabled={isSubmitting}>
+                  {isSubmitting ? "Signing in..." : "Sign In"}
+                </Button>
                 <Button
                   variant="link"
                   className="w-full text-xs text-muted-foreground hover:text-primary"
@@ -256,11 +366,69 @@ export default function SellerRegister() {
                 </p>
                 <div className="space-y-2">
                   <Label>Email Address</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="jane@example.com"
+                      className="flex-1"
+                      value={regEmail}
+                      onChange={(e) => { setRegEmail(e.target.value); setRegisterError(""); }}
+                    />
+                    {emailVerified ? (
+                      <div className="px-3 rounded-md bg-green-500/10 border border-green-500/30 flex items-center gap-2 text-green-600 font-bold text-xs whitespace-nowrap">
+                        <CheckCircle className="size-4" /> Verified
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="whitespace-nowrap"
+                        onClick={handleSendEmailCode}
+                        disabled={isSendingEmailCode || !regEmail.includes("@")}
+                      >
+                        {isSendingEmailCode ? "Sending..." : "Verify"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {showEmailCodeInput && !emailVerified && (
+                    <div className="flex gap-2 items-start pt-1">
+                      <div className="flex-1">
+                        <Input
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="000000"
+                          className="font-mono tracking-[0.4em] text-center"
+                          value={emailCode}
+                          onChange={(e) => {
+                            setEmailCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                            setEmailCodeError("");
+                          }}
+                          onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailCode()}
+                        />
+                        {emailCodeError && <p className="text-xs text-destructive mt-1">{emailCodeError}</p>}
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-primary mt-1 font-semibold disabled:opacity-50"
+                          onClick={handleSendEmailCode}
+                          disabled={emailResendCooldown > 0 || isSendingEmailCode}
+                        >
+                          {emailResendCooldown > 0 ? `Resend in ${emailResendCooldown}s` : "Resend code"}
+                        </button>
+                      </div>
+                      <Button type="button" onClick={handleVerifyEmailCode} disabled={isVerifyingEmailCode || emailCode.length !== 6}>
+                        {isVerifyingEmailCode ? "Checking..." : "Confirm"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Username</Label>
                   <Input
-                    type="email"
-                    placeholder="jane@example.com"
-                    value={regEmail}
-                    onChange={(e) => { setRegEmail(e.target.value); setRegisterError(""); }}
+                    type="text"
+                    placeholder="Choose a username"
+                    value={regUsername}
+                    onChange={(e) => { setRegUsername(e.target.value); setRegisterError(""); }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -291,8 +459,8 @@ export default function SellerRegister() {
                   />
                 </div>
                 {registerError && <p className="text-xs text-destructive">{registerError}</p>}
-                <Button className="w-full" variant="secondary" onClick={handleRegister}>
-                  <UserPlus className="mr-2 size-4" /> Continue
+                <Button className="w-full" variant="secondary" onClick={handleRegister} disabled={!emailVerified}>
+                  <UserPlus className="mr-2 size-4" /> {emailVerified ? "Continue" : "Verify Your Email to Continue"}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -413,8 +581,10 @@ export default function SellerRegister() {
                       <Input
                         className="pl-10 h-11 bg-muted/20 border-none"
                         placeholder="e.g. 0771234567"
+                        type="tel"
+                        inputMode="numeric"
                         value={verifContact}
-                        onChange={(e) => { setVerifContact(e.target.value); setVerifyError(""); }}
+                        onChange={(e) => { setVerifContact(e.target.value.replace(/\D/g, "")); setVerifyError(""); }}
                       />
                     </div>
                   </div>
@@ -457,28 +627,63 @@ export default function SellerRegister() {
                   />
                 </div>
                 <div className="md:col-span-2 pt-6">
-                  <Label className="text-xs font-bold uppercase tracking-widest opacity-70 mb-4 block text-primary">Verification Documents</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest opacity-70 mb-4 block text-primary">
+                    Verification Documents <span className="text-destructive">*</span>
+                  </Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                    <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => setIdentityDocument(e.target.files?.[0] || null)}
+                      />
                       <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                        <Upload className="size-6 text-muted-foreground group-hover:text-primary" />
+                        {identityDocument ? (
+                          <CheckCircle className="size-6 text-green-600" />
+                        ) : (
+                          <Upload className="size-6 text-muted-foreground group-hover:text-primary" />
+                        )}
                       </div>
                       <span className="text-xs font-bold mt-1">{sellerType === "shop" ? "BR Certificate" : "NIC / Student ID"}</span>
-                    </div>
+                      {identityDocument && <span className="text-[10px] text-muted-foreground truncate max-w-full">{identityDocument.name}</span>}
+                    </label>
                     {sellerType === "shop" && (
-                      <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                      <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => setShopLogo(e.target.files?.[0] || null)}
+                        />
                         <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                          <ShoppingBag className="size-6 text-muted-foreground group-hover:text-primary" />
+                          {shopLogo ? (
+                            <CheckCircle className="size-6 text-green-600" />
+                          ) : (
+                            <ShoppingBag className="size-6 text-muted-foreground group-hover:text-primary" />
+                          )}
                         </div>
                         <span className="text-xs font-bold mt-1">Shop Logo</span>
-                      </div>
+                        {shopLogo && <span className="text-[10px] text-muted-foreground truncate max-w-full">{shopLogo.name}</span>}
+                      </label>
                     )}
-                    <div className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group">
+                    <label className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer bg-muted/10 group text-center">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => setProofOfItems(e.target.files?.[0] || null)}
+                      />
                       <div className="p-3 bg-background rounded-full group-hover:bg-primary/10">
-                        <ShieldCheck className="size-6 text-muted-foreground group-hover:text-primary" />
+                        {proofOfItems ? (
+                          <CheckCircle className="size-6 text-green-600" />
+                        ) : (
+                          <ShieldCheck className="size-6 text-muted-foreground group-hover:text-primary" />
+                        )}
                       </div>
                       <span className="text-xs font-bold mt-1">Proof of Items</span>
-                    </div>
+                      {proofOfItems && <span className="text-[10px] text-muted-foreground truncate max-w-full">{proofOfItems.name}</span>}
+                    </label>
                   </div>
                 </div>
               </div>
@@ -492,8 +697,9 @@ export default function SellerRegister() {
                 <Button
                   className="flex-[2] h-12 font-black uppercase text-sm tracking-widest order-1 sm:order-2 shadow-xl shadow-primary/20"
                   onClick={handleVerificationSubmit}
+                  disabled={isSubmitting}
                 >
-                  Submit & Go to Dashboard
+                  {isSubmitting ? "Creating Account..." : "Submit & Go to Dashboard"}
                 </Button>
               </div>
             </CardContent>

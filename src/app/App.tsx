@@ -15,6 +15,8 @@ import { useAuth } from "./auth/AuthContext";
 import { ThemeToggle } from "./shared/components/ThemeToggle";
 import { GpaCalculatorProvider } from "./features/gpa-calculator/hooks/useGpaCalculator";
 import { MoneyManagerProvider } from "./features/money-manager/hooks/useMoneyManager";
+import { TodosProvider } from "./shared/hooks/useTodos";
+import { ScheduleProvider } from "./shared/hooks/useSchedule";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -44,8 +46,8 @@ const StudentAuthChoice = lazy(
 const StudentRegistration = lazy(
   () => import("./features/entry/StudentRegistration"),
 );
-const PasswordResetUnavailable = lazy(
-  () => import("./features/entry/PasswordResetUnavailable"),
+const StudentAccessRecovery = lazy(
+  () => import("./features/entry/StudentAccessRecovery"),
 );
 const JobRegistration = lazy(() =>
   import("./features/job-hub/JobRegistration").then((module) => ({
@@ -88,6 +90,7 @@ const HabitTracker = lazy(() =>
     default: module.HabitTracker,
   })),
 );
+const JoinGroupInvite = lazy(() => import("./features/habits/JoinGroupInvite"));
 const JobHub = lazy(() =>
   import("./features/job-hub/JobHub").then((module) => ({
     default: module.JobHub,
@@ -393,7 +396,11 @@ function AppLayout() {
           >
             <div className="animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border/70 bg-background/80 p-3 backdrop-blur-[1px] duration-500 md:p-4">
               <GpaCalculatorProvider>
-                <Outlet />
+                <TodosProvider>
+                  <ScheduleProvider>
+                    <Outlet />
+                  </ScheduleProvider>
+                </TodosProvider>
               </GpaCalculatorProvider>
             </div>
           </main>
@@ -485,7 +492,7 @@ export default function App() {
           path="/forgot-password"
           element={
             <EntryLayout>
-              <PasswordResetUnavailable />
+              <StudentAccessRecovery />
             </EntryLayout>
           }
         />
@@ -493,7 +500,15 @@ export default function App() {
           path="/reset-password"
           element={
             <EntryLayout>
-              <PasswordResetUnavailable />
+              <StudentAccessRecovery />
+            </EntryLayout>
+          }
+        />
+        <Route
+          path="/habits/join"
+          element={
+            <EntryLayout>
+              <JoinGroupInvite />
             </EntryLayout>
           }
         />
@@ -516,11 +531,9 @@ export default function App() {
         <Route
           path="/seller/dashboard"
           element={
-            <RequireAuth>
-              <EntryLayout>
-                <SellerDashboard />
-              </EntryLayout>
-            </RequireAuth>
+            <EntryLayout>
+              <SellerDashboard />
+            </EntryLayout>
           }
         />
         <Route

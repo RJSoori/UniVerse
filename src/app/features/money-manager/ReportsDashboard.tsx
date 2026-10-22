@@ -25,11 +25,15 @@ import {
 } from "recharts";
 import { Calendar } from "lucide-react";
 import { formatCurrency } from "./utils/currency";
+import { useAuth } from "../../auth/AuthContext";
 
 type ReportPeriod = "weekly" | "monthly" | "custom";
 
 export function ReportsDashboard() {
-  const { generateReport, generateMoneyManagerCsv } = useMoneyManager();
+  const { generateReport, generateMoneyManagerCsv, generateMoneyManagerPdf } = useMoneyManager();
+  const { user } = useAuth();
+  const studentName = user?.name?.trim() || "Student";
+  const studentDegree = user?.degree?.trim() || "Not specified";
   const [period, setPeriod] = useState<ReportPeriod>("monthly");
   const [startDate, setStartDate] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -47,17 +51,26 @@ export function ReportsDashboard() {
     return balance >= 0 ? "text-emerald-600" : "text-destructive";
   };
 
-  const handleExportCsv = () => {
-    const csv = generateMoneyManagerCsv("Student Name", "Degree");
-    const blob = new Blob([csv], { type: "text/csv" });
+  const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `money-manager-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportCsv = () => {
+    const csv = generateMoneyManagerCsv(studentName, studentDegree);
+    const blob = new Blob([csv], { type: "text/csv" });
+    downloadBlob(blob, `money-manager-report-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportPdf = () => {
+    const blob = generateMoneyManagerPdf(studentName, studentDegree);
+    downloadBlob(blob, `money-manager-report-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const COLORS = [
@@ -135,9 +148,14 @@ export function ReportsDashboard() {
                 </Button>
               ))}
             </div>
-            <Button size="sm" onClick={handleExportCsv}>
-              Export CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleExportPdf}>
+                Export PDF
+              </Button>
+              <Button size="sm" onClick={handleExportCsv}>
+                Export CSV
+              </Button>
+            </div>
           </div>
           {period !== "custom" && (
             <div className="space-y-3 text-sm">

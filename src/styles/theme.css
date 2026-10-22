@@ -9,11 +9,11 @@
   --popover: #ffffff;
   --popover-foreground: #0f172a;
 
-  /* UPDATED: Professional Sapphire Blue */
+  /* Sapphire Blue */
   --primary: #1d4ed8;
   --primary-foreground: #ffffff;
 
-  /* UPDATED: Light blue secondary tint */
+  /* Light blue secondary tint */
   --secondary: #eef4ff;
   --secondary-foreground: #1e40af;
 
@@ -38,7 +38,7 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
 
-  /* UPDATED: Sidebar accents to match blue theme */
+  /* Sidebar accents to match blue theme */
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #1d4ed8;
@@ -57,7 +57,7 @@
   --popover: #111827;
   --popover-foreground: #e5e7eb;
 
-  /* UPDATED: Vibrant blue for Dark Mode */
+  /* Vibrant blue for Dark Mode */
   --primary: #60a5fa;
   --primary-foreground: #ffffff;
 

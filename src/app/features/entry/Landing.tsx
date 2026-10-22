@@ -1,5 +1,5 @@
 import { Button } from "../../shared/ui/button";
-import { GraduationCap, Sparkles, ArrowRight } from "lucide-react";
+import { GraduationCap, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Landing() {
@@ -13,14 +13,8 @@ export default function Landing() {
                 <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[50%] bg-blue-600/5 rounded-full blur-[100px]" />
             </div>
 
-            {/* Content shifted lower */}
-            <div className="flex flex-col items-center text-center px-6 z-10 mt-20">
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-                    <Sparkles className="size-3" />
-                    <span>The Future of Student Life</span>
-                </div>
-
+            {/* Main content - vertically centered in the remaining space */}
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 z-10">
                 {/* Headings */}
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-muted-foreground mb-4">
                     Welcome to
@@ -39,10 +33,7 @@ export default function Landing() {
                     The intelligent management system for undergraduates.
                     Unify your academic progress, finances, and career trajectory in one platform.
                 </p>
-            </div>
 
-            {/* Get Started Button stays fixed above footer */}
-            <div className="flex items-center justify-center mb-12">
                 <Button
                     className="w-64 h-14 text-lg font-bold rounded-2xl
                     bg-gradient-to-r from-primary to-blue-600
@@ -54,8 +45,8 @@ export default function Landing() {
                 </Button>
             </div>
 
-            {/* Footer Branding stays pinned */}
-            <div className="text-center mb-2">
+            {/* Footer Branding pinned to the bottom of the page */}
+            <div className="text-center pb-6 z-10">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest opacity-50">
                     UoM Undergraduate Life Management System
                 </p>

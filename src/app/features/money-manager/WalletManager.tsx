@@ -35,6 +35,7 @@ export function WalletManager() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState("");
+  const [walletToDelete, setWalletToDelete] = useState<WalletType | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -243,10 +244,7 @@ export function WalletManager() {
                   size="sm"
                   onClick={() => {
                     setGeneralError("");
-                    const result = deleteWallet(wallet.id);
-                    if (!result.ok) {
-                      setGeneralError(result.errors.general || "Unable to delete wallet.");
-                    }
+                    setWalletToDelete(wallet);
                   }}
                   className="text-destructive hover:text-destructive"
                 >
@@ -341,6 +339,35 @@ export function WalletManager() {
           </p>
         </div>
       )}
+
+      <Dialog open={walletToDelete !== null} onOpenChange={(open) => { if (!open) setWalletToDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Wallet</DialogTitle>
+            <DialogDescription>
+              Deleting <strong>{walletToDelete?.name}</strong> will permanently remove it and all its linked transactions and recurring expenses. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setWalletToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!walletToDelete) return;
+                const result = deleteWallet(walletToDelete.id);
+                if (!result.ok) {
+                  setGeneralError(result.errors.general || "Unable to delete wallet.");
+                }
+                setWalletToDelete(null);
+              }}
+            >
+              Delete Wallet
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

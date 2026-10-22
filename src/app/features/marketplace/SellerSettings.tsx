@@ -7,82 +7,66 @@ import { Textarea } from "../../shared/ui/textarea";
 import { Badge } from "../../shared/ui/badge";
 import {
   ArrowLeft, Save, ShoppingBag, MapPin, Tag,
-  ShieldCheck, Camera, Bell, Lock, Phone,
+  ShieldCheck, Camera, Lock, Phone,
   Eye, EyeOff, X, CheckCircle, AlertTriangle,
-  ToggleLeft, ToggleRight,
 } from "lucide-react";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
+import {
+  getSellerData,
+  setSellerData,
+  updateMySellerProfile,
+  changeSellerPassword,
+  uploadSellerLogo,
+  submitReverificationRequest,
+} from "./marketplaceApi";
 
 interface SellerSettingsProps {
   onBack: () => void;
 }
 
-type ActiveTab = "store" | "notifications" | "security";
-
-// ── Read/write account from localStorage ─────────────────────────────────────
-function getActiveEmail(): string {
-  const activeSeller = localStorage.getItem("universe-active-seller");
-  if (activeSeller) {
-    return activeSeller.toLowerCase();
-  }
-  const accounts = readJsonFromLocalStorage<Record<string, unknown>>("universe-seller-accounts", {});
-  return Object.keys(accounts)[0] || "";
-}
-
-function getAccount(email: string) {
-  if (!email) return null;
-  const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
-  return accounts[email.toLowerCase()] || null;
-}
-
-function saveAccount(email: string, data: Record<string, string>) {
-  if (!email) return;
-  const accounts = readJsonFromLocalStorage<Record<string, Record<string, string>>>("universe-seller-accounts", {});
-  accounts[email.toLowerCase()] = { ...accounts[email.toLowerCase()], ...data };
-  localStorage.setItem("universe-seller-accounts", JSON.stringify(accounts));
-}
-// ─────────────────────────────────────────────────────────────────────────────
+type ActiveTab = "store" | "security";
 
 export function SellerSettings({ onBack }: SellerSettingsProps) {
-  const email = getActiveEmail();
-  const account = getAccount(email);
+  const [sellerData, setSellerDataState] = useState(getSellerData());
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("store");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  // ── Logo state ─────────────────────────────────────────────────────────────
-  const [logoPreview, setLogoPreview] = useState<string | null>(
-    localStorage.getItem("universe-seller-logo") || null
-  );
-  const logoInputRef = useRef<HTMLInputElement>(null);
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      setLogoPreview(result);
-      localStorage.setItem("universe-seller-logo", result);
-    };
-    reader.readAsDataURL(file);
+  // Persists updated seller data to both localStorage and this component's state
+  const persistSellerData = (updated: typeof sellerData) => {
+    if (!updated) return;
+    setSellerData(updated);
+    setSellerDataState(updated);
   };
 
-  // ── Store info state — pre-filled from localStorage ────────────────────────
-  const [storeName, setStoreName] = useState(account?.businessName || "");
-  const [sellerType, setSellerType] = useState(account?.sellerType || "");
-  const [sellerIdNumber, setSellerIdNumber] = useState(account?.idNumber || "");
-  const [categoryFocus, setCategoryFocus] = useState(account?.categoryFocus || "");
-  const [storeDescription, setStoreDescription] = useState(account?.storeDescription || "");
-  const [contactNumber, setContactNumber] = useState(account?.contactNumber || "");
-  const [location, setLocation] = useState(account?.location || "");
+  // ── Logo state — backed by the seller's actual shopLogoUrl, uploaded to Azure ──
+  const [logoPreview, setLogoPreview] = useState<string | null>(sellerData?.shopLogoUrl || null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Notifications state ────────────────────────────────────────────────────
-  const [notifNewMessage, setNotifNewMessage] = useState(true);
-  const [notifNewOffer, setNotifNewOffer] = useState(true);
-  const [notifListingExpiry, setNotifListingExpiry] = useState(false);
-  const [notifPlatformUpdates, setNotifPlatformUpdates] = useState(true);
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    setLogoError("");
+    try {
+      const updated = await uploadSellerLogo(file);
+      persistSellerData(updated);
+      setLogoPreview(updated.shopLogoUrl || null);
+    } catch (error) {
+      setLogoError("Failed to upload logo. Please try again.");
+    } finally {
+      setIsUploadingLogo(false);
+      e.target.value = "";
+    }
+  };
+
+  // ── Store info state — pre-filled from seller data ─────────────────────────
+  const [storeName, setStoreName] = useState(sellerData?.storeName || "");
+  const [phone, setPhone] = useState(sellerData?.phone || "");
+  const [description, setDescription] = useState(sellerData?.description || "");
 
   // ── Security state ─────────────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState("");
@@ -92,42 +76,41 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
   const [showNew, setShowNew] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // ── Re-verification state ──────────────────────────────────────────────────
   const [showReverifyModal, setShowReverifyModal] = useState(false);
   const [reverifyReason, setReverifyReason] = useState("");
   const [reverifySubmitted, setReverifySubmitted] = useState(false);
+  const [reverifyError, setReverifyError] = useState("");
+  const [isSubmittingReverify, setIsSubmittingReverify] = useState(false);
 
-  // ── Save store info back to localStorage ──────────────────────────────────
-  const handleSave = () => {
+  // ── Save store info to backend ─────────────────────────────────────────────
+  const handleSave = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
-    // Save updated fields back — when you add a backend, replace this with an API call
-    saveAccount(email, {
-      sellerType,
-      idNumber: sellerIdNumber,
-      businessName: storeName,
-      categoryFocus,
-      storeDescription,
-      contactNumber,
-      location,
-    });
-    setTimeout(() => {
-      setIsSaving(false);
+    setSaveError("");
+    try {
+      const updated = await updateMySellerProfile({
+        storeName,
+        phone,
+        description,
+      });
+      persistSellerData(updated);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+    } catch (error) {
+      setSaveError("Failed to save changes. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     setPasswordError("");
     setPasswordSuccess(false);
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError("Please fill in all fields.");
-      return;
-    }
-    if (account?.password && account.password !== currentPassword) {
-      setPasswordError("Current password is incorrect.");
       return;
     }
     if (newPassword.length < 8) {
@@ -138,30 +121,38 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
       setPasswordError("New passwords do not match.");
       return;
     }
-    saveAccount(email, { password: newPassword });
-    setPasswordSuccess(true);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    setIsChangingPassword(true);
+    try {
+      await changeSellerPassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Failed to update password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
-  const handleReverifySubmit = () => {
+  const handleReverifySubmit = async () => {
     if (!reverifyReason.trim()) return;
-    setReverifySubmitted(true);
-    setTimeout(() => {
-      setShowReverifyModal(false);
-      setReverifySubmitted(false);
-      setReverifyReason("");
-    }, 2000);
+    setIsSubmittingReverify(true);
+    setReverifyError("");
+    try {
+      await submitReverificationRequest(reverifyReason.trim());
+      setReverifySubmitted(true);
+      setTimeout(() => {
+        setShowReverifyModal(false);
+        setReverifySubmitted(false);
+        setReverifyReason("");
+      }, 2000);
+    } catch (error) {
+      setReverifyError(error instanceof Error ? error.message : "Failed to submit request.");
+    } finally {
+      setIsSubmittingReverify(false);
+    }
   };
-
-  const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
-    <button onClick={onChange} className="text-muted-foreground hover:text-primary transition-colors">
-      {value
-        ? <ToggleRight className="size-8 text-primary" />
-        : <ToggleLeft className="size-8" />}
-    </button>
-  );
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -184,6 +175,9 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                 <CheckCircle className="size-3" /> Saved
               </span>
             )}
+            {saveError && (
+              <span className="text-xs text-destructive">{saveError}</span>
+            )}
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? "Saving..." : "Save Changes"} <Save className="ml-2 size-4" />
             </Button>
@@ -201,9 +195,11 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
               <div className="absolute -top-12 left-1/2 -translate-x-1/2">
                 <div
                   className="size-24 rounded-2xl bg-background border-4 border-background shadow-xl flex items-center justify-center overflow-hidden group cursor-pointer relative"
-                  onClick={() => logoInputRef.current?.click()}
+                  onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
                 >
-                  {logoPreview ? (
+                  {isUploadingLogo ? (
+                    <span className="text-[10px] font-bold text-muted-foreground animate-pulse">Uploading...</span>
+                  ) : logoPreview ? (
                     <>
                       <img src={logoPreview} alt="Store logo" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
                       <div className="hidden group-hover:flex absolute flex-col items-center text-primary">
@@ -229,28 +225,15 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                   onChange={handleLogoUpload}
                 />
               </div>
-              <h3 className="font-bold text-lg">Store Logo</h3>
-              <p className="text-xs text-muted-foreground">Click to upload. Visible to buyers.</p>
-              {logoPreview && (
-                <button
-                  onClick={() => {
-                    setLogoPreview(null);
-                    localStorage.removeItem("universe-seller-logo");
-                  }}
-                  className="mt-2 text-xs text-destructive hover:underline"
-                >
-                  Remove logo
-                </button>
-              )}
+              <h3 className="font-bold text-lg">{sellerData?.storeName || "Your Store"}</h3>
+              <p className="text-xs text-muted-foreground">{sellerData?.email}</p>
+              {logoError && <p className="mt-2 text-xs text-destructive">{logoError}</p>}
             </CardContent>
           </Card>
 
           <nav className="flex flex-col gap-1">
             <Button variant={activeTab === "store" ? "secondary" : "ghost"} className="justify-start" onClick={() => setActiveTab("store")}>
               <ShoppingBag className="mr-2 size-4" /> Store Info
-            </Button>
-            <Button variant={activeTab === "notifications" ? "secondary" : "ghost"} className="justify-start" onClick={() => setActiveTab("notifications")}>
-              <Bell className="mr-2 size-4" /> Notifications
             </Button>
             <Button variant={activeTab === "security" ? "secondary" : "ghost"} className="justify-start" onClick={() => setActiveTab("security")}>
               <Lock className="mr-2 size-4" /> Security
@@ -268,85 +251,48 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                 <CardHeader>
                   <CardTitle className="text-lg">Store Profile</CardTitle>
                   <CardDescription>
-                    Pre-filled from your registration. Edit and save to update.
-                    {/* When backend is ready: replace localStorage reads/writes with API calls */}
+                    Update your store information. Changes will be visible to buyers.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Store / Display Name</Label>
-                      <Input
-                        placeholder="e.g. Jane's Handmade Crafts"
-                        value={storeName}
-                        onChange={(e) => setStoreName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Seller Type</Label>
-                      <Input
-                        placeholder="Shop / Individual"
-                        value={sellerType === "shop" ? "Shop / Business" : sellerType === "individual" ? "Individual" : "Not selected"}
-                        readOnly
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Store / Display Name</Label>
+                    <Input
+                      placeholder="e.g. Jane's Handmade Crafts"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Category Focus</Label>
-                      <div className="relative">
-                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. Textbooks, Electronics"
-                          value={categoryFocus}
-                          onChange={(e) => setCategoryFocus(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{sellerType === "shop" ? "Business Registration ID" : "NIC / Student ID"}</Label>
+                  <div className="space-y-2">
+                    <Label>Contact Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                       <Input
-                        placeholder={sellerType === "shop" ? "e.g. PV-XXXXXX" : "e.g. 200XXXXXXXXX"}
-                        value={sellerIdNumber}
-                        onChange={(e) => setSellerIdNumber(e.target.value)}
+                        className="pl-10"
+                        placeholder="e.g. 0771234567"
+                        type="tel"
+                        inputMode="numeric"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Store Description</Label>
                     <Textarea
-                      className="min-h-[100px] resize-none border border-border/70 bg-muted/20 rounded-xl px-4 py-3 focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-colors"
-                      placeholder="Describe what you sell and why students should buy from you..."
-                      value={storeDescription}
-                      onChange={(e) => setStoreDescription(e.target.value)}
+                      className="min-h-[100px] resize-none"
+                      placeholder="Describe what you sell..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Contact Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. 0771234567"
-                          value={contactNumber}
-                          onChange={(e) => setContactNumber(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pickup / Location</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input
-                          className="pl-10"
-                          placeholder="e.g. Faculty of Engineering"
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-xs">Email (cannot be changed)</Label>
+                    <Input
+                      value={sellerData?.email || ""}
+                      readOnly
+                      className="bg-muted/20 text-muted-foreground"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -359,8 +305,20 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-green-100 text-green-700 border-none text-xs">Verified</Badge>
-                    <p className="text-sm text-muted-foreground">Your seller account is currently verified.</p>
+                    {sellerData?.status === "REJECTED" ? (
+                      <Badge className="bg-red-100 text-red-700 border-none text-xs">Rejected</Badge>
+                    ) : sellerData?.status === "PENDING" ? (
+                      <Badge className="bg-orange-100 text-orange-700 border-none text-xs">Pending Review</Badge>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-700 border-none text-xs">Verified</Badge>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {sellerData?.status === "REJECTED"
+                        ? "Your seller account was rejected. Submit a re-verification request to be reviewed again."
+                        : sellerData?.status === "PENDING"
+                        ? "Your seller account is awaiting admin review."
+                        : "Your seller account is currently verified."}
+                    </p>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Changed your store details or identity? Submit a re-verification request and the UniVerse team will review it.
@@ -371,32 +329,6 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                 </CardContent>
               </Card>
             </>
-          )}
-
-          {/* ── Notifications tab ── */}
-          {activeTab === "notifications" && (
-            <Card className="border-primary/10">
-              <CardHeader>
-                <CardTitle className="text-lg">Notification Preferences</CardTitle>
-                <CardDescription>Choose what you want to be notified about.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
-                {[
-                  { label: "New Message", desc: "When a buyer sends you a message about a listing", value: notifNewMessage, toggle: () => setNotifNewMessage(!notifNewMessage) },
-                  { label: "New Offer", desc: "When a buyer makes an offer on your listing", value: notifNewOffer, toggle: () => setNotifNewOffer(!notifNewOffer) },
-                  { label: "Listing Expiry", desc: "Reminder when a listing is about to expire", value: notifListingExpiry, toggle: () => setNotifListingExpiry(!notifListingExpiry) },
-                  { label: "Platform Updates", desc: "News and updates from the UniVerse team", value: notifPlatformUpdates, toggle: () => setNotifPlatformUpdates(!notifPlatformUpdates) },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <Toggle value={item.value} onChange={item.toggle} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
           )}
 
           {/* ── Security tab ── */}
@@ -450,8 +382,8 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                     <CheckCircle className="size-4" /> Password updated successfully.
                   </div>
                 )}
-                <Button className="w-full" onClick={handlePasswordChange}>
-                  <Lock className="mr-2 size-4" /> Update Password
+                <Button className="w-full" onClick={handlePasswordChange} disabled={isChangingPassword}>
+                  <Lock className="mr-2 size-4" /> {isChangingPassword ? "Updating..." : "Update Password"}
                 </Button>
               </CardContent>
             </Card>
@@ -490,8 +422,11 @@ export function SellerSettings({ onBack }: SellerSettingsProps) {
                     onChange={(e) => setReverifyReason(e.target.value)}
                   />
                 </div>
+                {reverifyError && <p className="text-xs text-destructive">{reverifyError}</p>}
                 <div className="flex gap-3">
-                  <Button className="flex-1" onClick={handleReverifySubmit} disabled={!reverifyReason.trim()}>Submit Request</Button>
+                  <Button className="flex-1" onClick={handleReverifySubmit} disabled={!reverifyReason.trim() || isSubmittingReverify}>
+                    {isSubmittingReverify ? "Submitting..." : "Submit Request"}
+                  </Button>
                   <Button variant="outline" className="flex-1" onClick={() => setShowReverifyModal(false)}>Cancel</Button>
                 </div>
               </>

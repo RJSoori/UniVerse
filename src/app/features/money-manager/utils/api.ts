@@ -150,12 +150,13 @@ function fromBackendCategoryBudget(categoryBudget: BackendCategoryBudget): Categ
 }
 
 function toBackendBudget(budget: Budget): BackendBudgetPlan {
+  const { allocation, ...rest } = budget;
   return {
-    ...budget,
-    allocationMode: budget.allocationMode.toUpperCase() as BackendBudgetPlan["allocationMode"],
-    needs: budget.allocation.needs,
-    wants: budget.allocation.wants,
-    savings: budget.allocation.savings,
+    ...rest,
+    allocationMode: rest.allocationMode.toUpperCase() as BackendBudgetPlan["allocationMode"],
+    needs: allocation.needs,
+    wants: allocation.wants,
+    savings: allocation.savings,
   };
 }
 

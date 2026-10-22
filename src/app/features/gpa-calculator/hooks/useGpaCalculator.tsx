@@ -111,8 +111,6 @@ function useGpaCalculatorImpl() {
   const loadTokenRef = useRef(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const studentId = "default-student"; // TODO: Get from user context/auth
-
   const getExistingSubjectNames = useCallback(
     (semesterId: string, excludingSubjectId?: string) => {
       const semester = semesters.find((item) => item.id === semesterId);
@@ -201,7 +199,7 @@ function useGpaCalculatorImpl() {
 
     try {
       const [backendState, legacyState] = await Promise.all([
-        gpaCalculatorApi.loadGpaState(studentId),
+        gpaCalculatorApi.loadGpaState(),
         Promise.resolve(readLegacyGpaState()),
       ]);
 
@@ -225,35 +223,41 @@ function useGpaCalculatorImpl() {
         // Per-item migration: backend issues real UUIDs, which we keep in
         // local state. Settings go first so backend-derived defaults are
         // overwritten before any subject create depends on them.
-        await gpaCalculatorApi.updateSettings(studentId, legacyState.settings);
+        await gpaCalculatorApi.updateSettings(legacyState.settings);
 
         const migratedSemesters: Semester[] = [];
-        for (const legacySem of sortSemesters(legacyState.semesters)) {
-          const createdSem = await gpaCalculatorApi.createSemester(
-            legacySem.year,
-            legacySem.semester,
-            studentId,
-          );
-          if (!createdSem) {
-            throw new Error(
-              "Failed to migrate legacy GPA semester to the backend.",
+        try {
+          for (const legacySem of sortSemesters(legacyState.semesters)) {
+            const createdSem = await gpaCalculatorApi.createSemester(
+              legacySem.year,
+              legacySem.semester,
             );
-          }
-          const createdSubjects: Subject[] = [];
-          for (const legacySubject of legacySem.subjects) {
-            const createdSubject = await gpaCalculatorApi.createSubject(
-              { ...legacySubject, id: "" } as Subject,
-              createdSem.id,
-              studentId,
-            );
-            if (!createdSubject) {
+            if (!createdSem) {
               throw new Error(
-                "Failed to migrate legacy GPA subject to the backend.",
+                "Failed to migrate legacy GPA semester to the backend.",
               );
             }
-            createdSubjects.push(createdSubject);
+            const createdSubjects: Subject[] = [];
+            for (const legacySubject of legacySem.subjects) {
+              const createdSubject = await gpaCalculatorApi.createSubject(
+                { ...legacySubject, id: "" } as Subject,
+                createdSem.id,
+              );
+              if (!createdSubject) {
+                throw new Error(
+                  "Failed to migrate legacy GPA subject to the backend.",
+                );
+              }
+              createdSubjects.push(createdSubject);
+            }
+            migratedSemesters.push({ ...createdSem, subjects: createdSubjects });
           }
-          migratedSemesters.push({ ...createdSem, subjects: createdSubjects });
+        } catch (migrationError) {
+          // Roll back any partially migrated semesters (subjects cascade-delete on backend).
+          await Promise.allSettled(
+            migratedSemesters.map((sem) => gpaCalculatorApi.deleteSemester(sem.id)),
+          );
+          throw migrationError;
         }
 
         setSemestersState(sortSemesters(migratedSemesters));
@@ -296,7 +300,6 @@ function useGpaCalculatorImpl() {
     isDefaultSettings,
     readLegacyGpaState,
     sortSemesters,
-    studentId,
   ]);
 
   const reload = useCallback(() => {
@@ -329,7 +332,6 @@ function useGpaCalculatorImpl() {
       const created = await gpaCalculatorApi.createSemester(
         year,
         semester,
-        studentId,
       );
       if (!created) {
         setError("Failed to create semester. Please try again.");
@@ -343,7 +345,7 @@ function useGpaCalculatorImpl() {
       setSemesters((prev) => [...prev, normalized]);
       return normalized;
     },
-    [setSemesters, studentId],
+    [setSemesters],
   );
 
   const updateSemester = useCallback(
@@ -354,7 +356,7 @@ function useGpaCalculatorImpl() {
       const current = semesters.find((sem) => sem.id === id);
       if (!current) return null;
       const merged: Semester = { ...current, ...updates };
-      const updated = await gpaCalculatorApi.updateSemester(merged, studentId);
+      const updated = await gpaCalculatorApi.updateSemester(merged);
       if (!updated) {
         setError("Failed to update semester. Please try again.");
         return null;
@@ -369,7 +371,7 @@ function useGpaCalculatorImpl() {
       );
       return updated;
     },
-    [semesters, setSemesters, studentId],
+    [semesters, setSemesters],
   );
 
   const deleteSemester = useCallback(
@@ -406,7 +408,6 @@ function useGpaCalculatorImpl() {
       const created = await gpaCalculatorApi.createSubject(
         draft,
         semesterId,
-        studentId,
       );
       if (!created) {
         return {
@@ -428,7 +429,7 @@ function useGpaCalculatorImpl() {
       );
       return { ok: true, value: created };
     },
-    [getExistingSubjectNames, setSemesters, settings, sortSubjects, studentId],
+    [getExistingSubjectNames, setSemesters, settings, sortSubjects],
   );
 
   const updateSubject = useCallback(
@@ -457,7 +458,7 @@ function useGpaCalculatorImpl() {
       }
 
       const merged: Subject = { ...currentSubject, ...validation.value };
-      const updated = await gpaCalculatorApi.updateSubject(merged, studentId);
+      const updated = await gpaCalculatorApi.updateSubject(merged);
       if (!updated) {
         return {
           ok: false,
@@ -488,7 +489,6 @@ function useGpaCalculatorImpl() {
       setSemesters,
       settings,
       sortSubjects,
-      studentId,
     ],
   );
 
@@ -582,10 +582,7 @@ function useGpaCalculatorImpl() {
       // accepts. If the user already has subjects with grades that need
       // re-normalising for the new scale, those persist via subject updates
       // below.
-      const persisted = await gpaCalculatorApi.updateSettings(
-        studentId,
-        merged,
-      );
+      const persisted = await gpaCalculatorApi.updateSettings(merged);
       if (!persisted) {
         setError("Failed to update GPA settings. Please try again.");
         return false;
@@ -594,13 +591,28 @@ function useGpaCalculatorImpl() {
       setError(null);
       setSettingsState(merged);
 
-      // Re-grade subjects locally for the new scale.
+      // Re-grade subjects for the new scale; abort if any grade is incompatible.
+      const incompatibleFound = semesters.some((semester) =>
+        semester.subjects.some(
+          (subject) => normalizeGrade(subject.grade, gpaScale) === undefined,
+        ),
+      );
+      if (incompatibleFound) {
+        setError(
+          "Some subjects have grades incompatible with this scale. Please review before switching.",
+        );
+        // Roll back settings persisted to backend
+        await gpaCalculatorApi.updateSettings(settings);
+        setSettingsState(settings);
+        return false;
+      }
+
       setSemesters((currentSemesters) =>
         currentSemesters.map((semester) => ({
           ...semester,
           subjects: semester.subjects.map((subject) => ({
             ...subject,
-            grade: normalizeGrade(subject.grade, gpaScale) || "A",
+            grade: normalizeGrade(subject.grade, gpaScale) ?? subject.grade,
           })),
         })),
       );
@@ -608,9 +620,9 @@ function useGpaCalculatorImpl() {
       setSimulationSubjects((currentSubjects) =>
         currentSubjects.map((subject) => ({
           ...subject,
-          grade: normalizeGrade(subject.grade, gpaScale) || "A",
+          grade: normalizeGrade(subject.grade, gpaScale) ?? subject.grade,
           lockedGrade: subject.lockedGrade
-            ? normalizeGrade(subject.lockedGrade, gpaScale) || undefined
+            ? normalizeGrade(subject.lockedGrade, gpaScale) ?? subject.lockedGrade
             : undefined,
         })),
       );
@@ -618,11 +630,11 @@ function useGpaCalculatorImpl() {
       return true;
     },
     [
+      semesters,
       setSemesters,
       setSettingsState,
       setSimulationSubjects,
       settings,
-      studentId,
     ],
   );
 

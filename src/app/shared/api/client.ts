@@ -1,4 +1,4 @@
-import { clearAuthStorage, getToken, notifyUnauthorized } from "../../auth/tokenStore";
+import { clearAuthStorage, notifyUnauthorized } from "../../auth/tokenStore";
 
 const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL as string | undefined;
 
@@ -19,23 +19,32 @@ function getBackendUrl(): string {
   return "http://localhost:8080";
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = getToken();
-  const headers = new Headers(init.headers);
+interface ApiFetchInit extends RequestInit {
+  /**
+   * Set on calls that are themselves an attempt to authenticate (login/register submits).
+   * A 401 from one of those is an expected "wrong credentials" business response, not a sign
+   * that the current session died - it must not trigger the global logout-and-redirect-to-
+   * /signin side effect below, which would otherwise yank recruiters/sellers off their own
+   * portal and onto the student sign-in page mid-form.
+   */
+  skipAuthRedirect?: boolean;
+}
 
-  if (!headers.has("Content-Type") && init.body) {
+export async function apiFetch(path: string, init: ApiFetchInit = {}): Promise<Response> {
+  const { skipAuthRedirect, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+
+  if (!headers.has("Content-Type") && requestInit.body && !(requestInit.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
-  }
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${getBackendUrl()}${path}`, {
-    ...init,
+    ...requestInit,
+    credentials: "include",
     headers,
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !skipAuthRedirect) {
     clearAuthStorage();
     notifyUnauthorized();
   }

@@ -1,30 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../shared/ui/card";
 import { Button } from "../../shared/ui/button";
 import { Input } from "../../shared/ui/input";
 import { Label } from "../../shared/ui/label";
-import { ArrowLeft, ShieldCheck, Mail, Store, User, CheckCircle } from "lucide-react";
-import { readJsonFromLocalStorage } from "../../shared/storage/localStorageJson";
+import { ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
+import { sellerForgotPassword, verifySellerResetCode, resetSellerPassword } from "./marketplaceApi";
+
+/**
+ * Seller Access Recovery — real forgot-password flow backed by the API:
+ *   1. Enter the registered email -> backend emails a 6-digit code (if the email matches).
+ *   2. Enter the code -> backend verifies it and returns a short-lived reset token.
+ *   3. Choose a new password -> backend consumes the reset token and updates the password.
+ * Mirrors job-hub/AccessRecovery.tsx and entry/StudentAccessRecovery.tsx, hitting the
+ * seller auth endpoints instead. Replaces the previous localStorage-only mock.
+ */
 
 interface SellerAccessRecoveryProps {
   onBack: () => void;
 }
 
-function getAccounts(): Record<string, { password: string; sellerType?: string; businessName?: string; idNumber?: string }> {
-  return readJsonFromLocalStorage<Record<string, { password: string; sellerType?: string; businessName?: string; idNumber?: string }>>("universe-seller-accounts", {});
-}
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
-  const [step, setStep] = useState(1);
+  // 1: email, 2: verification code, 3: new password, 4: success
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [sellerType, setSellerType] = useState<string | null>(null);
-  const [idNumber, setIdNumber] = useState("");
-  const [idError, setIdError] = useState("");
-  const [recovered, setRecovered] = useState(false);
 
-  // ── Step 1: Check email exists ─────────────────────────────────────────────
-  const handleCheckEmail = () => {
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleSendCode = async () => {
     setEmailError("");
     if (!email) {
       setEmailError("Please enter your email address.");
@@ -34,37 +55,74 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
       setEmailError("Please enter a valid email address.");
       return;
     }
-    const accounts = getAccounts();
-    const account = accounts[email.toLowerCase()];
-    if (!account) {
-      setEmailError("No seller account found with this email.");
-      return;
+
+    setIsSubmitting(true);
+    try {
+      await sellerForgotPassword(email.trim().toLowerCase());
+      toast.success("If that email is registered, a verification code is on its way.");
+      setStep(2);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (error) {
+      console.error("Forgot password request failed:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to send code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    // Determine seller type from saved account
-    setSellerType(account.sellerType || "individual");
-    setStep(2);
   };
 
-  // ── Step 2: Verify ID number ───────────────────────────────────────────────
-  const handleVerify = () => {
-    setIdError("");
-    if (!idNumber || idNumber.trim().length < 5) {
-      setIdError(`Please enter a valid ${sellerType === "shop" ? "BR Number" : "NIC / Student ID"}.`);
+  const handleVerifyCode = async () => {
+    setCodeError("");
+    if (!/^\d{6}$/.test(code)) {
+      setCodeError("Enter the 6-digit code from your email.");
       return;
     }
-    const accounts = getAccounts();
-    const account = accounts[email.toLowerCase()];
-    // Check the saved ID number matches
-    if (account?.idNumber && account.idNumber.toLowerCase() !== idNumber.toLowerCase()) {
-      setIdError("The ID number does not match our records.");
+
+    setIsSubmitting(true);
+    try {
+      const token = await verifySellerResetCode(email.trim().toLowerCase(), code);
+      setResetToken(token);
+      setStep(3);
+    } catch (error) {
+      console.error("Code verification failed:", error);
+      setCodeError(error instanceof Error ? error.message : "Invalid or expired code.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendCode = () => {
+    if (resendCooldown > 0 || isSubmitting) return;
+    setCode("");
+    handleSendCode();
+  };
+
+  const handleResetPassword = async () => {
+    setPasswordError("");
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
       return;
     }
-    // ✅ Verified — in a real app this would send a reset email
-    setRecovered(true);
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await resetSellerPassword(email.trim().toLowerCase(), resetToken, newPassword);
+      setStep(4);
+    } catch (error) {
+      console.error("Password reset failed:", error);
+      setPasswordError(
+        error instanceof Error ? error.message : "Unable to reset password. Please restart the process.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Success screen ─────────────────────────────────────────────────────────
-  if (recovered) {
+  if (step === 4) {
     return (
       <div className="max-w-md mx-auto pt-20 px-4">
         <Card className="border-primary/20 shadow-xl">
@@ -72,9 +130,9 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center">
               <CheckCircle className="text-green-600 size-8" />
             </div>
-            <h2 className="text-xl font-bold">Verification Successful</h2>
+            <h2 className="text-xl font-bold">Password Updated</h2>
             <p className="text-sm text-muted-foreground">
-              A temporary access link has been sent to <strong>{email}</strong>. Check your inbox to reset your password.
+              Your password has been reset successfully. You can now log in with your new password.
             </p>
             <Button className="w-full mt-2" onClick={onBack}>
               Back to Login
@@ -90,7 +148,7 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={step === 1 ? onBack : () => setStep(1)}
+        onClick={() => (step === 1 ? onBack() : setStep((s) => (s === 3 ? 2 : 1)))}
         className="mb-4 text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="mr-2 size-4" />
@@ -103,11 +161,14 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
             <ShieldCheck className="text-primary size-6" />
           </div>
           <CardTitle>Account Recovery</CardTitle>
-          <CardDescription>Verify your identity to recover access to your seller account</CardDescription>
+          <CardDescription>
+            {step === 1 && "Enter your registered email to receive a verification code"}
+            {step === 2 && "Enter the 6-digit code we sent to your email"}
+            {step === 3 && "Choose a new password for your account"}
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-
           {/* ── Step 1: Email ── */}
           {step === 1 && (
             <div className="space-y-4">
@@ -120,55 +181,111 @@ export function SellerAccessRecovery({ onBack }: SellerAccessRecoveryProps) {
                     placeholder="jane@example.com"
                     className="pl-10"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
-                    onKeyDown={(e) => e.key === "Enter" && handleCheckEmail()}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setEmailError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendCode()}
                   />
                 </div>
                 {emailError && <p className="text-xs text-destructive">{emailError}</p>}
               </div>
-              <Button className="w-full" onClick={handleCheckEmail}>
-                Identify Account
+              <Button className="w-full" onClick={handleSendCode} disabled={isSubmitting}>
+                {isSubmitting ? "Sending..." : "Send Verification Code"}
               </Button>
             </div>
           )}
 
-          {/* ── Step 2: ID verification ── */}
+          {/* ── Step 2: Verification code ── */}
           {step === 2 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
-              {/* Account type banner */}
               <div className="p-3 bg-muted rounded-lg flex items-center gap-3 border">
-                {sellerType === "shop" ? (
-                  <Store className="size-5 text-primary flex-shrink-0" />
-                ) : (
-                  <User className="size-5 text-primary flex-shrink-0" />
-                )}
+                <Mail className="size-5 text-primary flex-shrink-0" />
                 <div className="text-sm">
-                  <p className="font-bold">Account Type Identified</p>
-                  <p className="text-muted-foreground capitalize">
-                    {sellerType === "shop" ? "Shop / Business" : "Individual"} Seller
+                  <p className="font-bold">Check your inbox</p>
+                  <p className="text-muted-foreground">
+                    We sent a code to <span className="font-medium text-foreground">{email}</span>
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>
-                  {sellerType === "shop" ? "Business Registration (BR) Number" : "NIC / Student ID Number"}
-                </Label>
-                <Input
-                  placeholder={sellerType === "shop" ? "e.g. PV-XXXXXX" : "e.g. 200XXXXXXXXX"}
-                  value={idNumber}
-                  onChange={(e) => { setIdNumber(e.target.value); setIdError(""); }}
-                  onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-                />
-                {idError && <p className="text-xs text-destructive">{idError}</p>}
+                <Label>6-Digit Verification Code</Label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    className="pl-10 tracking-[0.5em] font-mono text-center"
+                    value={code}
+                    onChange={(e) => {
+                      setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                      setCodeError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
+                  />
+                </div>
+                {codeError && <p className="text-xs text-destructive">{codeError}</p>}
               </div>
 
-              <Button className="w-full" onClick={handleVerify}>
-                Verify & Recover Access
+              <Button className="w-full" onClick={handleVerifyCode} disabled={isSubmitting}>
+                {isSubmitting ? "Verifying..." : "Verify Code"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground"
+                onClick={handleResendCode}
+                disabled={resendCooldown > 0 || isSubmitting}
+              >
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't get it? Resend code"}
               </Button>
             </div>
           )}
 
+          {/* ── Step 3: New password ── */}
+          {step === 3 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    placeholder="At least 8 characters"
+                    className="pl-10"
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm New Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    placeholder="Re-enter password"
+                    className="pl-10"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleResetPassword()}
+                  />
+                </div>
+                {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
+              </div>
+
+              <Button className="w-full" onClick={handleResetPassword} disabled={isSubmitting}>
+                {isSubmitting ? "Resetting..." : "Reset Password"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

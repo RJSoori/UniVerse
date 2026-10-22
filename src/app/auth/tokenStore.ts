@@ -1,5 +1,6 @@
 export type UserRole = "STUDENT" | "ADMIN" | "RECRUITER" | "SELLER";
 
+// Represents the authenticated user's information stored in localStorage
 export interface AuthUser {
   id: number;
   username: string;
@@ -7,29 +8,22 @@ export interface AuthUser {
   email: string;
   degree?: string | null;
   role: UserRole;
+  /** ISO timestamp when the account was created (added server-side). */
+  createdAt?: string | null;
+  /** Client-side fallback timestamp when the user was first seen by the frontend. */
+  firstSeenAt?: string | null;
 }
 
-const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 
 let unauthorizedCallback: (() => void) | null = null;
 
 const canUseStorage = () => typeof window !== "undefined" && Boolean(window.localStorage);
 
-export function getToken(): string | null {
-  if (!canUseStorage()) return null;
-  return window.localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string): void {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  if (!canUseStorage()) return;
-  window.localStorage.removeItem(TOKEN_KEY);
-}
+// Token is stored in an httpOnly cookie set by the backend — not accessible from JS.
+export function getToken(): string | null { return null; }
+export function setToken(_token: string): void {}
+export function clearToken(): void {}
 
 export function getUser(): AuthUser | null {
   if (!canUseStorage()) return null;
@@ -55,7 +49,6 @@ export function clearUser(): void {
 }
 
 export function clearAuthStorage(): void {
-  clearToken();
   clearUser();
 }
 

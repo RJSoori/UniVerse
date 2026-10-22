@@ -88,7 +88,7 @@ function toBackendSettings(settings: GpaSettings): any {
   };
 }
 
-async function getSemestersByStudent(_studentId?: string): Promise<Semester[]> {
+async function getSemestersByStudent(): Promise<Semester[]> {
   const response = await apiFetch(`${GPA_API_BASE}/semesters`);
   if (!response.ok) {
     throw new Error(`Failed to fetch GPA semesters (HTTP ${response.status})`);
@@ -100,7 +100,6 @@ async function getSemestersByStudent(_studentId?: string): Promise<Semester[]> {
 export async function createSemester(
   year: string,
   semester: string,
-  _studentId?: string
 ): Promise<Semester | null> {
   try {
     const response = await apiFetch(`${GPA_API_BASE}/semesters`, {
@@ -116,7 +115,7 @@ export async function createSemester(
   }
 }
 
-export async function updateSemester(semester: Semester, _studentId?: string): Promise<Semester | null> {
+export async function updateSemester(semester: Semester): Promise<Semester | null> {
   try {
     const response = await apiFetch(`${GPA_API_BASE}/semesters/${semester.id}`, {
       method: "PUT",
@@ -146,7 +145,6 @@ export async function deleteSemester(semesterId: string): Promise<boolean> {
 export async function createSubject(
   subject: Subject,
   semesterId: string,
-  _studentId?: string
 ): Promise<Subject | null> {
   try {
     const response = await apiFetch(`${GPA_API_BASE}/subjects`, {
@@ -164,7 +162,6 @@ export async function createSubject(
 
 export async function updateSubject(
   subject: Subject,
-  _studentId?: string
 ): Promise<Subject | null> {
   try {
     const response = await apiFetch(`${GPA_API_BASE}/subjects/${subject.id}`, {
@@ -197,7 +194,7 @@ export async function deleteSubject(subjectId: string): Promise<boolean> {
   }
 }
 
-async function getSettings(_studentId?: string): Promise<GpaSettings> {
+async function getSettings(): Promise<GpaSettings> {
   const response = await apiFetch(`${GPA_API_BASE}/settings`);
   if (!response.ok) {
     throw new Error(`Failed to fetch GPA settings (HTTP ${response.status})`);
@@ -207,8 +204,7 @@ async function getSettings(_studentId?: string): Promise<GpaSettings> {
 }
 
 export async function updateSettings(
-  _studentId: string,
-  settings: GpaSettings
+  settings: GpaSettings,
 ): Promise<GpaSettings | null> {
   try {
     const response = await apiFetch(`${GPA_API_BASE}/settings`, {
@@ -224,10 +220,10 @@ export async function updateSettings(
   }
 }
 
-export async function loadGpaState(studentId: string): Promise<GpaBackendState> {
+export async function loadGpaState(): Promise<GpaBackendState> {
   const [semesters, settings] = await Promise.all([
-    getSemestersByStudent(studentId),
-    getSettings(studentId),
+    getSemestersByStudent(),
+    getSettings(),
   ]);
   return { semesters, settings };
 }

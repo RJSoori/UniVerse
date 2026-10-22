@@ -1,85 +1,82 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "../../shared/ui/card";
 import { Clock, Zap, BrainCircuit } from "lucide-react";
-import { useUniStorage } from "../../shared/hooks/useUniStorage";
+import { useSchedule } from "../../shared/hooks/useSchedule";
+import { useTodos } from "../../shared/hooks/useTodos";
 
-interface ScheduleEvent {
-  date?: string;
-  startTime?: string;
-  endTime?: string;
-  title?: string;
-}
-
-interface TodoItem {
-  dueDate?: string;
-  dueTime?: string;
-  completed?: boolean;
-  title?: string;
-}
-
-const timeToMinutes = (t: string | undefined) =>
-  (t ?? "").split(":").reduce((h, m) => +h * 60 + +m, 0);
-const formatDuration = (mins: number) =>
-  mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+const formatDuration = (mins: number) => {
+  // Format minutes into a human-readable "Xd Yh Zm" string
+  if (mins <= 0) return "less than a minute";
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const minutes = mins % 60;
+  const parts: string[] = [];
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes && !days) parts.push(`${minutes}m`);
+  return parts.join(" ");
+};
 
 export default function ProductivityGapCard() {
-  const [events] = useUniStorage<ScheduleEvent[]>("schedule-events", []);
-  const [todos] = useUniStorage<TodoItem[]>("todos", []);
+  const { events } = useSchedule();
+  const { todos } = useTodos();
 
-  const suggestion = useMemo<{ message: string; type: "gap" | "busy" } | null>(() => {
+  const suggestion = useMemo<{ message: string; type: "upcoming" | "clear" } | null>(() => {
+    // Find the single nearest upcoming item across both the scheduler and the todo list,
+    // then report the time left until it, whichever source it comes from.
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-    const currentMin = now.getHours() * 60 + now.getMinutes();
-    const lookAheadLimit = currentMin + 5 * 60;
 
-    const busyBlocks: { start: number; end: number; title: string }[] = [];
+    type Candidate = { when: Date; title: string; todoId?: string };
+    const candidates: Candidate[] = [];
 
-    events
-      .filter((e) => e.date === todayStr && e.startTime)
-      .forEach((e) => {
-        busyBlocks.push({
-          start: timeToMinutes(e.startTime),
-          end: timeToMinutes(e.endTime || e.startTime) + 15,
-          title: e.title ?? "event",
-        });
-      });
+    events.forEach((e) => {
+      if (!e.date || !e.startTime) return;
+      const when = new Date(`${e.date}T${e.startTime}`);
+      if (!isNaN(when.getTime())) candidates.push({ when, title: e.title || "event" });
+    });
 
-    todos
-      .filter((t) => t.dueDate === todayStr && t.dueTime && !t.completed)
-      .forEach((t) => {
-        const start = timeToMinutes(t.dueTime);
-        busyBlocks.push({ start, end: start + 45, title: t.title ?? "task" });
-      });
+    todos.forEach((t) => {
+      if (t.completed || !t.dueDate) return;
+      // Default to end-of-day when a todo has a due date but no specific due time.
+      const when = new Date(`${t.dueDate}T${t.dueTime || "23:59"}`);
+      if (!isNaN(when.getTime())) candidates.push({ when, title: t.title || "task", todoId: t.id });
+    });
 
-    busyBlocks.sort((a, b) => a.start - b.start);
+    const next = candidates
+      .filter((c) => c.when.getTime() >= now.getTime())
+      .sort((a, b) => a.when.getTime() - b.when.getTime())[0];
 
-    if (busyBlocks.length > 0) {
-      const firstEvent = busyBlocks[0];
-      if (firstEvent.start > currentMin + 40) {
-        const gapDuration = firstEvent.start - currentMin;
-        return {
-          message: `You're free for the next ${formatDuration(gapDuration)} before your ${firstEvent.title}. Time for a quick task?`,
-          type: "gap",
-        };
-      }
+    if (!next) {
+      return {
+        message: "Your schedule looks wide open! A perfect time to get ahead on your goals.",
+        type: "clear",
+      };
     }
 
-    for (let i = 0; i < busyBlocks.length - 1; i++) {
-      const gapStart = busyBlocks[i].end;
-      const gapEnd = busyBlocks[i + 1].start;
-      const gapDuration = gapEnd - gapStart;
-      if (gapStart >= currentMin && gapStart < lookAheadLimit && gapDuration >= 45) {
-        return {
-          message: `Nice! You'll have ${formatDuration(gapDuration)} free after this session. Plan your next study block?`,
-          type: "gap",
-        };
-      }
-    }
+    const diffMins = Math.round((next.when.getTime() - now.getTime()) / 60000);
+    let message = `${formatDuration(diffMins)} left until "${next.title}".`;
 
-    return {
-      message: "Your upcoming window looks focused. Keep up the great momentum!",
-      type: "busy",
+    // While waiting, suggest another pending todo that isn't the one we're already
+    // counting down to — prefer one whose estimated duration fits in the gap, and
+    // among those, the one due soonest.
+    const fillerWhen = (t: (typeof todos)[number]) => {
+      if (!t.dueDate) return Infinity;
+      const d = new Date(`${t.dueDate}T${t.dueTime || "23:59"}`);
+      return isNaN(d.getTime()) ? Infinity : d.getTime();
     };
+    const filler = todos
+      .filter((t) => !t.completed && t.id !== next.todoId)
+      .sort((a, b) => fillerWhen(a) - fillerWhen(b))
+      .find((t) => {
+        const estimatedMins = parseInt(t.reservedMinutes, 10);
+        return isNaN(estimatedMins) || estimatedMins <= 0 || estimatedMins <= diffMins;
+      });
+
+    if (filler) {
+      message += ` Want to knock out "${filler.title}" while you wait?`;
+    }
+
+    return { message, type: "upcoming" };
   }, [events, todos]);
 
   if (!suggestion) return null;
@@ -88,8 +85,8 @@ export default function ProductivityGapCard() {
     <Card className="relative overflow-hidden border-none h-full min-h-[180px] rounded-2xl group transition-all duration-300 hover:shadow-lg">
       {/* Dynamic Background Gradient based on type */}
       <div className={`absolute inset-0 z-0 transition-all duration-500 ${
-        suggestion.type === 'gap' 
-        ? 'bg-gradient-to-br from-indigo-600 via-blue-500 to-sky-400' 
+        suggestion.type === 'upcoming'
+        ? 'bg-gradient-to-br from-indigo-600 via-blue-500 to-sky-400'
         : 'bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900'
       }`} />
 
@@ -103,7 +100,7 @@ export default function ProductivityGapCard() {
         {/* Header Section */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
-            <Zap className={`size-3.5 ${suggestion.type === 'gap' ? 'text-yellow-300' : 'text-slate-300'}`} fill="currentColor" />
+            <Zap className={`size-3.5 ${suggestion.type === 'upcoming' ? 'text-yellow-300' : 'text-slate-300'}`} fill="currentColor" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">
               Live Insights
             </span>
@@ -122,7 +119,7 @@ export default function ProductivityGapCard() {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold tracking-tight leading-none">
-                {suggestion.type === 'gap' ? 'Optimized Gap Found' : 'Focused Window'}
+                {suggestion.type === 'upcoming' ? 'Optimized Gap Found' : 'All Clear'}
               </h3>
               <p className="text-sm font-medium text-white/80 leading-snug max-w-[240px]">
                 {suggestion.message}
